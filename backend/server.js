@@ -1,4 +1,5 @@
-import http from 'http';
+const http = require("http");
+const sqlite3 = require("sqlite3");
 
 const port = 8000;
 const hostname = '127.0.0.1';
@@ -52,8 +53,11 @@ function add_package() {
     response.statusCode = 404;
 }
 
+let db = new sqlite3.Database(__dirname + "/../databasen.sqlite3");
 
 /* Starts the server */
 server.listen(port, hostname, () => {
     console.log("Server listening on " + hostname + ":" + port);
+}).on("close", () => {
+    db.close();
 })
