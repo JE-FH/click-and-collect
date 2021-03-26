@@ -36,7 +36,7 @@ function requestHandler(request, response) {
 
 /* Request handler for any endpoint that isn't explicitally handled */
 function defaultResponse(response) {
-    console.log("Nothing is here");
+    console.log("Nothing is here (jk)");
     response.setHeader('Content-Type', 'text/plain');
     response.write(' ');
     response.end("\n");
