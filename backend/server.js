@@ -45,7 +45,7 @@ function defaultResponse(response) {
 
 /* Example of a HTTP request case */
 function add_package() {
-    console.log('No API');
+    console.log('No API here');
     response.setHeader('Content-Type', 'text/plain');
     response.write(' ');
     response.end("\n");
