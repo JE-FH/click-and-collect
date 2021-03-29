@@ -92,6 +92,7 @@ const HASHING_KEYLEN = 64;
 const HASHING_ALGO = "sha512";
 const HASHING_HASH_ENCODING = "hex";
 async function login_post(request, response) {
+    /* Read the post body */
     let post_body = await new Promise((resolve, reject) => {
         let body = ''
         request.on('data', function(data) {
@@ -105,13 +106,13 @@ async function login_post(request, response) {
 
     let post_parameters = {};
 
+    /* Decode the key value pairs from the url encoding */
     post_body.split("&").map((v) => {
         let split = v.split("=");
         post_parameters[decodeURIComponent(split[0])] = decodeURIComponent(split[1]);
     });
-    
-    console.log(post_parameters);
 
+    /* Make sure that we got the right parameters */
     if (!(typeof post_parameters["username"] == "string" && typeof post_parameters["password"] == "string")) {
         response.statusCode = 400;
         response.write("du har glemt at skrive username eller password");
@@ -119,10 +120,7 @@ async function login_post(request, response) {
         return;
     }
 
-    db.all("SELECT startTime, endTime, id FROM timeSlot WHERE startTime > ? AND startTime < ?", [new Date(), new Date()], (err, rows) => {
-        
-    })
-
+    /* Find the user if it exists */
     let user = await new Promise((resolve, reject) => {
         db.serialize(() => {
             db.get("SELECT id, password, salt, storeId, superuser FROM user WHERE username=?", [post_parameters["username"]], (err, row) => {
@@ -145,6 +143,7 @@ async function login_post(request, response) {
         return;
     }
 
+    /* Create a hash from the given password */
     let hashed = await new Promise((resolve, reject) => {
         crypto.pbkdf2(post_parameters["password"], user.salt, HASHING_ITERATIONS, HASHING_KEYLEN, HASHING_ALGO, (err, derivedKey) => {
             if (err) {
@@ -154,6 +153,7 @@ async function login_post(request, response) {
         });
     });
     
+    /* Compare the stored password and the given password using function that protects against timing attacks*/
     if (crypto.timingSafeEqual(Buffer.from(user.password, HASHING_HASH_ENCODING), hashed)) {
         response.statusCode=302;
         if (user.superuser) {
