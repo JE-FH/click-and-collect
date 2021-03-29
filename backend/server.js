@@ -14,6 +14,9 @@ function requestHandler(request, response) {
                 default:
                     defaultResponse(response);
                     break;
+                case "/login":
+                    login_post(request, response);
+                    break;
             }
             break;
         }
@@ -21,6 +24,9 @@ function requestHandler(request, response) {
             switch(request.url) {
                 case "/api/add_package":
                     add_package();
+                    break;
+                case "/login":
+                    login_get(request, response);
                     break;
                 default:
                     defaultResponse(response);
@@ -52,6 +58,63 @@ function add_package() {
     response.statusCode = 404;
 }
 
+async function login_get(request, response) {
+    response.statusCode = 200;
+    response.setHeader('Content-Type', 'text/html');
+    response.write(`
+<!DOCTYPE html>
+<html>
+    <head>
+        <title>login</title>
+    </head>
+
+    <body>
+        <form action="/login" method="POST">
+            <label for="username">Username: </label>
+            <input type="text" name="username" placeholder="username" required><br>
+            <label for="password">Password: </label>
+            <input type="password" name="password" placeholder="password" required><br>
+            <input type="submit" value="login">
+        </form>
+    </body>
+</html>
+`);
+    response.end();
+}
+
+async function login_post(request, response) {
+    let post_body = await new Promise((resolve, reject) => {
+        let body = ''
+        request.on('data', function(data) {
+          body += data;
+        })
+        request.on('end', function() {
+          resolve(body);
+        })
+    });
+    console.log('Body: ' + post_body);
+
+    let post_parameters = {};
+
+    post_body.split("&").map((v) => {
+        let split = v.split("=");
+        post_parameters[decodeURIComponent(split[0])] = decodeURIComponent(split[1]);
+    });
+    
+    console.log(post_parameters);
+
+    if (!(typeof post_parameters["username"] == "string" && typeof post_parameters["password"] == "string")) {
+        response.statusCode = 400;
+        response.write("du har glemt at skrive username eller password");
+        response.end();
+        return;
+    }
+
+    await new Promise((resolve, reject) => {
+        
+    });
+
+}
 
 
 async function main() {
