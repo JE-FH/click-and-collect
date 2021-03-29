@@ -1,6 +1,8 @@
 const http = require("http");
 const sqlite3 = require("sqlite3");
 const fs = require("fs/promises");
+const crypto = require("crypto");
+
 
 const port = 8000;
 const hostname = '127.0.0.1';
@@ -60,7 +62,7 @@ function add_package() {
     response.statusCode = 404;
 }
 
-async function login_get(request, response) {
+async function login_get(request, response, error) {
     response.statusCode = 200;
     response.setHeader('Content-Type', 'text/html');
     response.write(`
@@ -71,6 +73,7 @@ async function login_get(request, response) {
     </head>
 
     <body>
+        ${error ? `<p>${error}</p>` : ""}
         <form action="/login" method="POST">
             <label for="username">Username: </label>
             <input type="text" name="username" placeholder="username" required><br>
@@ -84,6 +87,10 @@ async function login_get(request, response) {
     response.end();
 }
 
+const HASHING_ITERATIONS = 100000;
+const HASHING_KEYLEN = 64;
+const HASHING_ALGO = "sha512";
+const HASHING_HASH_ENCODING = "hex";
 async function login_post(request, response) {
     let post_body = await new Promise((resolve, reject) => {
         let body = ''
@@ -112,9 +119,57 @@ async function login_post(request, response) {
         return;
     }
 
-    await new Promise((resolve, reject) => {
+    db.all("SELECT startTime, endTime, id FROM timeSlot WHERE startTime > ? AND startTime < ?", [new Date(), new Date()], (err, rows) => {
         
+    })
+
+    let user = await new Promise((resolve, reject) => {
+        db.serialize(() => {
+            db.get("SELECT id, password, salt, storeId, superuser FROM user WHERE username=?", [post_parameters["username"]], (err, row) => {
+                if (err) {
+                    resolve(null);
+                } else {
+                    if (row == undefined) {
+                        resolve(null);
+                    } else {
+                        resolve(row);
+                    }
+                }
+            })
+        });
     });
+
+    if (user == null) {
+        /* Wrong username */
+        login_get(request, response, "Wrong username")
+        return;
+    }
+
+    let hashed = await new Promise((resolve, reject) => {
+        crypto.pbkdf2(post_parameters["password"], user.salt, HASHING_ITERATIONS, HASHING_KEYLEN, HASHING_ALGO, (err, derivedKey) => {
+            if (err) {
+                reject(err);
+            }
+            resolve(derivedKey);
+        });
+    });
+    
+    if (crypto.timingSafeEqual(Buffer.from(user.password, HASHING_HASH_ENCODING), hashed)) {
+        response.statusCode=302;
+        if (user.superuser) {
+            response.setHeader('Location','/admin/' + user.storeId.toString());
+        } else {
+            response.setHeader('Location','/store/' + user.storeId.toString());
+        }
+        response.end();
+
+        //TODO: set session state when we have session middleware or something like that
+        return;
+    } else {
+        /* Wrong password */
+        login_get(request, response, "Wrong password");
+        return;
+    }
 
 }
 
