@@ -1,5 +1,6 @@
 {
     "dependencies": {
+        "cookie": "^0.4.1",
         "sqlite3": "^5.0.2"
     }
 }
