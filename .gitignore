@@ -1,2 +1,3 @@
 **/node_modules/
 databasen.sqlite3
+backend/package-lock.json
