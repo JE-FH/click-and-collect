@@ -109,7 +109,6 @@ function cookieMiddleware(req, res) {
     res.setHeader("Set-Cookie", `${COOKIES_SESSION_ID}=${id}`);
 }
 
-=======
 async function login_get(request, response, error) {
     response.statusCode = 200;
     response.setHeader('Content-Type', 'text/html');
