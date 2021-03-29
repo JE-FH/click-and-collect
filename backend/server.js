@@ -5,6 +5,8 @@ const fs = require("fs/promises");
 const port = 8000;
 const hostname = '127.0.0.1';
 
+let db;
+
 function requestHandler(request, response) {
     console.log("Received " + request.method + " " + request.url);
 
@@ -120,7 +122,7 @@ async function login_post(request, response) {
 async function main() {
     const server = http.createServer(requestHandler);
 
-    let db = new sqlite3.Database(__dirname + "/../databasen.sqlite3");
+    db = new sqlite3.Database(__dirname + "/../databasen.sqlite3");
 
     let database_creation_command = (await fs.readFile(__dirname + "/database_creation.sql")).toString();
     
