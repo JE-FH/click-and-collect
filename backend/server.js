@@ -26,6 +26,12 @@ async function requestHandler(request, response) {
                 case "/login":
                     login_post(request, response);
                     break;
+                case "/admin/queues/remove":
+                    queueRemove(request, response);
+                    break;
+                case "/admin/queues/add":
+                    queueAdd(request, response);
+                    break;
             }
             break;
         }
@@ -278,7 +284,6 @@ async function login_post(request, response) {
 
 }
 
-
 async function queueList(request, response) {
     if (request.user == null) {
         response.statusCode = 401;
@@ -294,9 +299,9 @@ async function queueList(request, response) {
         return;
     }
 
-    if (typeof(request.query.storeid) != "string" || Number.isNaN(Number(request.query.storeid))) {
+    if (!is_string_int(request.query.storeid)) {
         response.statusCode = 400;
-        response.write("Queryid malformed");
+        response.write("storeid malformed");
         response.end();
         return;
     }
@@ -344,13 +349,22 @@ async function queueList(request, response) {
 <html>
     <head>
         <title>Queue list for ${store.name}</title>
+        <link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/openlayers/openlayers.github.io@master/en/v6.5.0/css/ol.css" type="text/css">
+        <script src="https://cdn.jsdelivr.net/gh/openlayers/openlayers.github.io@master/en/v6.5.0/build/ol.js"></script>
+        <link rel="stylesheet" href="/static/style.css">
+        <style>
+            .map {
+                height: 400px;
+                width: 500px;
+            }
+        </style>
     </head>
     <body>
         <h1>List of queues for ${store.name}</h1>
         <table>
             <thead>
                 <tr>
-                    <th>id</th></tr>
+                    <th>id</th>
                     <th>Latitude</th>
                     <th>Longitude</th>
                     <th>size</th>
@@ -362,13 +376,257 @@ async function queueList(request, response) {
                     <td>${queue.latitude}</td>
                     <td>${queue.longitude}</td>
                     <td>${queue.size}</td>
+                    <td>
+                        <form action="/admin/queues/remove" method="POST">
+                            <input type="hidden" name="storeid" value="${store.id}">
+                            <input type="hidden" name="queueid" value="${queue.id}">
+                            <input type="submit" value="Remove">
+                        </form>
+                    </td>
                 </tr>`).join("\n")}
             </tbody>
         </table>
+        <h2>add another queue</h2>
+        <form action="/admin/queues/add", method="POST">
+            <div id="queue-placement-map" class="map"></div>
+            <label for="size">Queue capacity: </label>
+            <input type="number" name="size" required><br>
+            
+            <input id="latitude-input" type="hidden" name="latitude">
+            <input id="longitude-input" type="hidden" name="longitude">
+            <input type="hidden" name="storeid" value="${store.id}">
+            <input type="submit" value="Add">
+        </form>
+        <script type="text/javascript">
+            let map = new ol.Map({
+                target: 'queue-placement-map',
+                layers: [
+                    new ol.layer.Tile({
+                        source: new ol.source.OSM()
+                    })
+                ],
+                view: new ol.View({
+                    center: ol.proj.fromLonLat([${queues[0] == null ? "10.7, 56" : `${queues[0].longitude}, ${queues[0].latitude}`}]),
+                    zoom: ${queues[0] == null ? 7 : 18}
+                })
+            });
+            
+            let selectedFeature = new ol.Feature({
+                geometry: new ol.geom.Point(ol.proj.transform([0, 0], 'EPSG:4326', 'EPSG:3857'))
+            });
+
+            let alreadyExistingLocations = [
+                ${queues.map((queue) => `
+                new ol.Feature({
+                    geometry: new ol.geom.Point(ol.proj.transform([${queue.longitude}, ${queue.latitude}], 'EPSG:4326', 'EPSG:3857'))
+                }),`).join("\n")}
+            ];
+            /*TODO: Download ikonerne til vores server */
+            var selectedStyle = new ol.style.Style({
+                image: new ol.style.Icon(({
+                    anchor: [0.5, 1],
+                    src: "http://cdn.mapmarker.io/api/v1/pin?text=C%26C&size=50&hoffset=1"
+                }))
+            });
+
+            var otherStyle = new ol.style.Style({
+                image: new ol.style.Icon(({
+                    anchor: [0.5, 1],
+                    src: "http://cdn.mapmarker.io/api/v1/pin?text=C%26C&size=50&hoffset=1&background=%23373737"
+                }))
+            });
+
+            selectedFeature.setStyle(selectedStyle)
+
+            alreadyExistingLocations.forEach((v) => {
+                v.setStyle(otherStyle);
+            })
+
+            let vectorSource = new ol.source.Vector({
+                features: [...alreadyExistingLocations]
+            });
+
+            let selectedSource = new ol.source.Vector({
+                features: [selectedFeature]
+            });
+
+            let vectorLayer = new ol.layer.Vector({
+                source: vectorSource
+            });
+
+            let selectedLayer = new ol.layer.Vector({
+                source: selectedSource
+            });
+
+            map.addLayer(vectorLayer);
+            map.addLayer(selectedLayer);
+
+            let selectedGeo = selectedFeature.getGeometry();
+
+            map.on("click", (e) => {
+                selectedGeo.setCoordinates(e.coordinate);
+                let real_coordinate = ol.proj.transform(e.coordinate, 'EPSG:3857', 'EPSG:4326');
+                console.log(real_coordinate);
+                document.getElementById("latitude-input").value = real_coordinate[1];
+                document.getElementById("longitude-input").value = real_coordinate[0];
+            });
+        </script>
     </body>
 </html>
 `);
     response.end();
+}
+
+async function queueRemove(request, response) {
+    let post_data = await receive_body(request);
+    let post_parameters = parseURLEncoded(post_data);
+
+    if (request.user == null) {
+        response.statusCode = 401;
+        response.write("You need to be logged in to access this page");
+        response.end();
+        return;
+    }
+
+    if (request.superuser == 0) {
+        response.statusCode = 401;
+        response.write("You need to be admin to access this page");
+        response.end();
+        return;
+    }
+
+    if (!is_string_int(post_parameters.storeid) || !is_string_int(post_parameters.queueid)) {
+        response.statusCode = 400;
+        response.write("storeid or queueid malformed");
+        response.end();
+        return;
+    }
+
+    let wantedStoreId = Number(post_parameters.storeid);
+    let wantedQueueId = Number(post_parameters.queueid);
+
+    if (request.user.storeId != wantedStoreId) {
+        response.statusCode = 401;
+        response.write("You dont have access to this store");
+        response.end();
+        return;
+    }
+
+    let success = await new Promise((resolve, reject) => {
+        db.serialize(() => {
+            db.run("DELETE FROM queue WHERE id=? and storeId=?", [wantedQueueId, wantedStoreId], (err) => {
+                if (err) {
+                    resolve(false);
+                } else {
+                    resolve(true);
+                }
+            })
+        });
+    });
+
+    if (!success) {
+        response.statusCode = 400;
+        response.write("Specified queue does not exist");
+        response.end();
+        return;
+    }
+
+    response.statusCode = 302;
+    response.setHeader("Location", "/admin/queues?storeid=" + wantedStoreId.toString());
+    response.end();
+}
+
+async function queueAdd(request, response) {
+    let post_data = await receive_body(request);
+    let post_parameters = parseURLEncoded(post_data);
+
+    if (request.user == null) {
+        response.statusCode = 401;
+        response.write("You need to be logged in to access this page");
+        response.end();
+        return;
+    }
+
+    if (request.superuser == 0) {
+        response.statusCode = 401;
+        response.write("You need to be admin to access this page");
+        response.end();
+        return;
+    }
+
+    if (
+        !is_string_int(post_parameters.storeid) || 
+        !is_string_int(post_parameters.size) || 
+        !is_string_number(post_parameters.latitude) ||
+        !is_string_number(post_parameters.longitude)
+    ){
+        response.statusCode = 400;
+        response.write("storeid, size, latitude or longitude malformed");
+        response.end();
+        return;
+    }
+
+    let wantedStoreId = Number(post_parameters.storeid);
+    let wantedSize = Number(post_parameters.size);
+    let wantedLatitude = Number(post_parameters.latitude);
+    let wantedLongitude = Number(post_parameters.longitude);
+
+
+    if (request.user.storeId != wantedStoreId) {
+        response.statusCode = 401;
+        response.write("You dont have access to this store");
+        response.end();
+        return;
+    }
+
+    await new Promise((resolve, reject) => {
+        db.serialize(() => {
+            db.run("INSERT INTO queue (latitude, longitude, size, storeId) VALUES (?, ?, ?, ?)", [wantedLatitude, wantedLongitude, wantedSize, wantedStoreId], (err) => {
+                if (err) {
+                    reject(err);
+                } else {
+                    resolve();
+                }
+            })
+        });
+    });
+
+    response.statusCode = 302;
+    response.setHeader("Location", "/admin/queues?storeid=" + wantedStoreId.toString());
+    response.end();
+}
+
+
+function is_string_int(str) {
+    let conversion_attempt = Number(str);
+    return typeof(str) == "string" && !Number.isNaN(conversion_attempt) && Number.isInteger(conversion_attempt);
+}
+
+
+function is_string_number(str) {
+    let conversion_attempt = Number(str);
+    return typeof(str) == "string" && !Number.isNaN(conversion_attempt);
+}
+
+async function receive_body(request) {
+    return await new Promise((resolve, reject) => {
+        let body = ''
+        request.on('data', function(data) {
+          body += data;
+        })
+        request.on('end', function() {
+          resolve(body);
+        })
+    });
+}
+
+function parseURLEncoded(data) {
+    let rv = {};
+    data.split("&").map((v) => {
+        let split = v.split("=");
+        rv[decodeURIComponent(split[0])] = decodeURIComponent(split[1] ?? "");
+    });
+    return rv;
 }
 
 async function main() {
