@@ -52,10 +52,11 @@ async function requestHandler(request, response) {
 /* Request handler for any endpoint that isn't explicitally handled */
 function defaultResponse(response) {
     console.log("Nothing is here (jk)");
-    response.setHeader('Content-Type', 'text/plain');
-    response.write(' ');
-    response.end("\n");
     response.statusCode = 404;
+    response.setHeader('Content-Type', 'text/plain');
+    response.write("Page not found");
+    response.end();
+   
 }
 
 /* Example of a HTTP request case */
