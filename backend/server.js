@@ -37,6 +37,8 @@ async function requestHandler(request, response) {
                 case "/login":
                     login_get(request, response);
                     break;
+                case "/admin/employees/add":
+                    add_employee(request, response);
                 default:
                     defaultResponse(response);
                     break;
@@ -48,6 +50,7 @@ async function requestHandler(request, response) {
             break;
     }
 }
+
 
 /* Request handler for any endpoint that isn't explicitally handled */
 function defaultResponse(response) {
@@ -295,4 +298,7 @@ async function main() {
     });
 }
 
+function add_employee(request, response){
+    
+}
 main();
