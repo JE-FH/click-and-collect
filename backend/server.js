@@ -51,7 +51,6 @@ async function requestHandler(request, response) {
 
 /* Request handler for any endpoint that isn't explicitally handled */
 function defaultResponse(response) {
-    console.log("Nothing is here (jk)");
     response.statusCode = 404;
     response.setHeader('Content-Type', 'text/plain');
     response.write("Page not found");
@@ -130,7 +129,6 @@ async function userMiddleware(req, res) {
                 })
             });
         });
-        console.log(user);
         req.user = user;
     }
 }
@@ -148,8 +146,6 @@ function queryMiddleware(req, res) {
     if (queryData == null || typeof(queryData) != "object") {
         queryData = {};
     }
-
-    console.log(queryData);
 
     req.query = queryData;
     req.path = pathPart;
@@ -195,7 +191,6 @@ async function login_post(request, response) {
           resolve(body);
         })
     });
-    console.log('Body: ' + post_body);
 
     let post_parameters = {};
 
