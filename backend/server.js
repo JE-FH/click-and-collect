@@ -37,8 +37,12 @@ async function requestHandler(request, response) {
                 case "/login":
                     login_get(request, response);
                     break;
+                case "/admin":
+                    admin_dashboard(request, response);
+                    break;
                 case "/admin/employees/add":
                     add_employee(request, response);
+                    break;
                 default:
                     defaultResponse(response);
                     break;
@@ -132,7 +136,6 @@ async function userMiddleware(req, res) {
                 })
             });
         });
-        console.log(user);
         req.user = user;
     }
 }
@@ -235,9 +238,9 @@ async function login_post(request, response) {
         request.session.user_id = user.id;
 
         if (user.superuser) {
-            response.setHeader('Location','/admin/' + user.storeId.toString());
+            response.setHeader('Location','/admin');
         } else {
-            response.setHeader('Location','/store/' + user.storeId.toString());
+            response.setHeader('Location','/store');
         }
         response.end();
 
@@ -298,7 +301,13 @@ async function main() {
     });
 }
 
-function add_employee(request, response){
+
+function admin_dashboard(request, response){
     console.log(request.user);
+    console.log(request.session);
+}
+function add_employee(request, response){
+
+
 }
 main();
