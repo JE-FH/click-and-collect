@@ -108,7 +108,7 @@ function cookieMiddleware(req, res) {
     req.session = sessionStore.get(id).data;
 
     /* Set the session cookie */
-    res.setHeader("Set-Cookie", `${COOKIES_SESSION_ID}=${id}`);
+    res.setHeader("Set-Cookie", `${COOKIES_SESSION_ID}=${id};path=/`);
 }
 
 /*
