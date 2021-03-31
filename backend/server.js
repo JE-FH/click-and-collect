@@ -430,10 +430,10 @@ function add_employee(request, response, error){
 
 }
 async function add_employee_post(request, response){
-    // if (request.user === null || request.user.superuser == 0){
-    //     adminNoAccess(request, response);
-    // }
-    // else{
+    if (request.user === null || request.user.superuser == 0){
+        adminNoAccess(request, response);
+    }
+    else{
         let post_body = await new Promise((resolve, reject) => {
             let body = ''
             request.on('data', function(data) {
@@ -513,37 +513,43 @@ async function add_employee_post(request, response){
             console.log("Bruger indsat i databasen");
             add_employee(request, response, "User succesfully added to database");
     }
-// }
+}
 
-function remove_employee(request,response, error){
+
+async function remove_employee(request,response, error){
     if (request.user === null || request.user.superuser == 0){
         adminNoAccess(request, response);
     }
     else{
-        response.statusCode = 200;
-        
-        let sql = "SELECT DISTINCT Username username FROM user ORDER BY username";
-        
-        i = 0;
-        a = [0,2];
-        console.log(typeof(a));
-        console.log(a.Length);
-        db.all(sql, [], (err, rows) => {
-            if (err) {
-                throw err;
-            }
-            rows.forEach((row) => {
-                b = row.username;
-                a[i] = b;
-            console.log(b);
-                i++;
+
+        let username_list = await new Promise((resolve, reject) => {
+            let sql = "SELECT DISTINCT Username username FROM user ORDER BY username";
+            let a = [0];
+            i = 0;
+            
+            db.all(sql, [], (err, rows) => {
+                if (err) {
+                    reject(err);
+                }
+                rows.forEach((row) => {
+                    b = row.username;
+                    a[i] = b;
+                    i++;
+
+                });
+                resolve (a);
             });
+            
         });
-        
-        console.log(a);
-        console.log(a.Length);
-    
-     
+        let html_table = "";
+        for (i = 0; i < username_list.length; i++){
+            html_table += `<tr> <th> ${username_list[i]} </th> </tr> <br>\n`
+        }
+
+        console.log(html_table);
+
+        response.statusCode = 200;
+
         response.write(`
         <!DOCTYPE html>
         <html>
@@ -562,10 +568,11 @@ function remove_employee(request,response, error){
 
                 <input type="submit" value="Delete user" onclick="return confirm('Are you sure?')" />
             </form>
-            
+            <b> Here is a table of the current employee accounts: <br> ${html_table} </b>
             </body>
         </html>
         `);
+        
         response.end();
         }
 }
@@ -592,6 +599,7 @@ async function remove_employee_post(request, response){
             let split = v.split("=");
             post_parameters[decodeURIComponent(split[0])] = decodeURIComponent(split[1]);
         });
+
         let user = await new Promise((resolve, reject) => {
             db.serialize(() => {
                 db.get("SELECT id, password, salt, storeId, superuser FROM user WHERE username=?", [post_parameters["username"]], (err, row) => {
@@ -618,4 +626,5 @@ async function remove_employee_post(request, response){
         remove_employee(request, response, error);
     }
 }
+
 main();
