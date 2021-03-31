@@ -203,6 +203,9 @@ async function login_post(request, response) {
     /* Compare the stored password and the given password using function that protects against timing attacks*/
     if (crypto.timingSafeEqual(Buffer.from(user.password, HASHING_HASH_ENCODING), hashed)) {
         response.statusCode=302;
+        
+        request.session.user_id = user.id;
+
         if (user.superuser) {
             response.setHeader('Location','/admin/' + user.storeId.toString());
         } else {
