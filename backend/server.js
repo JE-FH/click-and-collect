@@ -40,6 +40,9 @@ async function requestHandler(request, response) {
                 case "/static/style.css":
                     staticStyleCss(response);
                     break;
+                case "/store":
+                    store_get(request, response);
+                    break;
                 default:
                     defaultResponse(response);
                     break;
@@ -274,6 +277,81 @@ async function login_post(request, response) {
     }
 
 }
+
+async function storeMenu(request, response, storeid){
+
+    /* Check if the user is logged in */
+    if (request.user == null) {
+        response.statusCode = 401;
+        response.write("You need to be logged in to access this page");
+        response.end();
+        return;
+    }
+
+    // if (request.superuser == 0) {
+    //     response.statusCode = 401;
+    //     response.write("You need to be admin to access this page");
+    //     response.end();
+    //     return;
+    // }
+
+    /* Check if the storeid is set up correctly */
+    if (typeof(request.query.storeid) != "string" || Number.isNaN(Number(request.query.storeid))) {
+        response.statusCode = 400;
+        response.write("Queryid malformed");
+        response.end();
+        return;
+    }
+
+    /* Convert the storeid to a number */
+    let wantedStoreId = Number(request.query.storeid);
+
+    if (request.user.storeId != wantedStoreId) {
+        response.statusCode = 401;
+        response.write("You dont have access to this store");
+        response.end();
+        return;
+    }
+
+    /* Get the storeid from the database */
+    let store = await new Promise((resolve, reject) => {
+        db.serialize(() => {
+            db.get("SELECT * FROM store WHERE id=?", [wantedStoreId], (err, row) => {
+                if (err) {
+                    reject(err)
+                } else {
+                    if (row == undefined) {
+                        reject(`Expected store with id ${wantedStoreId} to exist`);
+                    } else {
+                        resolve(row);
+                    }
+                }
+            })
+        });
+    });
+
+    /* Print the menu site */
+    response.statusCode = 200;
+    response.setHeader('Content-Type', 'text/html');
+    response.write(`
+    <!DOCTYPE html>
+    <html>
+        <head>
+            <title>Store menu for ${store.name}</title>
+        </head>
+    
+        <body>
+            <h1>${store.name} menu</h1>
+            <form action="/store" method="POST">
+                <input type="button" value="Overview of packages"><br><br>
+                <input type="button" value="Confirm delivery"><br>
+            </form>
+        </body>
+    </html>
+    `)
+    response.end();
+}
+
 
 
 async function main() {
