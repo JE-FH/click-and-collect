@@ -41,7 +41,7 @@ async function requestHandler(request, response) {
                     staticStyleCss(response);
                     break;
                 case "/store":
-                    store_get(request, response);
+                    storeMenu(request, response);
                     break;
                 default:
                     defaultResponse(response);
@@ -287,14 +287,7 @@ async function storeMenu(request, response, storeid){
         response.end();
         return;
     }
-
-    // if (request.superuser == 0) {
-    //     response.statusCode = 401;
-    //     response.write("You need to be admin to access this page");
-    //     response.end();
-    //     return;
-    // }
-
+    
     /* Check if the storeid is set up correctly */
     if (typeof(request.query.storeid) != "string" || Number.isNaN(Number(request.query.storeid))) {
         response.statusCode = 400;
