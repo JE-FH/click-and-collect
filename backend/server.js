@@ -37,6 +37,9 @@ async function requestHandler(request, response) {
                 case "/login":
                     login_get(request, response);
                     break;
+                case "/static/style.css":
+                    staticStyleCss(response);
+                    break;
                 default:
                     defaultResponse(response);
                     break;
@@ -47,6 +50,14 @@ async function requestHandler(request, response) {
             defaultResponse(response);
             break;
     }
+}
+
+async function staticStyleCss(response) {
+    let content = (await fs.readFile(__dirname + "/../frontend/css/style.css")).toString();
+    response.statusCode = 200;
+    response.setHeader("Content-Type", "text/css");
+    response.write(content);
+    response.end();
 }
 
 /* Request handler for any endpoint that isn't explicitally handled */
