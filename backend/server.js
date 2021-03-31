@@ -14,6 +14,8 @@ async function requestHandler(request, response) {
     console.log("Received " + request.method + " " + request.url);
     
     cookieMiddleware(request, response);
+    await userMiddleware(request, response);
+
 
     switch(request.method) {
         case "POST": {
@@ -107,6 +109,29 @@ function cookieMiddleware(req, res) {
 
     /* Set the session cookie */
     res.setHeader("Set-Cookie", `${COOKIES_SESSION_ID}=${id}`);
+}
+
+/*
+ * Checks if the client is logged in and sets req.user to the user object if so
+ * to check if the client is logged in, just check if the user object is null
+ */
+async function userMiddleware(req, res) {
+    req.user = null;
+    if (typeof(req.session.user_id) == "number") {
+        let user = await new Promise((resolve, reject) => {
+            db.serialize(() => {
+                db.get("SELECT * FROM user WHERE id=?", [req.session.user_id], (err, row) => {
+                    if (err) {
+                        reject(err);
+                    } else {
+                        resolve(row);
+                    }
+                })
+            });
+        });
+        console.log(user);
+        req.user = user;
+    }
 }
 
 async function login_get(request, response, error) {

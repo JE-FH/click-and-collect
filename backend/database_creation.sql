@@ -54,6 +54,7 @@ CREATE INDEX IF NOT EXISTS idx_timeSlot_storeId ON timeSlot (storeId);
 
 CREATE TABLE IF NOT EXISTS package (
 	id integer PRIMARY KEY AUTOINCREMENT NOT NULL,
+	guid varchar NOT NULL,
 	storeId integer NOT NULL,
 	bookedTimeId integer,
 	verificationCode varchar,
@@ -67,9 +68,10 @@ CREATE TABLE IF NOT EXISTS package (
 		REFERENCES store (id)
 );
 
+CREATE UNIQUE INDEX IF NOT EXISTS idx_package_guid ON package (guid);
 CREATE UNIQUE INDEX IF NOT EXISTS idx_package_verificationCode ON package (verificationCode);
 CREATE INDEX IF NOT EXISTS idx_package_creationDate ON package (creationDate);
 CREATE INDEX IF NOT EXISTS idx_package_customerName ON package (customerName);
 CREATE INDEX IF NOT EXISTS idx_package_externalOrderId ON package (externalOrderId);
 CREATE INDEX IF NOT EXISTS idx_package_bookedTimeId ON package (bookedTimeId);
-CREATE INDEX IF NOT EXISTS idx_package_storeId ON package (storeId);
+CREATE INDEX IF NOT EXISTS idx_package_storeId ON package (storeId);			
