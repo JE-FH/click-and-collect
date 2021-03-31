@@ -3,7 +3,7 @@ const sqlite3 = require("sqlite3");
 const fs = require("fs/promises");
 const crypto = require("crypto");
 const cookie = require('cookie');
-
+const querystring = require("querystring");
 
 const port = 8000;
 const hostname = '127.0.0.1';
@@ -15,11 +15,11 @@ async function requestHandler(request, response) {
     
     cookieMiddleware(request, response);
     await userMiddleware(request, response);
-
+    queryMiddleware(request, response);
 
     switch(request.method) {
         case "POST": {
-            switch(request.url) {
+            switch(request.path) {
                 default:
                     defaultResponse(response);
                     break;
@@ -30,7 +30,7 @@ async function requestHandler(request, response) {
             break;
         }
         case "GET": {
-            switch(request.url) {
+            switch(request.path) {
                 case "/api/add_package":
                     add_package();
                     break;
@@ -132,6 +132,26 @@ async function userMiddleware(req, res) {
         console.log(user);
         req.user = user;
     }
+}
+
+function queryMiddleware(req, res) {
+    let raw_path = req.url.toString();
+    
+    let [pathPart, queryPart] = raw_path.split("?");
+    
+    let queryData = null;
+
+    if (queryPart != null) {
+        queryData = querystring.parse(queryPart);
+    }
+    if (queryData == null || typeof(queryData) != "object") {
+        queryData = {};
+    }
+
+    console.log(queryData);
+
+    req.query = queryData;
+    req.path = pathPart;
 }
 
 async function login_get(request, response, error) {
