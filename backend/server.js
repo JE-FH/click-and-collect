@@ -282,14 +282,14 @@ async function adminGet(request, response) {
         return;
     }
 
-    if (typeof(queryData.storeid) != "string" || Number.isNaN(Number(queryData.storeid))) {
+    if (typeof(request.query.storeid) != "string" || Number.isNaN(Number(request.query.storeid))) {
         response.statusCode = 400;
         response.write("Queryid malformed");
         response.end();
         return;
     }
 
-    let wantedStoreId = Number(queryData.storeid);
+    let wantedStoreId = Number(request.query.storeid);
 
     if (request.user.storeId != wantedStoreId) {
         response.statusCode = 401;
@@ -323,7 +323,7 @@ async function adminGet(request, response) {
         <title>Store admin for ${store.name}</title>
     </head>
     <body>
-        <h1>Hello ${request.user.name} this is your links</h1>
+        <h1>Hello ${request.user.name} these are your links</h1>
         <ul>
             <li><a href="/admin/queues?storeid=${store.id}">Manage queues</a></li>
             <li><a href="/admin/settings?storeid=${store.id}">Change settings</a></li>
@@ -333,6 +333,7 @@ async function adminGet(request, response) {
     </body>
 </html>
 `)
+    response.end();
 }
 
 
