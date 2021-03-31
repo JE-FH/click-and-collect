@@ -299,6 +299,6 @@ async function main() {
 }
 
 function add_employee(request, response){
-    
+    console.log(request.user);
 }
 main();
