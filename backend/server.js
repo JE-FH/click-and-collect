@@ -37,6 +37,9 @@ async function requestHandler(request, response) {
                 case "/login":
                     login_get(request, response);
                     break;
+                case "/admin/queues":
+                    queueList(request, response);
+                    break;
                 default:
                     defaultResponse(response);
                     break;
@@ -264,6 +267,98 @@ async function login_post(request, response) {
 
 }
 
+
+async function queueList(request, response) {
+    if (request.user == null) {
+        response.statusCode = 401;
+        response.write("You need to be logged in to access this page");
+        response.end();
+        return;
+    }
+
+    if (request.superuser == 0) {
+        response.statusCode = 401;
+        response.write("You need to be admin to access this page");
+        response.end();
+        return;
+    }
+
+    if (typeof(request.query.storeid) != "string" || Number.isNaN(Number(request.query.storeid))) {
+        response.statusCode = 400;
+        response.write("Queryid malformed");
+        response.end();
+        return;
+    }
+
+    let wantedStoreId = Number(request.query.storeid);
+
+    if (request.user.storeId != wantedStoreId) {
+        response.statusCode = 401;
+        response.write("You dont have access to this store");
+        response.end();
+        return;
+    }
+
+    let store = await new Promise((resolve, reject) => {
+        db.serialize(() => {
+            db.get("SELECT * FROM store WHERE id=?", [wantedStoreId], (err, row) => {
+                if (err) {
+                    reject(err)
+                } else {
+                    if (row == undefined) {
+                        reject(`Expected store with id ${wantedStoreId} to exist`);
+                    } else {
+                        resolve(row);
+                    }
+                }
+            })
+        });
+    });
+
+    let queues = await new Promise((resolve, reject) => {
+        db.serialize(() => {
+            db.all("SELECT * FROM queue WHERE storeId=?", [store.id], (err, rows) => {
+                if (err) {
+                    reject(err)
+                } else {
+                    resolve(rows);
+                }
+            })
+        });
+    });
+    response.statusCode = 200;
+    response.setHeader('Content-Type', 'text/html');
+    response.write(`
+<!DOCTYPE html>
+<html>
+    <head>
+        <title>Queue list for ${store.name}</title>
+    </head>
+    <body>
+        <h1>List of queues for ${store.name}</h1>
+        <table>
+            <thead>
+                <tr>
+                    <th>id</th></tr>
+                    <th>Latitude</th>
+                    <th>Longitude</th>
+                    <th>size</th>
+                </tr>
+            </thead>
+            <tbody>
+                ${queues.map((queue) => `<tr>
+                    <td>${queue.id}</td>
+                    <td>${queue.latitude}</td>
+                    <td>${queue.longitude}</td>
+                    <td>${queue.size}</td>
+                </tr>`).join("\n")}
+            </tbody>
+        </table>
+    </body>
+</html>
+`);
+    response.end();
+}
 
 async function main() {
     const server = http.createServer(requestHandler);
