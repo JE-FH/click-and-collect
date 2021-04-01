@@ -323,7 +323,8 @@ async function storeMenu(request, response, storeid){
         });
     });
 
-    /* Print the menu site */
+    /* Print the menu site and the buttons redirecting to their respective endpoints */
+
     response.statusCode = 200;
     response.setHeader('Content-Type', 'text/html');
     response.write(`
@@ -336,8 +337,8 @@ async function storeMenu(request, response, storeid){
         <body>
             <h1>${store.name} menu</h1>
             <form action="/store" method="POST">
-                <input type="button" value="Overview of packages"><br><br>
-                <input type="button" value="Confirm delivery"><br>
+                <input type="button" value="Overview of packages" href="/store/packages?=${search}"><br><br>
+                <input type="button" value="Confirm delivery" href="/store/scan"><br>
             </form>
         </body>
     </html>
