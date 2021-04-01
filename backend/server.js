@@ -264,7 +264,7 @@ async function login_post(request, response) {
         if (user.superuser) {
             response.setHeader('Location','/admin/' + user.storeId.toString());
         } else {
-            response.setHeader('Location','/store/' + user.storeId.toString());
+            response.setHeader('Location','/store?storeid=' + user.storeId.toString());
         }
         response.end();
 
@@ -278,7 +278,7 @@ async function login_post(request, response) {
 
 }
 
-async function storeMenu(request, response, storeid){
+async function storeMenu(request, response){
 
     /* Check if the user is logged in */
     if (request.user == null) {
@@ -324,6 +324,9 @@ async function storeMenu(request, response, storeid){
     });
 
     /* Print the menu site and the buttons redirecting to their respective endpoints */
+    /* TOCO - button redirects to endpoints: */
+    /* First button    href="/store/packages?=${search}"" */
+    /* Second button   href="/store/scan" */
 
     response.statusCode = 200;
     response.setHeader('Content-Type', 'text/html');
@@ -337,8 +340,8 @@ async function storeMenu(request, response, storeid){
         <body>
             <h1>${store.name} menu</h1>
             <form action="/store" method="POST">
-                <input type="button" value="Overview of packages" href="/store/packages?=${search}"><br><br>
-                <input type="button" value="Confirm delivery" href="/store/scan"><br>
+                <input type="button" value="Overview of packages"><br><br>
+                <input type="button" value="Confirm delivery" ><br>
             </form>
         </body>
     </html>
