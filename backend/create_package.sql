@@ -1,0 +1,2 @@
+INSERT INTO package (guid, storeId, bookedTimeId, verificationCode, customerEmail, customerName, externalOrderId, creationDate) VALUES
+    (1234, 4563, NULL, 1000, "larz@mail.com", "Larz Ingolf Brie", "#8000FF", "1617266834");

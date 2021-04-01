@@ -4,6 +4,7 @@ const fs = require("fs/promises");
 const crypto = require("crypto");
 const cookie = require('cookie');
 const querystring = require("querystring");
+const { timeStamp } = require("console");
 
 const port = 8000;
 const hostname = '127.0.0.1';
@@ -26,14 +27,14 @@ async function requestHandler(request, response) {
                 case "/login":
                     login_post(request, response);
                     break;
+                case "/packageFormHandler":
+                    packageFormHandler(request, response);
+                    break;
             }
             break;
         }
         case "GET": {
             switch(request.path) {
-                case "/api/add_package":
-                    add_package();
-                    break;
                 case "/login":
                     login_get(request, response);
                     break;
@@ -58,21 +59,87 @@ async function requestHandler(request, response) {
     }
 }
 
+async function packageFormHandler(request, response) {
+    let body = await extractBody(request);
+    add_package(4563, body.customerEmail, body.customerName, body.externalOrderId);
+    response.statusCode = 302;
+    response.setHeader('Location', '/admin/package_form');
+    response.end();
+}
+
+async function extractBody(request) {
+    let body = [];
+    let bodyJSON = {};
+    let promise = await new Promise((resolve, reject) => {
+        request.on('data', (data) => {
+            body.push(data);
+        }).on('end', () => {
+            bodyJSON = qsToObj(body.toString());
+            resolve(bodyJSON);
+        })
+    })
+    
+    return promise;
+}
+
+function qsToObj(queryString) {
+    let pairs = queryString.split('&');
+    let result = {};
+    pairs.forEach(pair => {
+      pair = pair.split('=');
+      result[pair[0]] = pair[1];
+    });
+    return result;
+}
+
+function add_package(storeId, customerEmail, customerName, externalOrderId) {
+    let guid, bookedTimeId, creationDate, verificationCode;
+
+    guid = crypto.randomBytes(8).toString("hex");
+    bookedTimeId = null;
+    creationDate = new Date();
+    verificationCode = crypto.randomBytes(16).toString("hex");
+
+    let query = 'INSERT INTO package (guid, storeId, bookedTimeId, verificationCode, customerEmail, customerName, externalOrderId, creationDate) VALUES (?, ?, ?, ?, ?, ?, ?, ?)';
+
+    db.serialize(() => {
+        db.run(query, [guid, storeId, bookedTimeId, verificationCode, customerEmail, customerName, externalOrderId, creationDate]);
+    })
+
+    console.log('Package added for: ' + customerName);
+}
+
 function package_formGet(request, response) {
     response.setHeader('Content-Type', 'text/html');
-    response.write(' ');
+    response.write(renderPackage_form());
     response.end();
     response.statusCode = 200;
 }
 
 function renderPackage_form() {
     return `
-    
-    `;
-}
+        <html>
+            <head>
+                <meta charset="UTF-8">
+                <title>Add package</title>
 
-function add_package(storeId, verificationCode) {
-    let id, guid, bookedTimeId, customerEmail, customerName, externalOrderId, creationDate; 
+                <style>
+                    body {
+                        font-family: sans-serif;
+                    }
+                </style>
+            </head>
+            <body>
+                <h1>Add package</h1>
+                <form action="/packageFormHandler" method="POST">
+                    <input type="text" name="customerName" placeholder="Customer name" required>
+                    <input type="text" name="customerEmail" placeholder="Customer email" required>
+                    <input type="text" name="orderId" placeholder="Order ID" required>
+                    <input type="submit">
+                </form>
+            </body>
+        </html>
+    `;
 }
 
 async function staticStyleCss(response) {
@@ -91,16 +158,6 @@ function defaultResponse(response) {
     response.end();
    
 }
-
-/* Example of a HTTP request case */
-function add_package() {
-    console.log('No API');
-    response.setHeader('Content-Type', 'text/plain');
-    response.write(' ');
-    response.end("\n");
-    response.statusCode = 404;
-}
-
 
 /* cant contain ( ) < > @ , ; : \ " / [ ] ? = { } per https://developer.mozilla.org/en-US/docs/Web/HTTP/Headers/Set-Cookie */
 const COOKIES_SESSION_ID = "sessid";
