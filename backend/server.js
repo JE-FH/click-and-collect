@@ -437,6 +437,7 @@ async function queueList(request, response) {
         </style>
     </head>
     <body>
+        <a href="/admin?storeid=${store.id}">Go back to dashboard</a>
         <h1>List of queues for ${store.name}</h1>
         <table>
             <thead>
