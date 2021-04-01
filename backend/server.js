@@ -495,7 +495,7 @@ async function remove_employee(request,response, error){
     else{
 
         let username_list = await new Promise((resolve, reject) => {
-            let sql = "SELECT DISTINCT Username username FROM user ORDER BY username";
+            let sql = `SELECT DISTINCT Username username FROM user WHERE storeId=${request.user.storeId} ORDER BY username`;
             let a = [0];
             i = 0;
             
@@ -517,8 +517,6 @@ async function remove_employee(request,response, error){
         for (i = 0; i < username_list.length; i++){
             html_table += `<tr> <th> ${username_list[i]} </th> </tr> <br>\n`
         }
-
-        console.log(html_table);
 
         response.statusCode = 200;
 
@@ -563,7 +561,6 @@ async function remove_employee_post(request, response){
               resolve(body);
             })
         });
-        console.log('Body: ' + post_body);
         
         let post_parameters = {};
 
@@ -571,10 +568,10 @@ async function remove_employee_post(request, response){
             let split = v.split("=");
             post_parameters[decodeURIComponent(split[0])] = decodeURIComponent(split[1]);
         });
-
+       
         let user = await new Promise((resolve, reject) => {
             db.serialize(() => {
-                db.get("SELECT id, password, salt, storeId, superuser FROM user WHERE username=?", [post_parameters["username"]], (err, row) => {
+                db.get("SELECT id, password, salt, superuser FROM user WHERE username=? AND storeId=?", [post_parameters["username"],request.user.storeId], (err, row) => {
                     if (err) {
                         resolve(null);
                     } else {
@@ -593,8 +590,8 @@ async function remove_employee_post(request, response){
         else{
             error = "Bruger slettet";
         }
-        db.run("DELETE FROM user WHERE username=?", [post_parameters["username"]]);
-        console.log(user);
+        db.run("DELETE FROM user WHERE username=? AND storeId=?", [post_parameters["username"], request.user.storeId]);
+
         remove_employee(request, response, error);
     }
 }
