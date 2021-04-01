@@ -122,7 +122,7 @@ function add_package() {
 
 
 async function login_get(request, response, error) {
-    response.statusCode = 200;
+    response.statusCode = error == null ? 200 : 401;
     response.setHeader('Content-Type', 'text/html');
     response.write(`
 <!DOCTYPE html>
@@ -159,9 +159,7 @@ async function login_post(request, response) {
 
     /* Make sure that we got the right parameters */
     if (!(typeof post_parameters["username"] == "string" && typeof post_parameters["password"] == "string")) {
-        response.statusCode = 400;
-        response.write("du har glemt at skrive username eller password");
-        response.end();
+        login_get(request, response, "You didnt enter username and/or password");
         return;
     }
 
