@@ -6,7 +6,7 @@ const sqlite3 = require("sqlite3");
  * @param {sqlite3.Database} db the database to target
  * @param {string} query the sql query to execute
  * @param {array<string>} param the parameters to replace ? with
- * @returns {Promise<Array<object>>} the rows it found
+ * @returns {Promise<object[]>} the rows it found
  */
 exports.db_all = async function db_all(db, query, param) {
 	return await new Promise((resolve, reject) => {
@@ -33,6 +33,21 @@ exports.db_get = async function db_get(db, query, param) {
 				reject(err);
 			} else {
 				resolve(row);
+			}
+		})
+	})
+}
+
+/**
+ * @param {*} db the database to target
+ * @param {*} query the sql query to execute
+ * @param {*} param the parameters to replace ? with
+ */
+exports.db_run = async function db_run(db, query, param) {
+	return await new Promise((resolve, reject) => {
+		db.run(query, param, (err) => {
+			if (err) {
+				reject(err);
 			}
 		})
 	})

@@ -6,7 +6,7 @@ const crypto = require("crypto");
 const {is_string_int, is_string_number, receive_body, parseURLEncoded, assertAdminAccess} = require("./helpers");
 const {queryMiddleware, sessionMiddleware, createUserMiddleware} = require("./middleware");
 const {adminNoAccess, invalidParameters} = require("./generic-responses");
-const {db_all, db_get} = require("./db-helpers");
+const {db_all, db_get, db_run} = require("./db-helpers");
 
 
 const port = 8000;
@@ -213,21 +213,10 @@ async function adminGet(request, response) {
         return;
     }
 
-    let store = await new Promise((resolve, reject) => {
-        db.serialize(() => {
-            db.get("SELECT * FROM store WHERE id=?", [wantedStoreId], (err, row) => {
-                if (err) {
-                    reject(err)
-                } else {
-                    if (row == undefined) {
-                        reject(`Expected store with id ${wantedStoreId} to exist`);
-                    } else {
-                        resolve(row);
-                    }
-                }
-            })
-        });
-    });
+    let store = await db_get(db, "SELECT * FROM store WHERE id=?", [wantedStoreId]);
+    if (store == undefined) {
+        throw new Error(`Expected store with id ${wantedStoreId} to exist`);
+    }
 
     response.statusCode = 200;
     response.setHeader("Content-Type", "text/html");
@@ -257,29 +246,13 @@ async function queueList(request, response) {
         return;
     }
 
-    let store = await new Promise((resolve, reject) => {
-        db.get("SELECT * FROM store WHERE id=?", [wantedStoreId], (err, row) => {
-            if (err) {
-                reject(err)
-            } else {
-                if (row == undefined) {
-                    reject(`Expected store with id ${wantedStoreId} to exist`);
-                } else {
-                    resolve(row);
-                }
-            }
-        });
-    });
+    let store = await db_get(db, "SELECT * FROM store WHERE id=?", [wantedStoreId]);
+    if (store == undefined) {
+        throw new Error(`Expected store with id ${wantedStoreId} to exist`);
+    }
 
-    let queues = await new Promise((resolve, reject) => {
-        db.all("SELECT * FROM queue WHERE storeId=?", [store.id], (err, rows) => {
-            if (err) {
-                reject(err)
-            } else {
-                resolve(rows);
-            }
-        });
-    });
+    let queues = await db_all(db, "SELECT * FROM queue WHERE storeId=?", [store.id]);
+
     response.statusCode = 200;
     response.setHeader('Content-Type', 'text/html');
     response.write(`
@@ -361,15 +334,7 @@ async function queueRemove(request, response) {
     }
     let wantedQueueId = Number(post_parameters.queueid);
 
-    await new Promise((resolve, reject) => {
-        db.run("DELETE FROM queue WHERE id=? and storeId=?", [wantedQueueId, wantedStoreId], (err) => {
-            if (err) {
-                reject(err);
-            } else {
-                resolve();
-            }
-        })
-    });
+    await db_run(db, "DELETE FROM queue WHERE id=? and storeId=?", [wantedQueueId, wantedStoreId]);
 
     response.statusCode = 302;
     response.setHeader("Location", "/admin/queues?storeid=" + wantedStoreId.toString());
@@ -398,15 +363,7 @@ async function queueAdd(request, response) {
     let wantedLatitude = Number(post_parameters.latitude);
     let wantedLongitude = Number(post_parameters.longitude);
 
-    await new Promise((resolve, reject) => {
-        db.run("INSERT INTO queue (latitude, longitude, size, storeId) VALUES (?, ?, ?, ?)", [wantedLatitude, wantedLongitude, wantedSize, wantedStoreId], (err) => {
-            if (err) {
-                reject(err);
-            } else {
-                resolve();
-            }
-        })
-    });
+    db_run(db, "INSERT INTO queue (latitude, longitude, size, storeId) VALUES (?, ?, ?, ?)", [wantedLatitude, wantedLongitude, wantedSize, wantedStoreId]);
 
     response.statusCode = 302;
     response.setHeader("Location", "/admin/queues?storeid=" + wantedStoreId.toString());
