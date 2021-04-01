@@ -2,18 +2,23 @@ const http = require("http");
 const sqlite3 = require("sqlite3");
 const fs = require("fs/promises");
 const crypto = require("crypto");
-const cookie = require('cookie');
-const querystring = require("querystring");
+
+const {is_string_int, is_string_number, receive_body, parseURLEncoded, assertAdminAccess} = require("./helpers");
+const {queryMiddleware, sessionMiddleware, createUserMiddleware} = require("./middleware");
+const {adminNoAccess, invalidParameters} = require("./generic-responses");
+const {db_all, db_get} = require("./db-helpers");
+
 
 const port = 8000;
 const hostname = '127.0.0.1';
 
 let db;
+let userMiddleware;
 
 async function requestHandler(request, response) {
     console.log("Received " + request.method + " " + request.url);
     
-    cookieMiddleware(request, response);
+    sessionMiddleware(request, response);
     await userMiddleware(request, response);
     queryMiddleware(request, response);
 
@@ -115,87 +120,6 @@ function add_package() {
 }
 
 
-/* cant contain ( ) < > @ , ; : \ " / [ ] ? = { } per https://developer.mozilla.org/en-US/docs/Web/HTTP/Headers/Set-Cookie */
-const COOKIES_SESSION_ID = "sessid";
-/* Seconds until the cookie expires */
-const COOKIES_EXPIRE_TIME = 60*60*24; /*24 hours*/
-/* This is where all the session data is stored */
-let sessionStore = new Map();
-
-function cookieMiddleware(req, res) {
-    /* Check if the user has any cookies set in the header */
-    if (typeof(req.headers["cookie"]) == "string") {
-        let cookies = cookie.parse(req.headers["cookie"]);
-        /* Check if the user has the specific cookie where we store session id */
-        if (typeof(cookies[COOKIES_SESSION_ID]) == "string") {
-            /* Check if that session exists in our session store */
-            let store = sessionStore.get(cookies[COOKIES_SESSION_ID]);
-            if (store != null) {
-                /* Check if the cookie has expired, getTime() returns time in milliseconds*/
-                if (new Date().getTime() > store.create_time.getTime() + COOKIES_EXPIRE_TIME * 1000) {
-                    sessionStore.delete(cookies[COOKIES_SESSION_ID]);
-                } else {
-                    req.session = store.data;
-                    return;
-                }
-            }
-        }
-    }
-
-    /* Client doesnt have a valid session id, so we create one */
-    let id = crypto.randomBytes(16).toString(HASHING_HASH_ENCODING);
-
-    if (sessionStore.has(id)) {
-        /* session id is already used which has around 1 in 3e+38 chance of happening */
-        throw new Error("Super duper unlucky, lets just throw an error");
-    }
-
-    /* We add a create time so that we can expire old sessions */
-    sessionStore.set(id, {create_time: new Date(), data: {}});
-
-    req.session = sessionStore.get(id).data;
-
-    /* Set the session cookie */
-    res.setHeader("Set-Cookie", `${COOKIES_SESSION_ID}=${id};path=/`);
-}
-
-/*
- * Checks if the client is logged in and sets req.user to the user object if so
- * to check if the client is logged in, just check if the user object is null
- */
-async function userMiddleware(req, res) {
-    req.user = null;
-    if (typeof(req.session.user_id) == "number") {
-        let user = await new Promise((resolve, reject) => {
-            db.get("SELECT * FROM user WHERE id=?", [req.session.user_id], (err, row) => {
-                if (err) {
-                    reject(err);
-                } else {
-                    resolve(row);
-                }
-            });
-        });
-        req.user = user;
-    }
-}
-
-function queryMiddleware(req, res) {
-    let raw_path = req.url.toString();
-    
-    let [pathPart, queryPart] = raw_path.split("?");
-    
-    let queryData = null;
-
-    if (queryPart != null) {
-        queryData = querystring.parse(queryPart);
-    }
-    if (queryData == null || typeof(queryData) != "object") {
-        queryData = {};
-    }
-
-    req.query = queryData;
-    req.path = pathPart;
-}
 
 async function login_get(request, response, error) {
     response.statusCode = 200;
@@ -228,23 +152,10 @@ const HASHING_ALGO = "sha512";
 const HASHING_HASH_ENCODING = "hex";
 async function login_post(request, response) {
     /* Read the post body */
-    let post_body = await new Promise((resolve, reject) => {
-        let body = ''
-        request.on('data', function(data) {
-          body += data;
-        })
-        request.on('end', function() {
-          resolve(body);
-        })
-    });
-
-    let post_parameters = {};
+    let post_body = await receive_body(request);
 
     /* Decode the key value pairs from the url encoding */
-    post_body.split("&").map((v) => {
-        let split = v.split("=");
-        post_parameters[decodeURIComponent(split[0])] = decodeURIComponent(split[1]);
-    });
+    let post_parameters = parseURLEncoded(post_body);
 
     /* Make sure that we got the right parameters */
     if (!(typeof post_parameters["username"] == "string" && typeof post_parameters["password"] == "string")) {
@@ -255,21 +166,7 @@ async function login_post(request, response) {
     }
 
     /* Find the user if it exists */
-    let user = await new Promise((resolve, reject) => {
-        db.serialize(() => {
-            db.get("SELECT id, password, salt, storeId, superuser FROM user WHERE username=?", [post_parameters["username"]], (err, row) => {
-                if (err) {
-                    resolve(null);
-                } else {
-                    if (row == undefined) {
-                        resolve(null);
-                    } else {
-                        resolve(row);
-                    }
-                }
-            })
-        });
-    });
+    let user = await db_get(db, "SELECT id, password, salt, storeId, superuser FROM user WHERE username=?", post_parameters["username"]);
 
     if (user == null) {
         /* Wrong username */
@@ -311,33 +208,8 @@ async function login_post(request, response) {
 }
 
 async function adminGet(request, response) {
-    if (request.user == null) {
-        response.statusCode = 401;
-        response.write("You need to be logged in to access this page");
-        response.end();
-        return;
-    }
-
-    if (request.superuser == 0) {
-        response.statusCode = 401;
-        response.write("You need to be admin to access this page");
-        response.end();
-        return;
-    }
-
-    if (typeof(request.query.storeid) != "string" || Number.isNaN(Number(request.query.storeid))) {
-        response.statusCode = 400;
-        response.write("Queryid malformed");
-        response.end();
-        return;
-    }
-
-    let wantedStoreId = Number(request.query.storeid);
-
-    if (request.user.storeId != wantedStoreId) {
-        response.statusCode = 401;
-        response.write("You dont have access to this store");
-        response.end();
+    let wantedStoreId = assertAdminAccess(request, request.query, response);
+    if (wantedStoreId == null) {
         return;
     }
 
@@ -380,33 +252,8 @@ async function adminGet(request, response) {
 }
 
 async function queueList(request, response) {
-    if (request.user == null) {
-        response.statusCode = 401;
-        response.write("You need to be logged in to access this page");
-        response.end();
-        return;
-    }
-
-    if (request.superuser == 0) {
-        response.statusCode = 401;
-        response.write("You need to be admin to access this page");
-        response.end();
-        return;
-    }
-
-    if (!is_string_int(request.query.storeid)) {
-        response.statusCode = 400;
-        response.write("storeid malformed");
-        response.end();
-        return;
-    }
-
-    let wantedStoreId = Number(request.query.storeid);
-
-    if (request.user.storeId != wantedStoreId) {
-        response.statusCode = 401;
-        response.write("You dont have access to this store");
-        response.end();
+    let wantedStoreId = assertAdminAccess(request, response);
+    if (wantedStoreId == null) {
         return;
     }
 
@@ -502,54 +349,27 @@ async function queueList(request, response) {
 async function queueRemove(request, response) {
     let post_data = await receive_body(request);
     let post_parameters = parseURLEncoded(post_data);
-
-    if (request.user == null) {
-        response.statusCode = 401;
-        response.write("You need to be logged in to access this page");
-        response.end();
+    
+    let wantedStoreId = assertAdminAccess(request, post_data, response);
+    if (wantedStoreId == null) {
         return;
     }
 
-    if (request.superuser == 0) {
-        response.statusCode = 401;
-        response.write("You need to be admin to access this page");
-        response.end();
+    if (!is_string_int(post_parameters.queueid)) {
+        invalidParameters(response, "queueid malformed", `/admin/queues?storeid=${wantedStoreId}`, "Back to queue list");
         return;
     }
-
-    if (!is_string_int(post_parameters.storeid) || !is_string_int(post_parameters.queueid)) {
-        response.statusCode = 400;
-        response.write("storeid or queueid malformed");
-        response.end();
-        return;
-    }
-
-    let wantedStoreId = Number(post_parameters.storeid);
     let wantedQueueId = Number(post_parameters.queueid);
 
-    if (request.user.storeId != wantedStoreId) {
-        response.statusCode = 401;
-        response.write("You dont have access to this store");
-        response.end();
-        return;
-    }
-
-    let success = await new Promise((resolve, reject) => {
+    await new Promise((resolve, reject) => {
         db.run("DELETE FROM queue WHERE id=? and storeId=?", [wantedQueueId, wantedStoreId], (err) => {
             if (err) {
-                resolve(false);
+                reject(err);
             } else {
-                resolve(true);
+                resolve();
             }
         })
     });
-
-    if (!success) {
-        response.statusCode = 400;
-        response.write("Specified queue does not exist");
-        response.end();
-        return;
-    }
 
     response.statusCode = 302;
     response.setHeader("Location", "/admin/queues?storeid=" + wantedStoreId.toString());
@@ -560,44 +380,23 @@ async function queueAdd(request, response) {
     let post_data = await receive_body(request);
     let post_parameters = parseURLEncoded(post_data);
 
-    if (request.user == null) {
-        response.statusCode = 401;
-        response.write("You need to be logged in to access this page");
-        response.end();
-        return;
-    }
-
-    if (request.superuser == 0) {
-        response.statusCode = 401;
-        response.write("You need to be admin to access this page");
-        response.end();
+    let wantedStoreId = assertAdminAccess(request, post_parameters, response);
+    if (wantedStoreId == null) {
         return;
     }
 
     if (
-        !is_string_int(post_parameters.storeid) || 
         !is_string_int(post_parameters.size) || 
         !is_string_number(post_parameters.latitude) ||
         !is_string_number(post_parameters.longitude)
     ){
-        response.statusCode = 400;
-        response.write("storeid, size, latitude or longitude malformed");
-        response.end();
+        invalidParameters(response, "size, latitude or longitude malformed", `/admin/queues?storeid=${wantedStoreId}`, "Back to queue list");
         return;
     }
 
-    let wantedStoreId = Number(post_parameters.storeid);
     let wantedSize = Number(post_parameters.size);
     let wantedLatitude = Number(post_parameters.latitude);
     let wantedLongitude = Number(post_parameters.longitude);
-
-
-    if (request.user.storeId != wantedStoreId) {
-        response.statusCode = 401;
-        response.write("You dont have access to this store");
-        response.end();
-        return;
-    }
 
     await new Promise((resolve, reject) => {
         db.run("INSERT INTO queue (latitude, longitude, size, storeId) VALUES (?, ?, ?, ?)", [wantedLatitude, wantedLongitude, wantedSize, wantedStoreId], (err) => {
@@ -614,45 +413,15 @@ async function queueAdd(request, response) {
     response.end();
 }
 
-
-function is_string_int(str) {
-    let conversion_attempt = Number(str);
-    return typeof(str) == "string" && !Number.isNaN(conversion_attempt) && Number.isInteger(conversion_attempt);
-}
-
-
-function is_string_number(str) {
-    let conversion_attempt = Number(str);
-    return typeof(str) == "string" && !Number.isNaN(conversion_attempt);
-}
-
-async function receive_body(request) {
-    return await new Promise((resolve, reject) => {
-        let body = ''
-        request.on('data', function(data) {
-          body += data;
-        })
-        request.on('end', function() {
-          resolve(body);
-        })
-    });
-}
-
-function parseURLEncoded(data) {
-    let rv = {};
-    data.split("&").map((v) => {
-        let split = v.split("=");
-        rv[decodeURIComponent(split[0])] = decodeURIComponent(split[1] ?? "");
-    });
-    return rv;
-}
-
 async function main() {
     const server = http.createServer(requestHandler);
 
     db = new sqlite3.Database(__dirname + "/../databasen.sqlite3");
-
+    
+    
     let database_creation_command = (await fs.readFile(__dirname + "/database_creation.sql")).toString();
+    
+    userMiddleware = createUserMiddleware(db);
     
     console.log("Configuring database");
 
