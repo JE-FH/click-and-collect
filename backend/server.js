@@ -241,7 +241,7 @@ async function adminGet(request, response) {
 }
 
 async function queueList(request, response) {
-    let wantedStoreId = assertAdminAccess(request, response);
+    let wantedStoreId = assertAdminAccess(request, request.query, response);
     if (wantedStoreId == null) {
         return;
     }
@@ -323,7 +323,7 @@ async function queueRemove(request, response) {
     let post_data = await receive_body(request);
     let post_parameters = parseURLEncoded(post_data);
     
-    let wantedStoreId = assertAdminAccess(request, post_data, response);
+    let wantedStoreId = assertAdminAccess(request, post_parameters, response);
     if (wantedStoreId == null) {
         return;
     }
@@ -417,25 +417,6 @@ async function main() {
             process.exit(code);
         });
     });
-}
-
-function adminNoAccess(request, response){
-    response.statusCode = 401;
-    response.write(`
-    <!DOCTYPE html>
-    <html>
-        <head>
-            <title>You are not logged in</title>
-        </head>
-
-        <body>
-            You need to be logged in as store admin to access this site.
-            <br>
-            <a href="/login"> Go to login site</a>
-        </body>
-    </html>
-    `);
-    response.end();
 }
 
 function add_employee(request, response, error){

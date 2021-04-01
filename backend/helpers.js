@@ -67,7 +67,7 @@ exports.assertAdminAccess = function assertAdminAccess(request, storeIdContainer
         return null;
     }
 
-    if (!is_string_int(storeIdContainer.storeid)) {
+    if (!exports.is_string_int(storeIdContainer.storeid)) {
         invalidParameters(response, "storeid malformed")
         return null;
     }

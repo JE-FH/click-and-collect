@@ -48,6 +48,8 @@ exports.db_run = async function db_run(db, query, param) {
 		db.run(query, param, (err) => {
 			if (err) {
 				reject(err);
+			} else {
+				resolve();
 			}
 		})
 	})
