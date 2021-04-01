@@ -40,6 +40,9 @@ async function requestHandler(request, response) {
                 case "/admin":
                     adminGet(request, response);
                     break;
+                case "/admin/package_form":
+                    package_formGet(request, response);
+                    break;
                 case "/static/style.css":
                     staticStyleCss(response);
                     break;
@@ -53,6 +56,23 @@ async function requestHandler(request, response) {
             defaultResponse(response);
             break;
     }
+}
+
+function package_formGet(request, response) {
+    response.setHeader('Content-Type', 'text/html');
+    response.write(' ');
+    response.end();
+    response.statusCode = 200;
+}
+
+function renderPackage_form() {
+    return `
+    
+    `;
+}
+
+function add_package(storeId, verificationCode) {
+    let id, guid, bookedTimeId, customerEmail, customerName, externalOrderId, creationDate; 
 }
 
 async function staticStyleCss(response) {
