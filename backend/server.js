@@ -46,6 +46,9 @@ async function requestHandler(request, response) {
                 case "/admin/queues":
                     queueList(request, response);
                     break;
+                case "/admin":
+                    adminGet(request, response);
+                    break;
                 case "/static/style.css":
                     staticStyleCss(response);
                     break;
@@ -150,14 +153,12 @@ async function userMiddleware(req, res) {
     req.user = null;
     if (typeof(req.session.user_id) == "number") {
         let user = await new Promise((resolve, reject) => {
-            db.serialize(() => {
-                db.get("SELECT * FROM user WHERE id=?", [req.session.user_id], (err, row) => {
-                    if (err) {
-                        reject(err);
-                    } else {
-                        resolve(row);
-                    }
-                })
+            db.get("SELECT * FROM user WHERE id=?", [req.session.user_id], (err, row) => {
+                if (err) {
+                    reject(err);
+                } else {
+                    resolve(row);
+                }
             });
         });
         req.user = user;
@@ -279,9 +280,9 @@ async function login_post(request, response) {
         request.session.user_id = user.id;
 
         if (user.superuser) {
-            response.setHeader('Location','/admin/' + user.storeId.toString());
+            response.setHeader('Location','/admin?storeid=' + user.storeId.toString());
         } else {
-            response.setHeader('Location','/store/' + user.storeId.toString());
+            response.setHeader('Location','/store?storeid=' + user.storeId.toString());
         }
         response.end();
 
@@ -293,6 +294,75 @@ async function login_post(request, response) {
         return;
     }
 
+}
+
+async function adminGet(request, response) {
+    if (request.user == null) {
+        response.statusCode = 401;
+        response.write("You need to be logged in to access this page");
+        response.end();
+        return;
+    }
+
+    if (request.superuser == 0) {
+        response.statusCode = 401;
+        response.write("You need to be admin to access this page");
+        response.end();
+        return;
+    }
+
+    if (typeof(request.query.storeid) != "string" || Number.isNaN(Number(request.query.storeid))) {
+        response.statusCode = 400;
+        response.write("Queryid malformed");
+        response.end();
+        return;
+    }
+
+    let wantedStoreId = Number(request.query.storeid);
+
+    if (request.user.storeId != wantedStoreId) {
+        response.statusCode = 401;
+        response.write("You dont have access to this store");
+        response.end();
+        return;
+    }
+
+    let store = await new Promise((resolve, reject) => {
+        db.serialize(() => {
+            db.get("SELECT * FROM store WHERE id=?", [wantedStoreId], (err, row) => {
+                if (err) {
+                    reject(err)
+                } else {
+                    if (row == undefined) {
+                        reject(`Expected store with id ${wantedStoreId} to exist`);
+                    } else {
+                        resolve(row);
+                    }
+                }
+            })
+        });
+    });
+
+    response.statusCode = 200;
+    response.setHeader("Content-Type", "text/html");
+    response.write(`
+<!DOCTYPE html>
+<html>
+    <head>
+        <title>Store admin for ${store.name}</title>
+    </head>
+    <body>
+        <h1>Hello ${request.user.name} these are your links</h1>
+        <ul>
+            <li><a href="/admin/queues?storeid=${store.id}">Manage queues</a></li>
+            <li><a href="/admin/settings?storeid=${store.id}">Change settings</a></li>
+            <li><a href="/admin/package_form?storeid=${store.id}">Create package manually</a></li>
+            <li><a href="/admin/employees?storeid=${store.id}">Manage employees</a></li>
+        </ul>
+    </body>
+</html>
+`)
+    response.end();
 }
 
 async function queueList(request, response) {
