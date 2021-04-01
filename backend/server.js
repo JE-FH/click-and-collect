@@ -372,8 +372,8 @@ async function adminGet(request, response) {
             <li><a href="/admin/settings?storeid=${store.id}">Change settings</a></li>
             <li><a href="/admin/package_form?storeid=${store.id}">Create package manually</a></li>
             <li><a href="/admin/employees?storeid=${store.id}">Manage employees</a></li>
-            <li><a href="/admin/employees/remove?storeid=${store.id}">Remove employees</a></li>
-            <li><a href="/admin/employees/add?storeid=${store.id}">Add employees</a></li>
+            <li><a href="/admin/employees/remove">Remove employees</a></li>
+            <li><a href="/admin/employees/add">Add employees</a></li>
         </ul>
     </body>
 </html>
@@ -786,8 +786,8 @@ function add_employee(request, response, error){
 
 }
 async function add_employee_post(request, response){
-    if (request.user === null || request.user.superuser == 0 || request.query.storeId != request.user.storeId){
-        adminNoAccess(request, response);
+    if (request.user === null || request.user.superuser == 0){ //|| request.query.storeId != request.user.storeId
+        adminNoAccess(request, response); 
     }
 
     else{
