@@ -26,6 +26,12 @@ async function requestHandler(request, response) {
                 case "/login":
                     login_post(request, response);
                     break;
+                case "/admin/queues/remove":
+                    queueRemove(request, response);
+                    break;
+                case "/admin/queues/add":
+                    queueAdd(request, response);
+                    break;
             }
             break;
         }
@@ -37,11 +43,17 @@ async function requestHandler(request, response) {
                 case "/login":
                     login_get(request, response);
                     break;
+                case "/admin/queues":
+                    queueList(request, response);
+                    break;
                 case "/admin":
                     adminGet(request, response);
                     break;
                 case "/static/style.css":
                     staticStyleCss(response);
+                    break;
+                case "/static/queueListScript.js":
+                    staticQueueListScriptJS(response);
                     break;
                 default:
                     defaultResponse(response);
@@ -59,6 +71,14 @@ async function staticStyleCss(response) {
     let content = (await fs.readFile(__dirname + "/../frontend/css/style.css")).toString();
     response.statusCode = 200;
     response.setHeader("Content-Type", "text/css");
+    response.write(content);
+    response.end();
+}
+
+async function staticQueueListScriptJS(response) {
+    let content = (await fs.readFile(__dirname + "/../frontend/js/queueListScript.js")).toString();
+    response.statusCode = 200;
+    response.setHeader("Content-Type", "text/javascript");
     response.write(content);
     response.end();
 }
@@ -345,6 +365,273 @@ async function adminGet(request, response) {
     response.end();
 }
 
+async function queueList(request, response) {
+    if (request.user == null) {
+        response.statusCode = 401;
+        response.write("You need to be logged in to access this page");
+        response.end();
+        return;
+    }
+
+    if (request.superuser == 0) {
+        response.statusCode = 401;
+        response.write("You need to be admin to access this page");
+        response.end();
+        return;
+    }
+
+    if (!is_string_int(request.query.storeid)) {
+        response.statusCode = 400;
+        response.write("storeid malformed");
+        response.end();
+        return;
+    }
+
+    let wantedStoreId = Number(request.query.storeid);
+
+    if (request.user.storeId != wantedStoreId) {
+        response.statusCode = 401;
+        response.write("You dont have access to this store");
+        response.end();
+        return;
+    }
+
+    let store = await new Promise((resolve, reject) => {
+        db.get("SELECT * FROM store WHERE id=?", [wantedStoreId], (err, row) => {
+            if (err) {
+                reject(err)
+            } else {
+                if (row == undefined) {
+                    reject(`Expected store with id ${wantedStoreId} to exist`);
+                } else {
+                    resolve(row);
+                }
+            }
+        });
+    });
+
+    let queues = await new Promise((resolve, reject) => {
+        db.all("SELECT * FROM queue WHERE storeId=?", [store.id], (err, rows) => {
+            if (err) {
+                reject(err)
+            } else {
+                resolve(rows);
+            }
+        });
+    });
+    response.statusCode = 200;
+    response.setHeader('Content-Type', 'text/html');
+    response.write(`
+<!DOCTYPE html>
+<html>
+    <head>
+        <title>Queue list for ${store.name}</title>
+        <link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/openlayers/openlayers.github.io@master/en/v6.5.0/css/ol.css" type="text/css">
+        <script src="https://cdn.jsdelivr.net/gh/openlayers/openlayers.github.io@master/en/v6.5.0/build/ol.js"></script>
+        <link rel="stylesheet" href="/static/style.css">
+        <style>
+            .map {
+                height: 400px;
+                width: 500px;
+            }
+        </style>
+    </head>
+    <body>
+        <a href="/admin?storeid=${store.id}">Go back to dashboard</a>
+        <h1>List of queues for ${store.name}</h1>
+        <table>
+            <thead>
+                <tr>
+                    <th>id</th>
+                    <th>Latitude</th>
+                    <th>Longitude</th>
+                    <th>size</th>
+                </tr>
+            </thead>
+            <tbody>
+                ${queues.map((queue) => `<tr>
+                    <td>${queue.id}</td>
+                    <td>${queue.latitude}</td>
+                    <td>${queue.longitude}</td>
+                    <td>${queue.size}</td>
+                    <td>
+                        <form action="/admin/queues/remove" method="POST">
+                            <input type="hidden" name="storeid" value="${store.id}">
+                            <input type="hidden" name="queueid" value="${queue.id}">
+                            <input type="submit" value="Remove">
+                        </form>
+                    </td>
+                </tr>`).join("\n")}
+            </tbody>
+        </table>
+        <h2>add another queue</h2>
+        <form action="/admin/queues/add", method="POST">
+            <div id="queue-placement-map" class="map"></div>
+            <label for="size">Queue capacity: </label>
+            <input type="number" name="size" required><br>
+            
+            <input id="latitude-input" type="hidden" name="latitude">
+            <input id="longitude-input" type="hidden" name="longitude">
+            <input type="hidden" name="storeid" value="${store.id}">
+            <input type="submit" value="Add">
+        </form>
+        <script type="text/javascript">
+            var queues = ${JSON.stringify(queues)};
+        </script>
+        <script type="text/javascript" src="/static/queueListScript.js"></script>
+    </body>
+</html>
+`);
+    response.end();
+}
+
+async function queueRemove(request, response) {
+    let post_data = await receive_body(request);
+    let post_parameters = parseURLEncoded(post_data);
+
+    if (request.user == null) {
+        response.statusCode = 401;
+        response.write("You need to be logged in to access this page");
+        response.end();
+        return;
+    }
+
+    if (request.superuser == 0) {
+        response.statusCode = 401;
+        response.write("You need to be admin to access this page");
+        response.end();
+        return;
+    }
+
+    if (!is_string_int(post_parameters.storeid) || !is_string_int(post_parameters.queueid)) {
+        response.statusCode = 400;
+        response.write("storeid or queueid malformed");
+        response.end();
+        return;
+    }
+
+    let wantedStoreId = Number(post_parameters.storeid);
+    let wantedQueueId = Number(post_parameters.queueid);
+
+    if (request.user.storeId != wantedStoreId) {
+        response.statusCode = 401;
+        response.write("You dont have access to this store");
+        response.end();
+        return;
+    }
+
+    let success = await new Promise((resolve, reject) => {
+        db.run("DELETE FROM queue WHERE id=? and storeId=?", [wantedQueueId, wantedStoreId], (err) => {
+            if (err) {
+                resolve(false);
+            } else {
+                resolve(true);
+            }
+        })
+    });
+
+    if (!success) {
+        response.statusCode = 400;
+        response.write("Specified queue does not exist");
+        response.end();
+        return;
+    }
+
+    response.statusCode = 302;
+    response.setHeader("Location", "/admin/queues?storeid=" + wantedStoreId.toString());
+    response.end();
+}
+
+async function queueAdd(request, response) {
+    let post_data = await receive_body(request);
+    let post_parameters = parseURLEncoded(post_data);
+
+    if (request.user == null) {
+        response.statusCode = 401;
+        response.write("You need to be logged in to access this page");
+        response.end();
+        return;
+    }
+
+    if (request.superuser == 0) {
+        response.statusCode = 401;
+        response.write("You need to be admin to access this page");
+        response.end();
+        return;
+    }
+
+    if (
+        !is_string_int(post_parameters.storeid) || 
+        !is_string_int(post_parameters.size) || 
+        !is_string_number(post_parameters.latitude) ||
+        !is_string_number(post_parameters.longitude)
+    ){
+        response.statusCode = 400;
+        response.write("storeid, size, latitude or longitude malformed");
+        response.end();
+        return;
+    }
+
+    let wantedStoreId = Number(post_parameters.storeid);
+    let wantedSize = Number(post_parameters.size);
+    let wantedLatitude = Number(post_parameters.latitude);
+    let wantedLongitude = Number(post_parameters.longitude);
+
+
+    if (request.user.storeId != wantedStoreId) {
+        response.statusCode = 401;
+        response.write("You dont have access to this store");
+        response.end();
+        return;
+    }
+
+    await new Promise((resolve, reject) => {
+        db.run("INSERT INTO queue (latitude, longitude, size, storeId) VALUES (?, ?, ?, ?)", [wantedLatitude, wantedLongitude, wantedSize, wantedStoreId], (err) => {
+            if (err) {
+                reject(err);
+            } else {
+                resolve();
+            }
+        })
+    });
+
+    response.statusCode = 302;
+    response.setHeader("Location", "/admin/queues?storeid=" + wantedStoreId.toString());
+    response.end();
+}
+
+
+function is_string_int(str) {
+    let conversion_attempt = Number(str);
+    return typeof(str) == "string" && !Number.isNaN(conversion_attempt) && Number.isInteger(conversion_attempt);
+}
+
+
+function is_string_number(str) {
+    let conversion_attempt = Number(str);
+    return typeof(str) == "string" && !Number.isNaN(conversion_attempt);
+}
+
+async function receive_body(request) {
+    return await new Promise((resolve, reject) => {
+        let body = ''
+        request.on('data', function(data) {
+          body += data;
+        })
+        request.on('end', function() {
+          resolve(body);
+        })
+    });
+}
+
+function parseURLEncoded(data) {
+    let rv = {};
+    data.split("&").map((v) => {
+        let split = v.split("=");
+        rv[decodeURIComponent(split[0])] = decodeURIComponent(split[1] ?? "");
+    });
+    return rv;
+}
 
 async function main() {
     const server = http.createServer(requestHandler);
