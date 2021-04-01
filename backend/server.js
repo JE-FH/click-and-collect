@@ -327,30 +327,26 @@ async function queueList(request, response) {
     }
 
     let store = await new Promise((resolve, reject) => {
-        db.serialize(() => {
-            db.get("SELECT * FROM store WHERE id=?", [wantedStoreId], (err, row) => {
-                if (err) {
-                    reject(err)
+        db.get("SELECT * FROM store WHERE id=?", [wantedStoreId], (err, row) => {
+            if (err) {
+                reject(err)
+            } else {
+                if (row == undefined) {
+                    reject(`Expected store with id ${wantedStoreId} to exist`);
                 } else {
-                    if (row == undefined) {
-                        reject(`Expected store with id ${wantedStoreId} to exist`);
-                    } else {
-                        resolve(row);
-                    }
+                    resolve(row);
                 }
-            })
+            }
         });
     });
 
     let queues = await new Promise((resolve, reject) => {
-        db.serialize(() => {
-            db.all("SELECT * FROM queue WHERE storeId=?", [store.id], (err, rows) => {
-                if (err) {
-                    reject(err)
-                } else {
-                    resolve(rows);
-                }
-            })
+        db.all("SELECT * FROM queue WHERE storeId=?", [store.id], (err, rows) => {
+            if (err) {
+                reject(err)
+            } else {
+                resolve(rows);
+            }
         });
     });
     response.statusCode = 200;
@@ -454,15 +450,13 @@ async function queueRemove(request, response) {
     }
 
     let success = await new Promise((resolve, reject) => {
-        db.serialize(() => {
-            db.run("DELETE FROM queue WHERE id=? and storeId=?", [wantedQueueId, wantedStoreId], (err) => {
-                if (err) {
-                    resolve(false);
-                } else {
-                    resolve(true);
-                }
-            })
-        });
+        db.run("DELETE FROM queue WHERE id=? and storeId=?", [wantedQueueId, wantedStoreId], (err) => {
+            if (err) {
+                resolve(false);
+            } else {
+                resolve(true);
+            }
+        })
     });
 
     if (!success) {
@@ -521,15 +515,13 @@ async function queueAdd(request, response) {
     }
 
     await new Promise((resolve, reject) => {
-        db.serialize(() => {
-            db.run("INSERT INTO queue (latitude, longitude, size, storeId) VALUES (?, ?, ?, ?)", [wantedLatitude, wantedLongitude, wantedSize, wantedStoreId], (err) => {
-                if (err) {
-                    reject(err);
-                } else {
-                    resolve();
-                }
-            })
-        });
+        db.run("INSERT INTO queue (latitude, longitude, size, storeId) VALUES (?, ?, ?, ?)", [wantedLatitude, wantedLongitude, wantedSize, wantedStoreId], (err) => {
+            if (err) {
+                reject(err);
+            } else {
+                resolve();
+            }
+        })
     });
 
     response.statusCode = 302;
