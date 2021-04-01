@@ -62,6 +62,12 @@ async function requestHandler(request, response) {
                 case "/admin":
                     adminGet(request, response);
                     break;
+                case "/admin/employees":
+                    employees_dashboard(request, response);
+                    break;
+                case "/admin/employees/employee_list":
+                    employee_list(request, response);
+                    break;
                 case "/static/style.css":
                     staticStyleCss(response);
                     break;
@@ -362,7 +368,6 @@ async function adminGet(request, response) {
 
     response.statusCode = 200;
     response.setHeader("Content-Type", "text/html");
-    console.log(request.session.storeId)
     response.write(`
 <!DOCTYPE html>
 <html>
@@ -376,8 +381,6 @@ async function adminGet(request, response) {
             <li><a href="/admin/settings?storeid=${store.id}">Change settings</a></li>
             <li><a href="/admin/package_form?storeid=${store.id}">Create package manually</a></li>
             <li><a href="/admin/employees?storeid=${store.id}">Manage employees</a></li>
-            <li><a href="/admin/employees/remove?storeid=${store.id}">Remove employees</a></li>
-            <li><a href="/admin/employees/add?storeid=${store.id}">Add employees</a></li>
         </ul>
     </body>
 </html>
@@ -429,7 +432,7 @@ async function queueList(request, response) {
             }
         });
     });
-
+    request.session.store_name = store.name;
     let queues = await new Promise((resolve, reject) => {
         db.all("SELECT * FROM queue WHERE storeId=?", [store.id], (err, rows) => {
             if (err) {
@@ -908,8 +911,7 @@ async function remove_employee(request,response, error){
 
                 });
                 resolve (a);
-            });
-            
+            }); 
         });
         let html_table = "";
         for (i = 0; i < username_list.length; i++){
@@ -1003,4 +1005,89 @@ async function remove_employee_post(request, response){
     }
 }
 
+function employees_dashboard(request, response){
+    if (request.user === null || request.user.superuser == 0 || request.query.storeid != request.user.storeId){
+        adminNoAccess(request, response);
+    }
+    else{
+        response.write(`<!DOCTYPE html>
+        <html>
+            <head>
+                <title>Store admin for ${request.session.store_name}</title>
+            </head>
+            <body>
+                <h1>Hello ${request.user.name} these are your links</h1>
+                <ul>
+                    <li><a href="/admin/employees/employee_list?storeid=${request.session.storeId}">View a list of employees</a></li>
+                    <li><a href="/admin/employees/remove?storeid=${request.session.storeId}">Remove employees</a></li>
+                    <li><a href="/admin/employees/add?storeid=${request.session.storeId}">Add employees</a></li>
+                </ul>
+            </body>
+        </html>
+        `)
+    response.end();
+    }
+    
+}
+
+async function find_x_in_user(find, storeId){
+    let x_list = await new Promise((resolve, reject) => {
+        let sql = `SELECT ${find} FROM user WHERE storeId=${storeId} ORDER BY id`;
+        let a = [0];
+        i = 0;
+        
+        db.all(sql, [], (err, rows) => {
+            if (err) {
+                reject(err);
+            }
+            rows.forEach((row) => {
+                b = row.username;
+                console.log(b);
+                a[i] = b;
+                i++;
+
+            });
+            resolve (a);
+        });
+    });
+    console.log(x_list);
+    return x_list;
+}
+
+async function employee_list(request, response){
+    if (request.user === null || request.user.superuser == 0 || request.query.storeid != request.user.storeId){
+        adminNoAccess(request, response);
+    }
+    else{
+        let html_table = await new Promise((resolve, reject) => {
+        username_list = find_x_in_user("username",request.user.storeId);
+        console.log(username_list);
+        let html_table = "";
+        for (i = 0; i < username_list.length; i++){
+            html_table += `<tr> <th> ${username_list[i]} </th> </tr> <br>\n`;
+        }
+        resolve(html_table);
+        });
+        // username_list = find_x_in_user("username",request.user.storeId);
+        // let html_table = "";
+        // for (i = 0; i < username_list.length; i++){
+        //     html_table += `<tr> <th> ${username_list[i]} </th> </tr> <br>\n`
+        // }
+        console.log(html_table);
+        response.write(`
+        <!DOCTYPE html>
+        <html>
+            <head>
+                <title>Employee list </title>
+            </head>
+            <body>
+                <h> Employee list <h>
+                <b> Here is a table of the current employee accounts: <br> ${html_table} </b>
+            </body>
+        </html>
+        `);
+        
+        response.end();
+    }
+}
 main();
