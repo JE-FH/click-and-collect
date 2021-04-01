@@ -6,7 +6,7 @@ const crypto = require("crypto");
 const {is_string_int, is_string_number, receive_body, parseURLEncoded, assertAdminAccess} = require("./helpers");
 const {queryMiddleware, sessionMiddleware, createUserMiddleware} = require("./middleware");
 const {adminNoAccess, invalidParameters} = require("./generic-responses");
-const {db_all, db_get, db_run} = require("./db-helpers");
+const {db_all, db_get, db_run, db_exec} = require("./db-helpers");
 
 
 const port = 8000;
@@ -382,22 +382,8 @@ async function main() {
     
     console.log("Configuring database");
 
-    /* Create a promise that should be resolved when the command has been executed */
-    await new Promise((resolve, reject) => {
-        /* db.serialize makes every command execute in the correct order */
-        db.serialize(() => {
-            /* db.exec executes all the statements in the given string */
-            db.exec(database_creation_command, (err) => {
-                if (err) {
-                    /* There was an error, call reject */
-                    reject(err);
-                } else {
-                    /* There was no error, call resolve */
-                    resolve();
-                }
-            })
-        });
-    })
+    /* Execute the database creation commands */
+    await db_exec(db, database_creation_command);
 
     console.log("Database correctly configured");
 

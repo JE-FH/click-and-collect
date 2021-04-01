@@ -61,11 +61,10 @@ exports.db_run = async function db_run(db, query, param) {
  * 
  * @param {sqlite3.Database} db the database to target
  * @param {string} query the sql query to execute
- * @param {any[]} param the parameters to replace ? with
  */
-exports.db_exec = async function db_exec(db, query, param) {
+exports.db_exec = async function db_exec(db, query) {
 	return await new Promise((resolve, reject) => {
-		db.exec(query, param, (err) => {
+		db.exec(query, (err) => {
 			if (err) {
 				reject(err);
 			} else {
