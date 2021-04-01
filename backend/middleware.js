@@ -1,4 +1,5 @@
 const cookie = require('cookie');
+const {db_get} = require("./db-helpers");
 const querystring = require("querystring");
 const crypto = require("crypto");
 
@@ -54,16 +55,7 @@ exports.createUserMiddleware = (db) => {
 	return async function userMiddleware(req, res) {
 		req.user = null;
 		if (typeof(req.session.user_id) == "number") {
-			let user = await new Promise((resolve, reject) => {
-				db.get("SELECT * FROM user WHERE id=?", [req.session.user_id], (err, row) => {
-					if (err) {
-						reject(err);
-					} else {
-						resolve(row);
-					}
-				});
-			});
-			req.user = user;
+			req.user = await db_get(db, "SELECT * FROM user WHERE id=?", [req.session.user_id]);
 		}
 	}
 }
