@@ -44,9 +44,6 @@ async function requestHandler(request, response) {
                 case "/login":
                     login_get(request, response);
                     break;
-                case "/admin":
-                    admin_dashboard(request, response);
-                    break;
                 case "/admin/employees/add":
                     add_employee(request, response, "");
                     break;
@@ -312,31 +309,6 @@ async function main() {
             process.exit(code);
         });
     });
-}
-
-
-function admin_dashboard(request, response){
-    if (request.user === null || request.user.superuser == 0){
-        adminNoAccess(request, response);
-    } 
-    else {
-        response.statusCode = 302;
-        response.write(`
-    <!DOCTYPE html>
-    <html>
-        <head>
-            <title>Dashboard</title>
-        </head>
-
-        <body>
-            <a href="/admin/employees/add"> Add new employee </a> <br>
-            <a href="/admin/employees/remove"> Remove employee </a>
-        </body>
-    </html>
-    `);
-        response.end();
-    }
-
 }
 
 function adminNoAccess(request, response){
