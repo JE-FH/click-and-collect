@@ -133,14 +133,12 @@ async function userMiddleware(req, res) {
     req.user = null;
     if (typeof(req.session.user_id) == "number") {
         let user = await new Promise((resolve, reject) => {
-            db.serialize(() => {
-                db.get("SELECT * FROM user WHERE id=?", [req.session.user_id], (err, row) => {
-                    if (err) {
-                        reject(err);
-                    } else {
-                        resolve(row);
-                    }
-                })
+            db.get("SELECT * FROM user WHERE id=?", [req.session.user_id], (err, row) => {
+                if (err) {
+                    reject(err);
+                } else {
+                    resolve(row);
+                }
             });
         });
         req.user = user;
