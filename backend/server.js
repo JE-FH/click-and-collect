@@ -1042,7 +1042,9 @@ async function find_x_in_user(find, storeId){
             }
             rows.forEach((row) => {
                 b = row.username;
-                console.log(b);
+                c = row.name;
+                console.log(`c: ${c}`);
+                console.log(`b: ${b}`);
                 a[i] = b;
                 i++;
 
@@ -1050,7 +1052,6 @@ async function find_x_in_user(find, storeId){
             resolve (a);
         });
     });
-    console.log(x_list);
     return x_list;
 }
 
@@ -1059,20 +1060,20 @@ async function employee_list(request, response){
         adminNoAccess(request, response);
     }
     else{
+        let username_list = await new Promise((resolve, reject) => {
+            resolve(find_x_in_user("username",request.user.storeId));
+        });
+        let name_list = await new Promise((resolve, reject) => {
+            resolve(find_x_in_user("name",request.user.storeId));
+        });
+        console.log
         let html_table = await new Promise((resolve, reject) => {
-        username_list = find_x_in_user("username",request.user.storeId);
-        console.log(username_list);
         let html_table = "";
         for (i = 0; i < username_list.length; i++){
             html_table += `<tr> <th> ${username_list[i]} </th> </tr> <br>\n`;
         }
         resolve(html_table);
         });
-        // username_list = find_x_in_user("username",request.user.storeId);
-        // let html_table = "";
-        // for (i = 0; i < username_list.length; i++){
-        //     html_table += `<tr> <th> ${username_list[i]} </th> </tr> <br>\n`
-        // }
         console.log(html_table);
         response.write(`
         <!DOCTYPE html>
