@@ -407,7 +407,6 @@ async function storeScan(request, response) {
     if (wantedStoreId == null) {
         return;
     }
-    let wantedStoreId = Number(request.query["storeid"])
 
     response.statusCode = 200;
     response.setHeader("Content-Type", "text/html");
@@ -423,6 +422,7 @@ async function storeScan(request, response) {
             </style>
         </head>
         <body>
+            <a href="/store?storeid=${wantedStoreId}">Go back to dashboard</a>
             <h1>Scan a package</h1>
             <p id="loading-placeholder">Trying to open camera...</p>
             <div id="controls-container" class="hidden">
