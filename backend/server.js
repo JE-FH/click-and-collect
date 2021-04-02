@@ -189,8 +189,11 @@ async function login_post(request, response) {
         request.session.user_id = user.id;
 
         if (user.superuser) {
+            request.session.storeId = user.storeId;
             response.setHeader('Location','/admin?storeid=' + user.storeId.toString());
+            
         } else {
+            request.session.storeId = user.storeId;
             response.setHeader('Location','/store?storeid=' + user.storeId.toString());
         }
         response.end();
@@ -218,6 +221,7 @@ async function adminGet(request, response) {
 
     response.statusCode = 200;
     response.setHeader("Content-Type", "text/html");
+    console.log(request.session.storeId)
     response.write(`
 <!DOCTYPE html>
 <html>
@@ -231,6 +235,8 @@ async function adminGet(request, response) {
             <li><a href="/admin/settings?storeid=${store.id}">Change settings</a></li>
             <li><a href="/admin/package_form?storeid=${store.id}">Create package manually</a></li>
             <li><a href="/admin/employees?storeid=${store.id}">Manage employees</a></li>
+            <li><a href="/admin/employees/remove?storeid=${store.id}">Remove employees</a></li>
+            <li><a href="/admin/employees/add?storeid=${store.id}">Add employees</a></li>
         </ul>
     </body>
 </html>
@@ -409,6 +415,11 @@ function add_employee(request, response, error){
     }
     else{
         response.statusCode = 200;
+
+        // Måde at vise fejl til brugeren
+        request.session.display_error ? error = request.session.last_error : error = "";
+        request.session.display_error = false;
+
         response.write(`
         <!DOCTYPE html>
         <html>
@@ -417,7 +428,7 @@ function add_employee(request, response, error){
             </head>
             <body>
                 ${error ? `<p>${error}</p>` : ""}
-                <a href="/admin"> Go to admin startpage </a> <br>
+                <a href="/admin?storeid=${request.user.storeId}"> Go to admin startpage </a> <br>
                 <h> Adding new employee to the store <h>
                 
                 <form action="/admin/employees/add" method="POST">
@@ -475,9 +486,11 @@ function add_employee(request, response, error){
 
 }
 async function add_employee_post(request, response){
-    if (request.user === null || request.user.superuser == 0){
-        adminNoAccess(request, response);
+    if (request.user === null || request.user.superuser == 0){ 
+        console.log("hej");
+        adminNoAccess(request, response); 
     }
+
     else{
         let post_body = await new Promise((resolve, reject) => {
             let body = ''
@@ -516,7 +529,7 @@ async function add_employee_post(request, response){
                         if (row == undefined) {
                             resolve(true);
                         } else {
-                            add_employee(request, response, "Username already exists")
+                            request.session.last_error = "Username already exists";                            
                             resolve(false);
                         }
                     }
@@ -532,10 +545,9 @@ async function add_employee_post(request, response){
                     } else {
                         if (row == undefined) {
                             resolve(true);
-                        } else {
-                            add_employee(request, response, "User with employee name already exists");
+                        } else {                            
+                            session.last_error = "User with employee name already exists";
                             resolve(false);
-                            return;
                         }
                     }
                 })
@@ -543,6 +555,7 @@ async function add_employee_post(request, response){
         });
         console.log(post_parameters["password"]);
         if (username_unique && employee_name_unique) {
+            request.session.last_error = "User succesfully added to database";
             let salt = crypto.randomBytes(16).toString(HASHING_HASH_ENCODING);
             let hashed = await new Promise((resolve, reject) => {
                 crypto.pbkdf2(post_parameters["password"], salt, HASHING_ITERATIONS, HASHING_KEYLEN, HASHING_ALGO, (err, derivedKey) => {
@@ -556,17 +569,20 @@ async function add_employee_post(request, response){
             db.run("INSERT INTO user (name, username, superuser, storeid, password, salt) VALUES (?, ?, ?, ?, ?, ?)", [[post_parameters["employee_name"]],[post_parameters["username"]], [post_parameters["superuser"]] == "on" ? true : false, request.user.storeId, hashed.toString(HASHING_HASH_ENCODING), salt]);
             }
             console.log("Bruger indsat i databasen");
-            add_employee(request, response, "User succesfully added to database");
+
+            request.session.display_error = true;
+            response.statusCode = 302;
+            response.setHeader('Location','/admin/employees/add?storeid=' + request.session.storeId);
+            response.end()
     }
 }
 
 
 async function remove_employee(request,response, error){
-    if (request.user === null || request.user.superuser == 0){
+    if (request.user === null || request.user.superuser == 0 || request.query.storeid != request.user.storeId){
         adminNoAccess(request, response);
     }
     else{
-
         let username_list = await new Promise((resolve, reject) => {
             let sql = `SELECT DISTINCT Username username FROM user WHERE storeId=${request.user.storeId} ORDER BY username`;
             let a = [0];
@@ -590,6 +606,10 @@ async function remove_employee(request,response, error){
         for (i = 0; i < username_list.length; i++){
             html_table += `<tr> <th> ${username_list[i]} </th> </tr> <br>\n`
         }
+
+        // Måde at vise fejl til brugeren
+        request.session.display_error ? error = request.session.last_error : error = "";
+        request.session.display_error = false;
 
         response.statusCode = 200;
 
@@ -658,14 +678,19 @@ async function remove_employee_post(request, response){
             });
         });
         if (user == null){
-            error = "Bruger ikke fundet";
+            request.session.last_error = "Bruger ikke fundet";
+            
         }
         else{
-            error = "Bruger slettet";
+            request.session.last_error = "Bruger slettet";
+            db.run("DELETE FROM user WHERE username=? AND storeId=?", [post_parameters["username"], request.user.storeId]);
         }
-        db.run("DELETE FROM user WHERE username=? AND storeId=?", [post_parameters["username"], request.user.storeId]);
+        
 
-        remove_employee(request, response, error);
+        request.session.display_error = true;
+        response.statusCode = 302;
+        response.setHeader('Location','/admin/employees/remove?storeid=' + request.session.storeId);
+        response.end()
     }
 }
 
