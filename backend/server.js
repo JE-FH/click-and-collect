@@ -385,6 +385,10 @@ async function queueAdd(request, response) {
     response.end();
 }
 
+async function storeScan(request, response) {
+    
+}
+
 async function main() {
     const server = http.createServer(requestHandler);
 

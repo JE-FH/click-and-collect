@@ -80,3 +80,32 @@ exports.assertAdminAccess = function assertAdminAccess(request, storeIdContainer
     }
     return wantedStoreId;
 }
+
+/**
+ * Checks if the user in the request has employee access to the requested
+ * store specified in the storeid. It also gives the correct error messages
+ * if the user doesnt have access
+ * @param {http.ClientRequest} request 
+ * @param {object} storeIdContainer either request.query or the post data depending on the type of request
+ * @param {http.ServerResponse} response 
+ * @returns {number | null} the storeid that the user requests
+ */
+exports.assertEmployeeAccess = function assertAdminAccess(request, storeIdContainer, response) {
+    if (request.user == null) {
+        adminNoAccess(request, response);
+        return null;
+    }
+
+    if (!exports.is_string_int(storeIdContainer.storeid)) {
+        invalidParameters(response, "storeid malformed")
+        return null;
+    }
+
+    let wantedStoreId = Number(storeIdContainer.storeid);
+
+      if (request.user.storeId != wantedStoreId) {
+        adminNoAccess(request, response);
+        return null;
+    }
+    return wantedStoreId;
+ }

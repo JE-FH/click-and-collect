@@ -16,6 +16,26 @@ exports.adminNoAccess = function adminNoAccess(request, response){
     `);
     response.end();
 };
+
+exports.employeeNoAccess = function adminNoAccess(request, response){
+    response.statusCode = 401;
+    response.write(`
+    <!DOCTYPE html>
+    <html>
+        <head>
+            <title>You are not logged in</title>
+        </head>
+
+        <body>
+            You need to be logged in as to access this site or you dont have access to the requested store.
+            <br>
+            <a href="/login"> Go to login page</a>
+        </body>
+    </html>
+    `);
+    response.end();
+};
+
 /**
  * 
  * @param {http.ServerResponse} response 
