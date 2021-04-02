@@ -43,6 +43,10 @@ async function requestHandler(request, response) {
                 case "/store":
                     storeMenu(request, response);
                     break;
+                case "/store/packages":
+                    break;
+                case "/store/scan":
+                    break;
                 default:
                     defaultResponse(response);
                     break;
@@ -325,8 +329,8 @@ async function storeMenu(request, response){
 
     /* Print the menu site and the buttons redirecting to their respective endpoints */
     /* TOCO - button redirects to endpoints: */
-    /* First button    href="/store/packages?=${search}"" */
-    /* Second button   href="/store/scan" */
+    /* First button    href="/store/packages?storeid=...&packages=.." */
+    /* Second button   href="/store/scan?storeid=..." */
 
     response.statusCode = 200;
     response.setHeader('Content-Type', 'text/html');
@@ -347,6 +351,24 @@ async function storeMenu(request, response){
     </html>
     `)
     response.end();
+}
+
+async function packageList(request, response){
+    let package = await new Promise((resolve, reject) => {
+        db.serialize(() => {
+            db.get("SELECT * FROM store WHERE id=?", [wantedStoreId], (err, row) => {
+                if (err) {
+                    reject(err)
+                } else {
+                    if (row == undefined) {
+                        reject(`Expected package with id ${wantedStoreId} to exist`);
+                    } else {
+                        resolve(row);
+                    }
+                }
+            })
+        });
+    });
 }
 
 
