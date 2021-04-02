@@ -79,6 +79,12 @@ async function requestHandler(request, response) {
                 case "/static/qrScannerScript.js":
                     staticQrScannerScriptJS(response);
                     break;
+                case "/static/js/external/qr-scanner.umd.min.js":
+                    serveFile(response, __dirname + "/../frontend/js/external/qr-scanner.umd.min.js", "text/javascript");
+                    break;
+                case "/static/js/external/qr-scanner-worker.min.js":
+                    serveFile(response, __dirname + "/../frontend/js/external/qr-scanner-worker.min.js", "text/javascript");
+                    break;
                 default:
                     defaultResponse(response);
                     break;
@@ -89,6 +95,14 @@ async function requestHandler(request, response) {
             defaultResponse(response);
             break;
     }
+}
+
+async function serveFile(response, filename, contentType) {
+    let content = (await fs.readFile(filename)).toString();
+    response.statusCode = 200;
+    response.setHeader("Content-Type", contentType);
+    response.write(content);
+    response.end();
 }
 
 async function staticStyleCss(response) {
@@ -393,6 +407,7 @@ async function storeScan(request, response) {
     if (wantedStoreId == null) {
         return;
     }
+    let wantedStoreId = Number(request.query["storeid"])
 
     response.statusCode = 200;
     response.setHeader("Content-Type", "text/html");
@@ -401,17 +416,29 @@ async function storeScan(request, response) {
     <html>
         <head>
             <title>scanner</title>
-            <link rel="stylesheet" href="/static/style.css">
             <style>
-                .map {
-                    height: 400px;
-                    width: 500px;
+                .hidden {
+                    display: none;
                 }
             </style>
         </head>
         <body>
-            <video id="scanner-content"></video>
-            <script type="javascript" src="/static/qrScannerScript.js"></script>
+            <h1>Scan a package</h1>
+            <p id="loading-placeholder">Trying to open camera...</p>
+            <div id="controls-container" class="hidden">
+                <video id="scanner-content" disablepictureinpicture playsinline></video><br>
+                <button id="start-scanner-btn">Start scanner</button>
+                <button id="stop-scanner-btn">Stop scanner</button><br>
+                <h2>Package details</h2>
+                <form action="/store/package" method="GET">
+                    <label for="validationKey">Validation key (when a qr code is found the key be set here): </label><br>
+                    <input id="validation-key-input" type="text" name="validationKey" value=""><br>
+                    <input type="hidden" value="${wantedStoreId}" name="storeid">
+                    <input type="submit" value="Go to package"><br>
+                </form>
+            </div>
+            <script src="/static/js/external/qr-scanner.umd.min.js"></script>
+            <script src="/static/qrScannerScript.js"></script>
         </body>
     </html>
     `)
