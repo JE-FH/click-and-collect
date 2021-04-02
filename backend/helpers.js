@@ -62,7 +62,7 @@ exports.parseURLEncoded = function parseURLEncoded(data) {
  * @returns {number | null} the storeid that the user requests
  */
 exports.assertAdminAccess = function assertAdminAccess(request, storeIdContainer, response) {
-    if (request.user == null || request.superuser == 0) {
+    if (request.user == null || request.user.superuser == 0) {
         adminNoAccess(request, response);
         return null;
     }
