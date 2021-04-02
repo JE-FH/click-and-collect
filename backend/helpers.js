@@ -103,9 +103,9 @@ exports.assertEmployeeAccess = function assertAdminAccess(request, storeIdContai
 
     let wantedStoreId = Number(storeIdContainer.storeid);
 
-      if (request.user.storeId != wantedStoreId) {
+    if (request.user.storeId != wantedStoreId) {
         adminNoAccess(request, response);
         return null;
     }
     return wantedStoreId;
- }
+}
