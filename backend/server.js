@@ -73,6 +73,9 @@ async function requestHandler(request, response) {
                 case "/static/queueListScript.js":
                     staticQueueListScriptJS(response);
                     break;
+                case "/static/qrScannerScript.js":
+                    staticQrScannerScriptJS(response);
+                    break;
                 default:
                     defaultResponse(response);
                     break;
@@ -95,6 +98,14 @@ async function staticStyleCss(response) {
 
 async function staticQueueListScriptJS(response) {
     let content = (await fs.readFile(__dirname + "/../frontend/js/queueListScript.js")).toString();
+    response.statusCode = 200;
+    response.setHeader("Content-Type", "text/javascript");
+    response.write(content);
+    response.end();
+}
+
+async function staticQrScannerScriptJS(response) {
+    let content = (await fs.readFile(__dirname + "/../frontend/js/qrScannerScript.js")).toString();
     response.statusCode = 200;
     response.setHeader("Content-Type", "text/javascript");
     response.write(content);
