@@ -162,15 +162,13 @@ const HASHING_ALGO = "sha512";
 const HASHING_HASH_ENCODING = "hex";
 async function login_post(request, response) {
     /* Read the post body */
-    let post_body = await new Promise((resolve, reject) => {
-        resolve(receive_body(request));
-    });
+    let post_body = await receive_body(request);
 
     post_parameters = parseURLEncoded(post_body);
 
     /* Make sure that we got the right parameters */
     if (!(typeof post_parameters["username"] == "string" && typeof post_parameters["password"] == "string")) {
-        login_get(request, response, "You didnt enter username and/or password");
+        login_get(request, response, "You didn't enter username and/or password");
         return;
     }
 
@@ -306,38 +304,8 @@ async function queueList(request, response) {
 
     let queues = await db_all(db, "SELECT * FROM queue WHERE storeId=?", [store.id]);
 
-    let wantedStoreId = Number(request.query.storeid);
-
-    if (request.user.storeId != wantedStoreId) {
-        response.statusCode = 401;
-        response.write("You dont have access to this store");
-        response.end();
-        return;
-    }
-
-    let store = await new Promise((resolve, reject) => {
-        db.get("SELECT * FROM store WHERE id=?", [wantedStoreId], (err, row) => {
-            if (err) {
-                reject(err)
-            } else {
-                if (row == undefined) {
-                    reject(`Expected store with id ${wantedStoreId} to exist`);
-                } else {
-                    resolve(row);
-                }
-            }
-        });
-    });
     request.session.store_name = store.name;
-    let queues = await new Promise((resolve, reject) => {
-        db.all("SELECT * FROM queue WHERE storeId=?", [store.id], (err, rows) => {
-            if (err) {
-                reject(err)
-            } else {
-                resolve(rows);
-            }
-        });
-    });
+
     response.statusCode = 200;
     response.setHeader('Content-Type', 'text/html');
     response.write(`
@@ -609,9 +577,7 @@ async function add_employee_post(request, response){
     }
     
     else{
-        let post_body = await new Promise((resolve, reject) => {
-            resolve(receive_body(request));
-        });
+        let post_body = await receive_body(request);
         
         post_parameters = parseURLEncoded(post_body);
         console.log(post_parameters);
@@ -747,10 +713,7 @@ async function remove_employee_post(request, response){
         admin_no_access(request, response);
     }
     else{
-        let post_body = await new Promise((resolve, reject) => {
-            resolve(receive_body(request));
-        });
-        console.log('Body: ' + post_body);
+        let post_body = await receive_body(request);
         
         post_parameters = parseURLEncoded(post_body);
        
