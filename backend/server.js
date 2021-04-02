@@ -60,10 +60,41 @@ async function requestHandler(request, response) {
 }
 
 async function packageFormHandler(request, response) {
+
+    if (request.user == null) {
+        response.statusCode = 401;
+        response.write("You need to be logged in to access this page");
+        response.end();
+        return;
+    }
+
+    if (request.superuser == 0) {
+        response.statusCode = 401;
+        response.write("You need to be admin to access this page");
+        response.end();
+        return;
+    }
+
+    if (typeof(request.query.storeid) != "string" || Number.isNaN(Number(request.query.storeid))) {
+        response.statusCode = 400;
+        response.write("Queryid malformed");
+        response.end();
+        return;
+    }
+
+    let wantedStoreId = Number(request.query.storeid);
+
+    if (request.user.storeId != wantedStoreId) {
+        response.statusCode = 401;
+        response.write("You dont have access to this store");
+        response.end();
+        return;
+    }
+
     let body = await extractBody(request);
     add_package(4563, body.customerEmail, body.customerName, body.externalOrderId);
     response.statusCode = 302;
-    response.setHeader('Location', '/admin/package_form');
+    response.setHeader('Location', request.headers['referer']);
     response.end();
 }
 
@@ -110,13 +141,43 @@ function add_package(storeId, customerEmail, customerName, externalOrderId) {
 }
 
 function package_formGet(request, response) {
+    if (request.user == null) {
+        response.statusCode = 401;
+        response.write("You need to be logged in to access this page");
+        response.end();
+        return;
+    }
+
+    if (request.superuser == 0) {
+        response.statusCode = 401;
+        response.write("You need to be admin to access this page");
+        response.end();
+        return;
+    }
+
+    if (typeof(request.query.storeid) != "string" || Number.isNaN(Number(request.query.storeid))) {
+        response.statusCode = 400;
+        response.write("Queryid malformed");
+        response.end();
+        return;
+    }
+
+    let wantedStoreId = Number(request.query.storeid);
+
+    if (request.user.storeId != wantedStoreId) {
+        response.statusCode = 401;
+        response.write("You dont have access to this store");
+        response.end();
+        return;
+    }
+
     response.setHeader('Content-Type', 'text/html');
-    response.write(renderPackage_form());
+    response.write(renderPackage_form(request.query.storeid));
     response.end();
     response.statusCode = 200;
 }
 
-function renderPackage_form() {
+function renderPackage_form(query) {
     return `
         <html>
             <head>
@@ -131,7 +192,7 @@ function renderPackage_form() {
             </head>
             <body>
                 <h1>Add package</h1>
-                <form action="/packageFormHandler" method="POST">
+                <form action="/packageFormHandler?storeid=${query}" method="POST">
                     <input type="text" name="customerName" placeholder="Customer name" required>
                     <input type="text" name="customerEmail" placeholder="Customer email" required>
                     <input type="text" name="orderId" placeholder="Order ID" required>
