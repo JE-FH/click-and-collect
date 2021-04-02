@@ -47,6 +47,7 @@ async function requestHandler(request, response) {
                 case "/api/add_package":
                     add_package();
                     break;
+                case "/": // Når man går direkte ind på "hjemmesiden"   
                 case "/login":
                     login_get(request, response);
                     break;
@@ -799,7 +800,6 @@ function add_employee(request, response){
 }
 async function add_employee_post(request, response){
     if (request.user === null || request.user.superuser == 0){ 
-        console.log("hej");
         adminNoAccess(request, response); 
     }
 
@@ -932,7 +932,7 @@ async function remove_employee(request,response, error){
             </head>
             <body>
                 ${error ? `<p>${error}</p>` : ""}
-                <a href="/admin"> Go to admin startpage </a> <br>
+                <a href="/admin?storeid=${request.user.storeId}"> Go to admin startpage </a> <br>
                 <h> Removing employee from the store <h>
                 
                 <form action="/admin/employees/remove" method="POST">
@@ -1021,6 +1021,7 @@ function employees_dashboard(request, response){
                     <li><a href="/admin/employees/employee_list?storeid=${request.session.storeId}">View a list of employees</a></li>
                     <li><a href="/admin/employees/remove?storeid=${request.session.storeId}">Remove employees</a></li>
                     <li><a href="/admin/employees/add?storeid=${request.session.storeId}">Add employees</a></li>
+                    <li><a href="/admin?storeid=${request.session.storeId}">Back to the homepage</a></li>
                 </ul>
             </body>
         </html>
@@ -1030,6 +1031,9 @@ function employees_dashboard(request, response){
     
 }
 
+/* Hjælpefunktion til at finde username, name, id og superuser til employee list
+   clunky med den er funktionel ;)
+*/
 async function find_x_in_user(find, storeId){
     let x_list = await new Promise((resolve, reject) => {
         let sql = `SELECT ${find} FROM user WHERE storeId=${storeId} ORDER BY id`;
@@ -1041,13 +1045,13 @@ async function find_x_in_user(find, storeId){
                 reject(err);
             }
             rows.forEach((row) => {
-                b = row.username;
-                c = row.name;
-                console.log(`c: ${c}`);
-                console.log(`b: ${b}`);
+                username = row.username;
+                user_name = row.name;
+                id = row.id
+                superuser = row.superuser;
+                b = username || user_name || id || superuser;
                 a[i] = b;
                 i++;
-
             });
             resolve (a);
         });
@@ -1066,15 +1070,24 @@ async function employee_list(request, response){
         let name_list = await new Promise((resolve, reject) => {
             resolve(find_x_in_user("name",request.user.storeId));
         });
-        console.log
+        let id_list = await new Promise((resolve, reject) => {
+            resolve(find_x_in_user("id",request.user.storeId));
+        });
+        let superuser_list = await new Promise((resolve, reject) => {
+            resolve(find_x_in_user("superuser",request.user.storeId));
+        });
+        
         let html_table = await new Promise((resolve, reject) => {
-        let html_table = "";
+        let html_table = `<table style="width=100%" border="1px">
+        <tr> <th> Id </th> <th>Username</th> <th> Employee name </th> <th> Is the account a superuser </th>  </tr> <br>\n`;
         for (i = 0; i < username_list.length; i++){
-            html_table += `<tr> <th> ${username_list[i]} </th> </tr> <br>\n`;
+            is_superuser = superuser_list[i] ? "yes" : "no";
+            html_table += `<tr> <td style="font-weight:normal" style="text-align:center" style="font-weight:normal"> ${id_list[i]} </td> <td style="font-weight:normal" style="text-align:center"> ${username_list[i]} </td> <td style="font-weight:normal" style="text-align:center"> ${name_list[i]} </td> <td style="font-weight:normal" style="text-align:center"> ${is_superuser}  </td>  </tr> <br>\n`;
         }
+        html_table += `</table>`
         resolve(html_table);
         });
-        console.log(html_table);
+
         response.write(`
         <!DOCTYPE html>
         <html>
@@ -1082,7 +1095,8 @@ async function employee_list(request, response){
                 <title>Employee list </title>
             </head>
             <body>
-                <h> Employee list <h>
+                <a href="/admin?storeid=${request.user.storeId}"> Go to admin startpage </a> <br>
+                <h> Employee list <h> <br>
                 <b> Here is a table of the current employee accounts: <br> ${html_table} </b>
             </body>
         </html>
