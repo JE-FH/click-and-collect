@@ -3,7 +3,7 @@ const sqlite3 = require("sqlite3");
 const fs = require("fs/promises");
 const crypto = require("crypto");
 
-const {is_string_int, is_string_number, receive_body, parseURLEncoded, assertAdminAccess} = require("./helpers");
+const {is_string_int, is_string_number, receive_body, parseURLEncoded, assertAdminAccess, assertEmployeeAccess} = require("./helpers");
 const {queryMiddleware, sessionMiddleware, createUserMiddleware} = require("./middleware");
 const {adminNoAccess, invalidParameters} = require("./generic-responses");
 const {db_all, db_get, db_run, db_exec} = require("./db-helpers");
@@ -66,6 +66,9 @@ async function requestHandler(request, response) {
                     break;
                 case "/admin":
                     adminGet(request, response);
+                    break;
+                case "/store/scan":
+                    storeScan(request, response);
                     break;
                 case "/static/style.css":
                     staticStyleCss(response);
@@ -386,7 +389,33 @@ async function queueAdd(request, response) {
 }
 
 async function storeScan(request, response) {
-    
+    let wantedStoreId = assertEmployeeAccess(request, request.query, response);
+    if (wantedStoreId == null) {
+        return;
+    }
+
+    response.statusCode = 200;
+    response.setHeader("Content-Type", "text/html");
+    response.write(`
+    <!DOCTYPE html>
+    <html>
+        <head>
+            <title>scanner</title>
+            <link rel="stylesheet" href="/static/style.css">
+            <style>
+                .map {
+                    height: 400px;
+                    width: 500px;
+                }
+            </style>
+        </head>
+        <body>
+            <video id="scanner-content"></video>
+            <script type="javascript" src="/static/qrScannerScript.js"></script>
+        </body>
+    </html>
+    `)
+    response.end();
 }
 
 async function main() {
