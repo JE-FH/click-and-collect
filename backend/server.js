@@ -61,7 +61,10 @@ async function requestHandler(request, response) {
                     queueList(request, response);
                     break;
                 case "/admin":
-                    adminGet(request, response);
+                    admin_get(request, response);
+                    break;
+                case "/store":
+                    store_get(request, response);
                     break;
                 case "/admin/employees":
                     employees_dashboard(request, response);
@@ -236,22 +239,10 @@ const HASHING_HASH_ENCODING = "hex";
 async function login_post(request, response) {
     /* Read the post body */
     let post_body = await new Promise((resolve, reject) => {
-        let body = ''
-        request.on('data', function(data) {
-          body += data;
-        })
-        request.on('end', function() {
-          resolve(body);
-        })
+        resolve(receive_body(request));
     });
 
-    let post_parameters = {};
-
-    /* Decode the key value pairs from the url encoding */
-    post_body.split("&").map((v) => {
-        let split = v.split("=");
-        post_parameters[decodeURIComponent(split[0])] = decodeURIComponent(split[1]);
-    });
+    post_parameters = parseURLEncoded(post_body);
 
     /* Make sure that we got the right parameters */
     if (!(typeof post_parameters["username"] == "string" && typeof post_parameters["password"] == "string")) {
@@ -298,14 +289,13 @@ async function login_post(request, response) {
     if (crypto.timingSafeEqual(Buffer.from(user.password, HASHING_HASH_ENCODING), hashed)) {
         response.statusCode=302;
         
+        //same same but different
         request.session.user_id = user.id;
-
-        if (user.superuser) {
-            request.session.storeId = user.storeId;
+        request.session.storeId = user.storeId;
+        if (user.superuser == true) { //det gør en forskel af ukendte årsager at sige == true
             response.setHeader('Location','/admin?storeid=' + user.storeId.toString());
             
         } else {
-            request.session.storeId = user.storeId;
             response.setHeader('Location','/store?storeid=' + user.storeId.toString());
         }
         response.end();
@@ -319,8 +309,49 @@ async function login_post(request, response) {
     }
 
 }
+async function store_get(request, response){
+    if (request.user === null || request.user.storeId != request.query.storeid){
+        no_access(request, response);
+    }
+    else{
+        let wantedStoreId = Number(request.query.storeid);
+    let store = await new Promise((resolve, reject) => {
+        db.serialize(() => {
+            db.get("SELECT * FROM store WHERE id=?", [wantedStoreId], (err, row) => {
+                if (err) {
+                    reject(err)
+                } else {
+                    if (row == undefined) {
+                        reject(`Expected store with id ${wantedStoreId} to exist`);
+                    } else {
+                        resolve(row);
+                    }
+                }
+            })
+        });
+    });
 
-async function adminGet(request, response) {
+    response.statusCode = 200;
+    response.setHeader("Content-Type", "text/html");
+    response.write(`
+<!DOCTYPE html>
+<html>
+    <head>
+        <title> Store page for ${store.name}</title>
+    </head>
+    <body>
+        <h1>Hello ${request.user.name} these are your links</h1>
+        <ul>
+            <li> You can do nothing ;)</li>
+        </ul>
+    </body>
+</html>
+`)
+    response.end();
+    }
+    
+}
+async function admin_get(request, response) {
     if (request.user == null) {
         response.statusCode = 401;
         response.write("You need to be logged in to access this page");
@@ -378,6 +409,7 @@ async function adminGet(request, response) {
     <body>
         <h1>Hello ${request.user.name} these are your links</h1>
         <ul>
+        <li><a href="/store?storeid=${store.id}"> Go to standard employee dashboard</a></li>
             <li><a href="/admin/queues?storeid=${store.id}">Manage queues</a></li>
             <li><a href="/admin/settings?storeid=${store.id}">Change settings</a></li>
             <li><a href="/admin/package_form?storeid=${store.id}">Create package manually</a></li>
@@ -702,8 +734,26 @@ async function main() {
         });
     });
 }
+function no_access(request, response){
+    response.statusCode = 401;
+    response.write(`
+    <!DOCTYPE html>
+    <html>
+        <head>
+            <title>You are not logged in</title>
+        </head>
 
-function adminNoAccess(request, response){
+        <body>
+            You need to be logged in as a store employee to access this site.
+            <br>
+            <a href="/login"> Go to login site</a>
+        </body>
+    </html>
+    `);
+    response.end();
+}
+
+function admin_no_access(request, response){
     response.statusCode = 401;
     response.write(`
     <!DOCTYPE html>
@@ -724,7 +774,7 @@ function adminNoAccess(request, response){
 
 function add_employee(request, response){
     if (request.user === null || request.user.superuser == 0 || request.query.storeid != request.user.storeId){
-        adminNoAccess(request, response);
+        admin_no_access(request, response);
     }
     else{
         response.statusCode = 200;
@@ -766,10 +816,10 @@ function add_employee(request, response){
                 <div id="wrapper">
     
                 <p>
-                <input type="radio" name="superuser" checked>Yes</input>
+                <input type="radio" value="true" name="superuser" checked>Yes</input>
                 </p>
                 <p>
-                <input type="radio" name="superuser">No</input>
+                <input type="radio" value="false" name="superuser">No</input>
                 </p>
                 </div>
                 <br>
@@ -800,29 +850,16 @@ function add_employee(request, response){
 }
 async function add_employee_post(request, response){
     if (request.user === null || request.user.superuser == 0){ 
-        adminNoAccess(request, response); 
+        admin_no_access(request, response); 
     }
-
+    
     else{
         let post_body = await new Promise((resolve, reject) => {
-            let body = ''
-            request.on('data', function(data) {
-              body += data;
-            })
-            request.on('end', function() {
-              resolve(body);
-            })
+            resolve(receive_body(request));
         });
-        console.log('Body: ' + post_body);
-    
-        let post_parameters = {};
-    
-        /* Decode the key value pairs from the url encoding */
-        post_body.split("&").map((v) => {
-            let split = v.split("=");
-            post_parameters[decodeURIComponent(split[0])] = decodeURIComponent(split[1]);
-        });
-    
+        
+        post_parameters = parseURLEncoded(post_body);
+        console.log(post_parameters);
         /*  Dårlig måde aat håndtere fejl*/
         if (!(typeof post_parameters["username"] == "string" && typeof post_parameters["password"] == "string" && typeof post_parameters["employee_name"] == "string")) { 
             response.statusCode = 400;
@@ -858,14 +895,13 @@ async function add_employee_post(request, response){
                         if (row == undefined) {
                             resolve(true);
                         } else {                            
-                            session.last_error = "User with employee name already exists";
+                            request.session.last_error = "User with employee name already exists";
                             resolve(false);
                         }
                     }
                 })
             });
         });
-        console.log(post_parameters["password"]);
         if (username_unique && employee_name_unique) {
             request.session.last_error = "User succesfully added to database";
             let salt = crypto.randomBytes(16).toString(HASHING_HASH_ENCODING);
@@ -877,10 +913,10 @@ async function add_employee_post(request, response){
                     resolve(derivedKey);
                 });
             });
-            
-            db.run("INSERT INTO user (name, username, superuser, storeid, password, salt) VALUES (?, ?, ?, ?, ?, ?)", [[post_parameters["employee_name"]],[post_parameters["username"]], [post_parameters["superuser"]] == "on" ? true : false, request.user.storeId, hashed.toString(HASHING_HASH_ENCODING), salt]);
-            }
             console.log("Bruger indsat i databasen");
+            db.run("INSERT INTO user (name, username, superuser, storeid, password, salt) VALUES (?, ?, ?, ?, ?, ?)", [[post_parameters["employee_name"]],[post_parameters["username"]], [post_parameters["superuser"]], request.user.storeId, hashed.toString(HASHING_HASH_ENCODING), salt]);
+            }
+            
 
             request.session.display_error = true;
             response.statusCode = 302;
@@ -892,7 +928,7 @@ async function add_employee_post(request, response){
 
 async function remove_employee(request,response, error){
     if (request.user === null || request.user.superuser == 0 || request.query.storeid != request.user.storeId){
-        adminNoAccess(request, response);
+        admin_no_access(request, response);
     }
     else{
         let username_list = await new Promise((resolve, reject) => {
@@ -953,25 +989,15 @@ async function remove_employee(request,response, error){
 
 async function remove_employee_post(request, response){
     if (request.user === null || request.user.superuser == 0){
-        adminNoAccess(request, response);
+        admin_no_access(request, response);
     }
     else{
         let post_body = await new Promise((resolve, reject) => {
-            let body = ''
-            request.on('data', function(data) {
-              body += data;
-            })
-            request.on('end', function() {
-              resolve(body);
-            })
+            resolve(receive_body(request));
         });
+        console.log('Body: ' + post_body);
         
-        let post_parameters = {};
-
-        post_body.split("&").map((v) => {
-            let split = v.split("=");
-            post_parameters[decodeURIComponent(split[0])] = decodeURIComponent(split[1]);
-        });
+        post_parameters = parseURLEncoded(post_body);
        
         let user = await new Promise((resolve, reject) => {
             db.serialize(() => {
@@ -1007,7 +1033,7 @@ async function remove_employee_post(request, response){
 
 function employees_dashboard(request, response){
     if (request.user === null || request.user.superuser == 0 || request.query.storeid != request.user.storeId){
-        adminNoAccess(request, response);
+        admin_no_access(request, response);
     }
     else{
         response.write(`<!DOCTYPE html>
@@ -1061,7 +1087,7 @@ async function find_x_in_user(find, storeId){
 
 async function employee_list(request, response){
     if (request.user === null || request.user.superuser == 0 || request.query.storeid != request.user.storeId){
-        adminNoAccess(request, response);
+        admin_no_access(request, response);
     }
     else{
         let username_list = await new Promise((resolve, reject) => {
