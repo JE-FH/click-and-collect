@@ -140,7 +140,7 @@ function isApiPostValid(body) {
     if(objLength(body) != 4) {
         console.log("POST body doesn't have 4 keys");
         return false;
-    } else if(typeof(body) == null) {
+    } else if(body == null) {
         console.log('POST body is undefined');
         return false;
     } else {
