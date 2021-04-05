@@ -431,14 +431,20 @@ async function storeScan(request, response) {
                 <button id="stop-scanner-btn">Stop scanner</button><br>
                 <h2>Package details</h2>
                 <form action="/store/package" method="GET">
-                    <label for="validationKey">Validation key (when a qr code is found the key be set here): </label><br>
-                    <input id="validation-key-input" type="text" name="validationKey" value=""><br>
+                    <label for="validationKey">Validation key is scanned from QR-code, click the button to manually change it: </label><br>
+                    <input id="validation-key-input" type="text" name="validationKey" disabled value=""><br>
                     <input type="hidden" value="${wantedStoreId}" name="storeid">
+                    <button type="button" onclick="manual_input()" >Toggle manual input </button>
                     <input type="submit" value="Go to package"><br>
                 </form>
             </div>
             <script src="/static/js/external/qr-scanner.umd.min.js"></script>
             <script src="/static/qrScannerScript.js"></script>
+            <script>
+                function manual_input() {
+                    document.getElementById('validation-key-input').disabled = !(document.getElementById('validation-key-input').disabled);
+                }
+            </script>
         </body>
     </html>
     `)
