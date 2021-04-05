@@ -99,12 +99,20 @@ async function api_post(request, response) {
     let body = await extractBody(request);
     
     if(isApiPostValid(body)) {
-        console.log('Valid post body');
+        
         let store = await apiKeyToStore(body.apiKey);
-        add_package(store.id, body.customerEmail, body.customerName, body.orderId);
-        console.log(store);
-        response.statusCode = 200;
-        response.end();
+        if (store != null){
+            console.log('Valid post body');
+            add_package(store.id, body.customerEmail, body.customerName, body.orderId);
+            console.log(store);
+            response.statusCode = 200;
+            response.end();
+        }
+        else{
+            console.log("No store has a matching API key.")
+            response.statusCode = 400;
+            response.end()
+        }
     } else {
         response.statusCode = 400;
         response.end()
@@ -128,10 +136,11 @@ async function apiKeyToStore(apiKey) {
 
 /* Returns true if the API POST body is valid. Further checks could be added. */
 function isApiPostValid(body) {
+    console.log(body);
     if(objLength(body) != 4) {
         console.log("POST body doesn't have 4 keys");
         return false;
-    } else if(!body) {
+    } else if(typeof(body) == null) {
         console.log('POST body is undefined');
         return false;
     } else {
