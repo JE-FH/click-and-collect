@@ -102,7 +102,6 @@ async function api_post(request, response) {
         console.log('Valid post body');
         let store = await apiKeyToStore(body.apiKey);
         add_package(store.id, body.customerEmail, body.customerName, body.orderId);
-        console.log(store);
         response.statusCode = 200;
         response.end();
     } else {
@@ -131,7 +130,7 @@ function isApiPostValid(body) {
     if(objLength(body) != 4) {
         console.log("POST body doesn't have 4 keys");
         return false;
-    } else if(!body) {
+    } else if(body == null) {
         console.log('POST body is undefined');
         return false;
     } else {
