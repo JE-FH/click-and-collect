@@ -1,5 +1,5 @@
+const nodemailer = require("nodemailer");
 const {adminNoAccess, invalidParameters} = require("./generic-responses");
-
 /**
  * Checks if a string can be converted to a whole number safely
  * @param {string} str 
@@ -111,4 +111,53 @@ exports.assertEmployeeAccess = function assertAdminAccess(request, storeIdContai
         return null;
     }
     return wantedStoreId;
+}
+
+
+const EMAIL_FROM_NAME = "Click and collect Inc.";
+let EMAIL_ADDRESS;
+
+let mailTransporter;
+
+exports.setupEmail = async function setupMail() {
+    let test_account = await nodemailer.createTestAccount();
+    mailTransporter = nodemailer.createTransport({
+        host: test_account.smtp.host,
+        port: test_account.smtp.port,
+        secure: test_account.smtp.secure,
+        auth: {
+            user: test_account.user,
+            pass: test_account.pass
+        }
+    });
+    EMAIL_ADDRESS = test_account.user;
+    console.log(`Fake email was setup, email is: ${EMAIL_ADDRESS}`);
+}
+
+/**
+ * 
+ * @param {string} recipientMail the email address the mail should be send to
+ * @param {string} recipientName the name the email should be addressed to
+ * @param {string} subjectLine the subject
+ * @param {string} textContent the text representation of the mail
+ * @param {string | null} htmlContent the html representation of the mail, if not set, only the text representation will be send
+ */
+exports.sendEmail = async function sendMail(recipientMail, recipientName, subjectLine, textContent, htmlContent) {
+    if (mailTransporter == null) {
+        throw new Error("setupMail was not called");
+    }
+
+    let message = {
+        from: `${EMAIL_FROM_NAME} <${EMAIL_ADDRESS}>`,
+        to: `${recipientName} <${recipientMail}>`,
+        subject: subjectLine,
+        text: textContent
+    }
+    if (htmlContent != null) {
+        message["html"] = htmlContent;
+    }
+
+    let info = await mailTransporter.sendMail(message);
+
+    console.log(`Fake mail was sent, preview can be seen here: ${nodemailer.getTestMessageUrl(info)}`);
 }
