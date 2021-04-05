@@ -5,6 +5,7 @@ const crypto = require("crypto");
 const cookie = require('cookie');
 const querystring = require("querystring");
 const { timeStamp } = require("console");
+const { resolve } = require("path");
 
 const port = 8000;
 const hostname = '127.0.0.1';
@@ -27,6 +28,9 @@ async function requestHandler(request, response) {
                 case "/login":
                     login_post(request, response);
                     break;
+                case "/api/add_package":
+                    api_post(request, response);
+                    break;
                 case "/packageFormHandler":
                     packageFormHandler(request, response);
                     break;
@@ -35,6 +39,9 @@ async function requestHandler(request, response) {
         }
         case "GET": {
             switch(request.path) {
+                case "/api":
+                    api_get(request, response);
+                    break;
                 case "/login":
                     login_get(request, response);
                     break;
@@ -57,6 +64,69 @@ async function requestHandler(request, response) {
             defaultResponse(response);
             break;
     }
+}
+
+function api_get(request, response) {
+
+}
+
+async function api_post(request, response) {
+    let body = await extractBody(request);
+    
+    if(isApiPostValid(body)) {
+        console.log('Valid post body');
+        let store = await apiKeyToStore(body.apiKey);
+        console.log(store);
+        add_package(store.id, body.customerEmail, body.customerName, body.orderId);
+        response.statusCode = 200;
+        response.end();
+    } else {
+        console.log('Ivalid post body');
+        response.statusCode = 400;
+        response.end()
+    }
+}
+
+async function apiKeyToStore(apiKey) {
+    let store = await new Promise((resolve, reject) => {
+        db.get("SELECT * FROM store WHERE apiKey=?", [apiKey], (err, row) => {
+            if(err) {
+                reject(err);
+            } else {
+                resolve(row);
+            }
+        });
+    })
+
+    return store;
+}
+
+function isApiPostValid(body) {
+    if(objLength(body) != 4) {
+        console.log("POST body doesn't have 4 keys");
+        return false;
+    } else if(!noNullVals) {
+        console.log("POST body contains a prohibited value");
+        return false;
+    }
+
+    return true;
+}
+
+function objLength(obj) {
+    let size = 0;
+    for(key in obj) {
+        size++;
+    }
+    return size;
+}
+
+function noNullVals(obj) {
+    for(key in obj) {
+        if(key.value == null || key.value == 0 || key.value == '')
+        return false;
+    }
+    return true;
 }
 
 async function packageFormHandler(request, response) {
@@ -114,7 +184,7 @@ async function extractBody(request) {
 }
 
 function qsToObj(queryString) {
-    let pairs = queryString.split('&');
+    let pairs = queryString.split('?');
     let result = {};
     pairs.forEach(pair => {
       pair = pair.split('=');
