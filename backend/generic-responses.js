@@ -39,11 +39,11 @@ exports.employeeNoAccess = function employeeNoAccess(request, response){
 /**
  * 
  * @param {http.ServerResponse} response 
- * @param {string} error_message 
+ * @param {string} errorMessage 
  * @param {string} redirection 
- * @param {string} redirect_text 
+ * @param {string} redirectText 
  */
-exports.invalidParameters = function invalidParameters(response, error_message, redirection, redirect_text){
+exports.invalidParameters = function invalidParameters(response, errorMessage, redirection, redirectText){
     response.statusCode = 400;
     response.write(`
     <!DOCTYPE html>
@@ -53,9 +53,9 @@ exports.invalidParameters = function invalidParameters(response, error_message, 
         </head>
 
         <body>
-            You submitted an invalid request, ${error_message}
+            You submitted an invalid request, ${errorMessage}
             <br>
-            <a href="${redirection}">Go to ${redirect_text}</a>
+            <a href="${redirection}">Go to ${redirectText}</a>
         </body>
     </html>
     `);

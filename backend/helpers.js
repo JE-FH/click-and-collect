@@ -5,9 +5,9 @@ const {adminNoAccess, invalidParameters} = require("./generic-responses");
  * @param {string} str 
  * @returns {boolean}
  */
-exports.is_string_int = function is_string_int(str) {
-    let conversion_attempt = Number(str);
-    return typeof(str) == "string" && !Number.isNaN(conversion_attempt) && Number.isInteger(conversion_attempt);
+exports.isStringInt = function isStringInt(str) {
+    let conversionAttempt = Number(str);
+    return typeof(str) == "string" && !Number.isNaN(conversionAttempt) && Number.isInteger(conversionAttempt);
 }
 
 /**
@@ -15,9 +15,9 @@ exports.is_string_int = function is_string_int(str) {
  * @param {string} str 
  * @returns {boolean}
  */
-exports.is_string_number = function is_string_number(str) {
-    let conversion_attempt = Number(str);
-    return typeof(str) == "string" && !Number.isNaN(conversion_attempt);
+exports.isStringNumber = function isStringNumber(str) {
+    let conversionAttempt = Number(str);
+    return typeof(str) == "string" && !Number.isNaN(conversionAttempt);
 }
 
 /**
@@ -25,7 +25,7 @@ exports.is_string_number = function is_string_number(str) {
  * @param {http.ClientRequest} request 
  * @returns {Promise<string>}
  */
-exports.receive_body = async function receive_body(request) {
+exports.receiveBody = async function receiveBody(request) {
     return await new Promise((resolve, reject) => {
         let body = ''
         request.on('data', function(data) {
@@ -64,10 +64,12 @@ exports.parseURLEncoded = function parseURLEncoded(data) {
 exports.assertAdminAccess = function assertAdminAccess(request, storeIdContainer, response) {
     if (request.user == null || request.user.superuser == 0) {
         adminNoAccess(request, response);
+        console.log("Bruger findes ikke eller er ikke admin");
         return null;
     }
 
-    if (!exports.is_string_int(storeIdContainer.storeid)) {
+    if (!exports.isStringInt(storeIdContainer.storeid)) {
+        console.log("Forkert query");
         invalidParameters(response, "storeid malformed")
         return null;
     }
@@ -75,6 +77,7 @@ exports.assertAdminAccess = function assertAdminAccess(request, storeIdContainer
     let wantedStoreId = Number(storeIdContainer.storeid);
 
     if (request.user.storeId != wantedStoreId) {
+        console.log("Brugerkonto og query passer ikke");
         adminNoAccess(request, response);
         return null;
     }
@@ -96,7 +99,7 @@ exports.assertEmployeeAccess = function assertAdminAccess(request, storeIdContai
         return null;
     }
 
-    if (!exports.is_string_int(storeIdContainer.storeid)) {
+    if (!exports.isStringInt(storeIdContainer.storeid)) {
         invalidParameters(response, "storeid malformed")
         return null;
     }
