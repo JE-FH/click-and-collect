@@ -70,9 +70,6 @@ async function requestHandler(request, response) {
                 case "/admin":
                     adminGet(request, response);
                     break;
-                case "/store":
-                    storeGet(request, response);
-                    break;
                 case "/admin/employees":
                     employeesDashboard(request, response);
                     break;
