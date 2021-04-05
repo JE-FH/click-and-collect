@@ -463,9 +463,7 @@ async function storeMenu(request, response){
     });
 
     /* Print the menu site and the buttons redirecting to their respective endpoints */
-    /* TODO - button redirects to endpoints: */
-    /* First button    href="/store/packages?storeid=...&packages=.." */
-    /* Second button   href="/store/scan?storeid=..." */
+    /* TODO - more buttons */
     
     response.statusCode = 200;
     response.setHeader('Content-Type', 'text/html');
@@ -478,10 +476,9 @@ async function storeMenu(request, response){
     
         <body>
             <h1>${store.name} menu</h1>
-            <form action="/store" method="POST">
-                <input type="button" value="Overview of packages" onclick="href="/store/packages?storeid=${store.id}""  ><br><br>
-                <input type="button" value="Confirm delivery" ><br>
-            </form>
+            <ul>
+                <li><a href="/store/packages?storeid=${store.id}">Package overview</a></li>
+            </ul>
         </body>
     </html>
     `)
@@ -543,7 +540,15 @@ async function packageList(request,response, error){
 
         let packageTable = "";
         for (i = 0; i < packages.length; i++){
-            packageTable += `<tr> <th> ${packages[i].id} ${packages[i].customerName}  </th> </tr> <br>\n`
+            packageTable += `<tr> <th> 
+                            | Package ID :  ${packages[i].id} 
+                            | Customer's name: ${packages[i].customerName} 
+                            | Customer's e-mail address: ${packages[i].customerEmail} 
+                            | Booked time: ${packages[i].bookedTimeId}
+                            | Verification code: ${packages[i].verificationCode}
+                            | Order id: ${packages[i].externalOrderId}
+                            | Time of order: ${packages[i].creationDate} |
+                            </th> </tr> <br>\n`
         }
 
         // Måde at vise fejl til brugeren
@@ -559,7 +564,7 @@ async function packageList(request,response, error){
                 <title>Package overview</title>
             </head>
             <body>
-                <a href="/store?storeid=${store.id}"> Return to store menu </a> <br>
+                <a href="/store?storeid=${wantedStoreId}"> Return to store menu </a> <br>
                 <h> Package overview <h>
             </form>
             <br>
