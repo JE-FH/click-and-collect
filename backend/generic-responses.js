@@ -17,7 +17,7 @@ exports.adminNoAccess = function adminNoAccess(request, response){
     response.end();
 };
 
-exports.employeeNoAccess = function adminNoAccess(request, response){
+exports.employeeNoAccess = function employeeNoAccess(request, response){
     response.statusCode = 401;
     response.write(`
     <!DOCTYPE html>

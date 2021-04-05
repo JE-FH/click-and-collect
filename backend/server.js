@@ -54,9 +54,6 @@ async function requestHandler(request, response) {
         }
         case "GET": {
             switch(request.path) {
-                case "/api/add_package":
-                    add_package();
-                    break;
                 case "/": // Når man går direkte ind på "hjemmesiden"   
                 case "/login":
                     login_get(request, response);
@@ -258,33 +255,8 @@ async function add_package(storeId, customerEmail, customerName, externalOrderId
 }
 
 function package_formGet(request, response) {
-    if (request.user == null) {
-        response.statusCode = 401;
-        response.write("You need to be logged in to access this page");
-        response.end();
-        return;
-    }
-
-    if (request.superuser == 0) {
-        response.statusCode = 401;
-        response.write("You need to be admin to access this page");
-        response.end();
-        return;
-    }
-
-    if (typeof(request.query.storeid) != "string" || Number.isNaN(Number(request.query.storeid))) {
-        response.statusCode = 400;
-        response.write("Queryid malformed");
-        response.end();
-        return;
-    }
-
-    let wantedStoreId = Number(request.query.storeid);
-
-    if (request.user.storeId != wantedStoreId) {
-        response.statusCode = 401;
-        response.write("You dont have access to this store");
-        response.end();
+    let wantedStoreId = assertAdminAccess(request, request.query, response);
+    if (wantedStoreId == null) {
         return;
     }
 
@@ -430,11 +402,12 @@ async function login_post(request, response) {
 
 }
 async function store_get(request, response){
-    if (request.user === null || request.user.storeId != request.query.storeid){
-        no_access(request, response);
+    let wantedStoreId = assertEmployeeAccess(request, request.query, response);
+
+    if (wantedStoreId == null) {
+        return;  
     }
-    else{
-        let wantedStoreId = Number(request.query.storeid);
+
     let store = await new Promise((resolve, reject) => {
         db.serialize(() => {
             db.get("SELECT * FROM store WHERE id=?", [wantedStoreId], (err, row) => {
@@ -468,7 +441,6 @@ async function store_get(request, response){
 </html>
 `)
     response.end();
-    }
     
 }
 async function admin_get(request, response) {
@@ -710,10 +682,12 @@ function admin_no_access(request, response){
 }
 
 function add_employee(request, response){
-    if (request.user === null || request.user.superuser == 0 || request.query.storeid != request.user.storeId){
-        admin_no_access(request, response);
+    let wantedStoreId = assertAdminAccess(request, request.query, response);
+
+    if (wantedStoreId == null) {
+        return;  
     }
-    else{
+
         response.statusCode = 200;
 
         // Måde at vise fejl til brugeren
@@ -781,10 +755,9 @@ function add_employee(request, response){
         </html>
         `);
         response.end();
-    }
+}
     
 
-}
 async function add_employee_post(request, response){
     if (request.user === null || request.user.superuser == 0){ 
         admin_no_access(request, response); 
@@ -862,10 +835,11 @@ async function add_employee_post(request, response){
 
 
 async function remove_employee(request,response, error){
-    if (request.user === null || request.user.superuser == 0 || request.query.storeid != request.user.storeId){
-        admin_no_access(request, response);
+    let wantedStoreId = assertAdminAccess(request, request.query, response);
+
+    if (wantedStoreId == null) {
+        return;  
     }
-    else{
         let username_list = await new Promise((resolve, reject) => {
             let sql = `SELECT DISTINCT Username username FROM user WHERE storeId=${request.user.storeId} ORDER BY username`;
             let a = [0];
@@ -919,7 +893,6 @@ async function remove_employee(request,response, error){
         `);
         
         response.end();
-        }
 }
 
 async function remove_employee_post(request, response){
@@ -964,10 +937,11 @@ async function remove_employee_post(request, response){
 }
 
 function employees_dashboard(request, response){
-    if (request.user === null || request.user.superuser == 0 || request.query.storeid != request.user.storeId){
-        admin_no_access(request, response);
+    let wantedStoreId = assertAdminAccess(request, request.query, response);
+
+    if (wantedStoreId == null) {
+        return;  
     }
-    else{
         response.write(`<!DOCTYPE html>
         <html>
             <head>
@@ -985,7 +959,6 @@ function employees_dashboard(request, response){
         </html>
         `)
     response.end();
-    }
     
 }
 
@@ -994,10 +967,11 @@ function employees_dashboard(request, response){
 */
 
 async function employee_list(request, response){
-    if (request.user === null || request.user.superuser == 0 || request.query.storeid != request.user.storeId){
-        admin_no_access(request, response);
+    let wantedStoreId = assertAdminAccess(request, request.query, response);
+
+    if (wantedStoreId == null) {
+        return;  
     }
-    else{
         let user_list = await new Promise((resolve, reject) => {
             let sql = `SELECT * FROM user WHERE storeId=${request.session.storeId} ORDER BY id`;
             let a = [0];
@@ -1043,6 +1017,5 @@ async function employee_list(request, response){
         `);
         
         response.end();
-    }
 }
 main();
