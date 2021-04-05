@@ -3,7 +3,7 @@ const sqlite3 = require("sqlite3");
 const fs = require("fs/promises");
 const crypto = require("crypto");
 
-const {is_string_int, is_string_number, receive_body, parseURLEncoded, assertAdminAccess} = require("./helpers");
+const {is_string_int, is_string_number, receive_body, parseURLEncoded, assertAdminAccess, assertEmployeeAccess} = require("./helpers");
 const {queryMiddleware, sessionMiddleware, createUserMiddleware} = require("./middleware");
 const {adminNoAccess, invalidParameters} = require("./generic-responses");
 const {db_all, db_get, db_run, db_exec} = require("./db-helpers");
@@ -67,11 +67,23 @@ async function requestHandler(request, response) {
                 case "/admin":
                     adminGet(request, response);
                     break;
+                case "/store/scan":
+                    storeScan(request, response);
+                    break;
                 case "/static/style.css":
                     staticStyleCss(response);
                     break;
                 case "/static/queueListScript.js":
                     staticQueueListScriptJS(response);
+                    break;
+                case "/static/qrScannerScript.js":
+                    staticQrScannerScriptJS(response);
+                    break;
+                case "/static/js/external/qr-scanner.umd.min.js":
+                    serveFile(response, __dirname + "/../frontend/js/external/qr-scanner.umd.min.js", "text/javascript");
+                    break;
+                case "/static/js/external/qr-scanner-worker.min.js":
+                    serveFile(response, __dirname + "/../frontend/js/external/qr-scanner-worker.min.js", "text/javascript");
                     break;
                 default:
                     defaultResponse(response);
@@ -85,6 +97,14 @@ async function requestHandler(request, response) {
     }
 }
 
+async function serveFile(response, filename, contentType) {
+    let content = (await fs.readFile(filename)).toString();
+    response.statusCode = 200;
+    response.setHeader("Content-Type", contentType);
+    response.write(content);
+    response.end();
+}
+
 async function staticStyleCss(response) {
     let content = (await fs.readFile(__dirname + "/../frontend/css/style.css")).toString();
     response.statusCode = 200;
@@ -95,6 +115,14 @@ async function staticStyleCss(response) {
 
 async function staticQueueListScriptJS(response) {
     let content = (await fs.readFile(__dirname + "/../frontend/js/queueListScript.js")).toString();
+    response.statusCode = 200;
+    response.setHeader("Content-Type", "text/javascript");
+    response.write(content);
+    response.end();
+}
+
+async function staticQrScannerScriptJS(response) {
+    let content = (await fs.readFile(__dirname + "/../frontend/js/qrScannerScript.js")).toString();
     response.statusCode = 200;
     response.setHeader("Content-Type", "text/javascript");
     response.write(content);
@@ -371,6 +399,49 @@ async function queueAdd(request, response) {
 
     response.statusCode = 302;
     response.setHeader("Location", "/admin/queues?storeid=" + wantedStoreId.toString());
+    response.end();
+}
+
+async function storeScan(request, response) {
+    let wantedStoreId = assertEmployeeAccess(request, request.query, response);
+    if (wantedStoreId == null) {
+        return;
+    }
+
+    response.statusCode = 200;
+    response.setHeader("Content-Type", "text/html");
+    response.write(`
+    <!DOCTYPE html>
+    <html>
+        <head>
+            <title>scanner</title>
+            <style>
+                .hidden {
+                    display: none;
+                }
+            </style>
+        </head>
+        <body>
+            <a href="/store?storeid=${wantedStoreId}">Go back to dashboard</a>
+            <h1>Scan a package</h1>
+            <p id="loading-placeholder">Trying to open camera...</p>
+            <div id="controls-container" class="hidden">
+                <video id="scanner-content" disablepictureinpicture playsinline></video><br>
+                <button id="start-scanner-btn">Start scanner</button>
+                <button id="stop-scanner-btn">Stop scanner</button><br>
+                <h2>Package details</h2>
+                <form action="/store/package" method="GET">
+                    <label for="validationKey">Validation key (when a qr code is found the key be set here): </label><br>
+                    <input id="validation-key-input" type="text" name="validationKey" value=""><br>
+                    <input type="hidden" value="${wantedStoreId}" name="storeid">
+                    <input type="submit" value="Go to package"><br>
+                </form>
+            </div>
+            <script src="/static/js/external/qr-scanner.umd.min.js"></script>
+            <script src="/static/qrScannerScript.js"></script>
+        </body>
+    </html>
+    `)
     response.end();
 }
 
