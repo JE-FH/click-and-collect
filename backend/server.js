@@ -412,7 +412,6 @@ async function storeGet(request, response){
 async function adminGet(request, response) {
     let wantedStoreId = assertAdminAccess(request, request.query, response);
     if (wantedStoreId == null) {
-        console.log("hej");
         return;
     }
 
@@ -581,7 +580,7 @@ async function main() {
 
     db = new sqlite3.Database(__dirname + "/../databasen.sqlite3");
 
-    let database_creation_command = (await fs.readFile(__dirname + "/database_creation.sql")).toString();
+    let databaseCreationCommand = (await fs.readFile(__dirname + "/database_creation.sql")).toString();
 
     console.log("Configuring database");
     
@@ -865,7 +864,6 @@ async function removeEmployeePost(request, response){
 
     request.session.displayError = true;
     response.statusCode = 302;
-    console.log("hej");
     response.setHeader('Location','/admin/employees/remove?storeid=' + request.session.storeId);
     response.end()
 }

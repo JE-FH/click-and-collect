@@ -70,7 +70,7 @@ exports.assertAdminAccess = function assertAdminAccess(request, storeIdContainer
 
     if (!exports.isStringInt(storeIdContainer.storeid)) {
         console.log("Forkert query");
-        invalidParameters(response, "storeid malformed")
+        invalidParameters(response, "storeid malformed", "/login", "login page")
         return null;
     }
 
