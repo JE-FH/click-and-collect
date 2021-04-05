@@ -6,6 +6,7 @@ Click and collect is the implementation for our P2 project, this is able to coor
 
 ## To run
 * Run `npm install` in the directory "backend". You only have to do this once when you download/update the repository.
+* Run `node backend/download-external-dependencies.js`, this will download the required external dependencies for the frontend
 * Run `node backend/server.js` in the root directory of the repository. This will setup an empty sqlite3 database in the root directory called `databasen.sqlite3` and run the server. 
 
 ## Helpful tasks
