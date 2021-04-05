@@ -144,23 +144,12 @@ async function apiKeyToStore(apiKey) {
 
 /* Returns true if the API POST body is valid. Further checks could be added. */
 function isApiPostValid(body) {
-    if(objLength(body) != 4) {
-        console.log("POST body doesn't have 4 keys");
-        return false;
-    } else if(body == null) {
+    if(body == null) {
         console.log('POST body is undefined');
         return false;
     } else {
         return true;
     }
-}
-
-function objLength(obj) {
-    let size = 0;
-    for(key in obj) {
-        size++;
-    }
-    return size;
 }
 
 /* Adds a package from the form on /admin/add_package */ 
