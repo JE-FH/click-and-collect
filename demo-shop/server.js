@@ -32,7 +32,7 @@ function requestHandler(request, response) {
                     break;
                 case '/success':
                     getSuccess(response);
-                    api_js("John Doe", "johndoe@mail.com", "#8090AA02", "demo-shop-94835577175941")
+                    apiJs("John Doe", "johndoe@mail.com", "#8090AA02", "demo-shop-94835577175941")
                     break;
                 default:
                     defaultResponse(response);
@@ -253,7 +253,7 @@ function formHandler(response) {
     response.end();
 }
 
-function api_js(customerName, customerEmail, orderId, apiKey) {
+function apiJs(customerName, customerEmail, orderId, apiKey) {
     let qs = `customerName=${customerName}?customerEmail=${customerEmail}?orderId=${orderId}?apiKey=${apiKey}`;
 
     fetch('http://127.0.0.1:8000/api/add_package', {

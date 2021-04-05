@@ -1,5 +1,5 @@
 const cookie = require('cookie');
-const {db_get} = require("./db-helpers");
+const {dbGet} = require("./db-helpers");
 const querystring = require("querystring");
 const crypto = require("crypto");
 
@@ -20,7 +20,7 @@ exports.sessionMiddleware = function sessionMiddleware(req, res) {
             let store = sessionStore.get(cookies[COOKIES_SESSION_ID]);
             if (store != null) {
                 /* Check if the cookie has expired, getTime() returns time in milliseconds*/
-                if (new Date().getTime() > store.create_time.getTime() + COOKIES_EXPIRE_TIME * 1000) {
+                if (new Date().getTime() > store.createTime.getTime() + COOKIES_EXPIRE_TIME * 1000) {
                     sessionStore.delete(cookies[COOKIES_SESSION_ID]);
                 } else {
                     req.session = store.data;
@@ -39,7 +39,7 @@ exports.sessionMiddleware = function sessionMiddleware(req, res) {
     }
 
     /* We add a create time so that we can expire old sessions */
-    sessionStore.set(id, {create_time: new Date(), data: {}});
+    sessionStore.set(id, {createTime: new Date(), data: {}});
 
     req.session = sessionStore.get(id).data;
 
@@ -54,16 +54,16 @@ exports.sessionMiddleware = function sessionMiddleware(req, res) {
 exports.createUserMiddleware = (db) => {
 	return async function userMiddleware(req, res) {
 		req.user = null;
-		if (typeof(req.session.user_id) == "number") {
-			req.user = await db_get(db, "SELECT * FROM user WHERE id=?", [req.session.user_id]);
+		if (typeof(req.session.userId) == "number") {
+			req.user = await dbGet(db, "SELECT * FROM user WHERE id=?", [req.session.userId]);
 		}
 	}
 }
 
 exports.queryMiddleware = function queryMiddleware(req, res) {
-    let raw_path = req.url.toString();
+    let rawPath = req.url.toString();
     
-    let [pathPart, queryPart] = raw_path.split("?");
+    let [pathPart, queryPart] = rawPath.split("?");
     
     let queryData = null;
 
