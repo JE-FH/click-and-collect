@@ -105,7 +105,6 @@ async function api_post(request, response) {
         response.statusCode = 200;
         response.end();
     } else {
-        console.log('Ivalid post body');
         response.statusCode = 400;
         response.end()
     }
@@ -131,7 +130,12 @@ function isApiPostValid(body) {
     if(objLength(body) != 4) {
         console.log("POST body doesn't have 4 keys");
         return false;
-    } else return true;
+    } else if(!body) {
+        console.log('POST body is undefined');
+        return false;
+    } else {
+        return true;
+    }
 }
 
 function objLength(obj) {
