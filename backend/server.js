@@ -106,7 +106,6 @@ async function api_post(request, response) {
         response.statusCode = 200;
         response.end();
     } else {
-        console.log('Invalid post body');
         response.statusCode = 400;
         response.end()
     }
