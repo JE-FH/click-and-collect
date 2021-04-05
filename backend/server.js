@@ -102,10 +102,9 @@ async function requestHandler(request, response) {
 
 /* Request handler for the /api/add_package endpoint */
 async function api_post(request, response) {
-    let body = await extractBody(request);
-    
+    let body = await receive_body(request);
+    body = parseURLEncoded(body);
     if(isApiPostValid(body)) {
-        
         let store = await apiKeyToStore(body.apiKey);
         if (store != null){
             console.log('Valid post body');
@@ -142,7 +141,6 @@ async function apiKeyToStore(apiKey) {
 
 /* Returns true if the API POST body is valid. Further checks could be added. */
 function isApiPostValid(body) {
-    //console.log(body);
     if(objLength(body) != 4) {
         console.log("POST body doesn't have 4 keys");
         return false;
@@ -195,37 +193,12 @@ async function packageFormHandler(request, response) {
         return;
     }
 
-    let body = await extractBody(request);
+    let body = await receive_body(request);
+    body = parseURLEncoded(body);
     add_package(4563, body.customerEmail, body.customerName, body.externalOrderId);
     response.statusCode = 302;
     response.setHeader('Location', request.headers['referer']);
     response.end();
-}
-
-async function extractBody(request) {
-    let body = [];
-    let bodyJSON = {};
-    let promise = await new Promise((resolve, reject) => {
-        request.on('data', (data) => {
-            body.push(data);
-        }).on('end', () => {
-            bodyJSON = qsToObj(body.toString());
-            resolve(bodyJSON);
-        })
-    })
-    
-    return promise;
-}
-
-/* Converts a query string to an object */
-function qsToObj(queryString) {
-    let pairs = queryString.split('?');
-    let result = {};
-    pairs.forEach(pair => {
-      pair = pair.split('=');
-      result[pair[0]] = pair[1];
-    });
-    return result;
 }
 
 /* Adds a package to the 'package' table in the database */
@@ -759,77 +732,78 @@ function add_employee(request, response){
     
 
 async function add_employee_post(request, response){
-    if (request.user === null || request.user.superuser == 0){ 
-        admin_no_access(request, response); 
-    }
-    
-    else{
-        let post_body = await receive_body(request);
-        
-        post_parameters = parseURLEncoded(post_body);
-        console.log(post_parameters);
-        /*  Dårlig måde aat håndtere fejl*/
-        if (!(typeof post_parameters["username"] == "string" && typeof post_parameters["password"] == "string" && typeof post_parameters["employee_name"] == "string")) { 
-            response.statusCode = 400;
-            response.write("Some of the input is wrong");
-            response.end();
-            return;
-        }
-    
-        /* Find the user if it exists */
-        let username_unique = await new Promise((resolve, reject) => {
-            db.serialize(() => {
-                db.get("SELECT id FROM user WHERE username=?", [post_parameters["username"]], (err, row) => {
-                    if (err) {
-                        resolve(null);
-                    } else {
-                        if (row == undefined) {
-                            resolve(true);
-                        } else {
-                            request.session.last_error = "Username already exists";                            
-                            resolve(false);
-                        }
-                    }
-                })
-            });
-        });
-    
-        let employee_name_unique = await new Promise((resolve, reject) => {
-            db.serialize(() => {
-                db.get("SELECT id FROM user WHERE name=?", [post_parameters["employee_name"]], (err, row) => {
-                    if (err) {
-                        resolve(null);
-                    } else {
-                        if (row == undefined) {
-                            resolve(true);
-                        } else {                            
-                            request.session.last_error = "User with employee name already exists";
-                            resolve(false);
-                        }
-                    }
-                })
-            });
-        });
-        if (username_unique && employee_name_unique) {
-            request.session.last_error = "User succesfully added to database";
-            let salt = crypto.randomBytes(16).toString(HASHING_HASH_ENCODING);
-            let hashed = await new Promise((resolve, reject) => {
-                crypto.pbkdf2(post_parameters["password"], salt, HASHING_ITERATIONS, HASHING_KEYLEN, HASHING_ALGO, (err, derivedKey) => {
-                    if (err) {
-                        reject(err);
-                    }
-                    resolve(derivedKey);
-                });
-            });
-            console.log("Bruger indsat i databasen");
-            db.run("INSERT INTO user (name, username, superuser, storeid, password, salt) VALUES (?, ?, ?, ?, ?, ?)", [[post_parameters["employee_name"]],[post_parameters["username"]], [post_parameters["superuser"]], request.user.storeId, hashed.toString(HASHING_HASH_ENCODING), salt]);
-            }
-            
+    let wantedStoreId = assertAdminAccess(request, request.query, response);
 
-            request.session.display_error = true;
-            response.statusCode = 302;
-            response.setHeader('Location','/admin/employees/add?storeid=' + request.session.storeId);
-            response.end()
+    if (wantedStoreId == null) {
+        return;  
+    }
+
+    let post_body = await receive_body(request);
+    
+    post_parameters = parseURLEncoded(post_body);
+    console.log(post_parameters);
+    /*  Dårlig måde aat håndtere fejl*/
+    if (!(typeof post_parameters["username"] == "string" && typeof post_parameters["password"] == "string" && typeof post_parameters["employee_name"] == "string")) { 
+        response.statusCode = 400;
+        response.write("Some of the input is wrong");
+        response.end();
+        return;
+    }
+
+    /* Find the user if it exists */
+    let username_unique = await new Promise((resolve, reject) => {
+        db.serialize(() => {
+            db.get("SELECT id FROM user WHERE username=?", [post_parameters["username"]], (err, row) => {
+                if (err) {
+                    resolve(null);
+                } else {
+                    if (row == undefined) {
+                        resolve(true);
+                    } else {
+                        request.session.last_error = "Username already exists";                            
+                        resolve(false);
+                    }
+                }
+            })
+        });
+    });
+
+    let employee_name_unique = await new Promise((resolve, reject) => {
+        db.serialize(() => {
+            db.get("SELECT id FROM user WHERE name=?", [post_parameters["employee_name"]], (err, row) => {
+                if (err) {
+                    resolve(null);
+                } else {
+                    if (row == undefined) {
+                        resolve(true);
+                    } else {                            
+                        request.session.last_error = "User with employee name already exists";
+                        resolve(false);
+                    }
+                }
+            })
+        });
+    });
+    if (username_unique && employee_name_unique) {
+        request.session.last_error = "User succesfully added to database";
+        let salt = crypto.randomBytes(16).toString(HASHING_HASH_ENCODING);
+        let hashed = await new Promise((resolve, reject) => {
+            crypto.pbkdf2(post_parameters["password"], salt, HASHING_ITERATIONS, HASHING_KEYLEN, HASHING_ALGO, (err, derivedKey) => {
+                if (err) {
+                    reject(err);
+                }
+                resolve(derivedKey);
+            });
+        });
+        console.log("Bruger indsat i databasen");
+        db.run("INSERT INTO user (name, username, superuser, storeid, password, salt) VALUES (?, ?, ?, ?, ?, ?)", [[post_parameters["employee_name"]],[post_parameters["username"]], [post_parameters["superuser"]], request.user.storeId, hashed.toString(HASHING_HASH_ENCODING), salt]);
+        }
+        
+
+        request.session.display_error = true;
+        response.statusCode = 302;
+        response.setHeader('Location','/admin/employees/add?storeid=' + request.session.storeId);
+        response.end()
     }
 }
 
@@ -896,44 +870,43 @@ async function remove_employee(request,response, error){
 }
 
 async function remove_employee_post(request, response){
-    if (request.user === null || request.user.superuser == 0){
-        admin_no_access(request, response);
+    let wantedStoreId = assertAdminAccess(request, request.query, response);
+
+    if (wantedStoreId == null) {
+        return;  
     }
-    else{
-        let post_body = await receive_body(request);
-        
-        post_parameters = parseURLEncoded(post_body);
-       
-        let user = await new Promise((resolve, reject) => {
-            db.serialize(() => {
-                db.get("SELECT id, password, salt, superuser FROM user WHERE username=? AND storeId=?", [post_parameters["username"],request.user.storeId], (err, row) => {
-                    if (err) {
+    let post_body = await receive_body(request);
+    
+    post_parameters = parseURLEncoded(post_body);
+    
+    let user = await new Promise((resolve, reject) => {
+        db.serialize(() => {
+            db.get("SELECT id, password, salt, superuser FROM user WHERE username=? AND storeId=?", [post_parameters["username"],request.user.storeId], (err, row) => {
+                if (err) {
+                    resolve(null);
+                } else {
+                    if (row == undefined) {
                         resolve(null);
                     } else {
-                        if (row == undefined) {
-                            resolve(null);
-                        } else {
-                            resolve(row);
-                        }
+                        resolve(row);
                     }
-                })
-            });
+                }
+            })
         });
-        if (user == null){
-            request.session.last_error = "Bruger ikke fundet";
-            
-        }
-        else{
-            request.session.last_error = "Bruger slettet";
-            db.run("DELETE FROM user WHERE username=? AND storeId=?", [post_parameters["username"], request.user.storeId]);
-        }
-        
-
-        request.session.display_error = true;
-        response.statusCode = 302;
-        response.setHeader('Location','/admin/employees/remove?storeid=' + request.session.storeId);
-        response.end()
+    });
+    if (user == null){
+        request.session.last_error = "Bruger ikke fundet";
     }
+    else{
+        request.session.last_error = "Bruger slettet";
+        db.run("DELETE FROM user WHERE username=? AND storeId=?", [post_parameters["username"], request.user.storeId]);
+    }
+    
+
+    request.session.display_error = true;
+    response.statusCode = 302;
+    response.setHeader('Location','/admin/employees/remove?storeid=' + request.session.storeId);
+    response.end()
 }
 
 function employees_dashboard(request, response){
