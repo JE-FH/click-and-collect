@@ -133,6 +133,8 @@ function add_package(storeId, customerEmail, customerName, externalOrderId) {
 
     let query = 'INSERT INTO package (guid, storeId, bookedTimeId, verificationCode, customerEmail, customerName, externalOrderId, creationDate) VALUES (?, ?, ?, ?, ?, ?, ?, ?)';
 
+    /* Serialize er ikke nødvendig og hvis vi ville kunne vi samle i en linje
+    */
     db.serialize(() => {
         db.run(query, [guid, storeId, bookedTimeId, verificationCode, customerEmail, customerName, externalOrderId, creationDate]);
     })
@@ -195,7 +197,7 @@ function renderPackage_form(query) {
                 <form action="/packageFormHandler?storeid=${query}" method="POST">
                     <input type="text" name="customerName" placeholder="Customer name" required>
                     <input type="text" name="customerEmail" placeholder="Customer email" required>
-                    <input type="text" name="orderId" placeholder="Order ID" required>
+                    <input type="text" name="externalOrderId" placeholder="Order ID" required> 
                     <input type="submit">
                 </form>
             </body>
@@ -478,6 +480,7 @@ async function adminGet(request, response) {
             <li><a href="/admin/settings?storeid=${store.id}">Change settings</a></li>
             <li><a href="/admin/package_form?storeid=${store.id}">Create package manually</a></li>
             <li><a href="/admin/employees?storeid=${store.id}">Manage employees</a></li>
+            <li><a href="/admin/package_form?storeid=${store.id}">Add package manually</a></li>
         </ul>
     </body>
 </html>
