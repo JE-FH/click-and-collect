@@ -31,6 +31,12 @@ async function requestHandler(request, response) {
                 case "/login":
                     login_post(request, response);
                     break;
+                case "/api/add_package":
+                    api_post(request, response);
+                    break;
+                case "/packageFormHandler":
+                    packageFormHandler(request, response);
+                    break;
                 case "/admin/employees/add":
                     add_employee_post(request, response);
                     break;
@@ -48,9 +54,6 @@ async function requestHandler(request, response) {
         }
         case "GET": {
             switch(request.path) {
-                case "/api/add_package":
-                    add_package();
-                    break;
                 case "/login":
                     login_get(request, response);
                     break;
@@ -65,6 +68,9 @@ async function requestHandler(request, response) {
                     break;
                 case "/admin":
                     adminGet(request, response);
+                    break;
+                case "/admin/package_form":
+                    package_formGet(request, response);
                     break;
                 case "/static/style.css":
                     staticStyleCss(response);
@@ -92,6 +98,213 @@ async function requestHandler(request, response) {
     }
 }
 
+/* Request handler for the /api/add_package endpoint */
+async function api_post(request, response) {
+    let body = await extractBody(request);
+    
+    if(isApiPostValid(body)) {
+        
+        let store = await apiKeyToStore(body.apiKey);
+        if (store != null){
+            console.log('Valid post body');
+            add_package(store.id, body.customerEmail, body.customerName, body.orderId);
+            console.log(store);
+            response.statusCode = 200;
+            response.end();
+        }
+        else{
+            console.log("No store has a matching API key.")
+            response.statusCode = 400;
+            response.end()
+        }
+    } else {
+        response.statusCode = 400;
+        response.end()
+    }
+}
+
+/* Returns the associated store from a given API key */
+async function apiKeyToStore(apiKey) {
+    let store = await new Promise((resolve, reject) => {
+        db.get("SELECT * FROM store WHERE apiKey=?", [apiKey], (err, row) => {
+            if(err) {
+                reject(err);
+            } else {
+                resolve(row);
+            }
+        });
+    })
+
+    return store;
+}
+
+/* Returns true if the API POST body is valid. Further checks could be added. */
+function isApiPostValid(body) {
+    console.log(body);
+    if(objLength(body) != 4) {
+        console.log("POST body doesn't have 4 keys");
+        return false;
+    } else if(body == null) {
+        console.log('POST body is undefined');
+        return false;
+    } else {
+        return true;
+    }
+}
+
+function objLength(obj) {
+    let size = 0;
+    for(key in obj) {
+        size++;
+    }
+    return size;
+}
+
+/* Adds a package from the form on /admin/add_package */ 
+async function packageFormHandler(request, response) {
+
+    if (request.user == null) {
+        response.statusCode = 401;
+        response.write("You need to be logged in to access this page");
+        response.end();
+        return;
+    }
+
+    if (request.superuser == 0) {
+        response.statusCode = 401;
+        response.write("You need to be admin to access this page");
+        response.end();
+        return;
+    }
+
+    if (typeof(request.query.storeid) != "string" || Number.isNaN(Number(request.query.storeid))) {
+        response.statusCode = 400;
+        response.write("Queryid malformed");
+        response.end();
+        return;
+    }
+
+    let wantedStoreId = Number(request.query.storeid);
+
+    if (request.user.storeId != wantedStoreId) {
+        response.statusCode = 401;
+        response.write("You dont have access to this store");
+        response.end();
+        return;
+    }
+
+    let body = await extractBody(request);
+    add_package(4563, body.customerEmail, body.customerName, body.externalOrderId);
+    response.statusCode = 302;
+    response.setHeader('Location', request.headers['referer']);
+    response.end();
+}
+
+async function extractBody(request) {
+    let body = [];
+    let bodyJSON = {};
+    let promise = await new Promise((resolve, reject) => {
+        request.on('data', (data) => {
+            body.push(data);
+        }).on('end', () => {
+            bodyJSON = qsToObj(body.toString());
+            resolve(bodyJSON);
+        })
+    })
+    
+    return promise;
+}
+
+/* Converts a query string to an object */
+function qsToObj(queryString) {
+    let pairs = queryString.split('?');
+    let result = {};
+    pairs.forEach(pair => {
+      pair = pair.split('=');
+      result[pair[0]] = pair[1];
+    });
+    return result;
+}
+
+/* Adds a package to the 'package' table in the database */
+function add_package(storeId, customerEmail, customerName, externalOrderId) {
+    let guid, bookedTimeId, creationDate, verificationCode;
+
+    guid = crypto.randomBytes(8).toString("hex");
+    bookedTimeId = null;
+    creationDate = new Date();
+    verificationCode = crypto.randomBytes(16).toString("hex");
+    
+    let query = 'INSERT INTO package (guid, storeId, bookedTimeId, verificationCode, customerEmail, customerName, externalOrderId, creationDate) VALUES (?, ?, ?, ?, ?, ?, ?, ?)';
+
+    db.run(query, [guid, storeId, bookedTimeId, verificationCode, customerEmail, customerName, externalOrderId, creationDate]);
+
+    console.log('Package added for: ' + customerName);
+}
+
+function package_formGet(request, response) {
+    if (request.user == null) {
+        response.statusCode = 401;
+        response.write("You need to be logged in to access this page");
+        response.end();
+        return;
+    }
+
+    if (request.superuser == 0) {
+        response.statusCode = 401;
+        response.write("You need to be admin to access this page");
+        response.end();
+        return;
+    }
+
+    if (typeof(request.query.storeid) != "string" || Number.isNaN(Number(request.query.storeid))) {
+        response.statusCode = 400;
+        response.write("Queryid malformed");
+        response.end();
+        return;
+    }
+
+    let wantedStoreId = Number(request.query.storeid);
+
+    if (request.user.storeId != wantedStoreId) {
+        response.statusCode = 401;
+        response.write("You dont have access to this store");
+        response.end();
+        return;
+    }
+
+    response.setHeader('Content-Type', 'text/html');
+    response.write(renderPackage_form(request.query.storeid));
+    response.end();
+    response.statusCode = 200;
+}
+
+function renderPackage_form(query) {
+    return `
+        <html>
+            <head>
+                <meta charset="UTF-8">
+                <title>Add package</title>
+
+                <style>
+                    body {
+                        font-family: sans-serif;
+                    }
+                </style>
+            </head>
+            <body>
+                <h1>Add package</h1>
+                <form action="/packageFormHandler?storeid=${query}" method="POST">
+                    <input type="text" name="customerName" placeholder="Customer name" required>
+                    <input type="text" name="customerEmail" placeholder="Customer email" required>
+                    <input type="text" name="externalOrderId" placeholder="Order ID" required> 
+                    <input type="submit">
+                </form>
+            </body>
+        </html>
+    `;
+}
+
 async function staticStyleCss(response) {
     let content = (await fs.readFile(__dirname + "/../frontend/css/style.css")).toString();
     response.statusCode = 200;
@@ -115,15 +328,6 @@ function defaultResponse(response) {
     response.write("Page not found");
     response.end();
    
-}
-
-/* Example of a HTTP request case */
-function add_package() {
-    console.log('No API');
-    response.setHeader('Content-Type', 'text/plain');
-    response.write(' ');
-    response.end("\n");
-    response.statusCode = 404;
 }
 
 async function login_get(request, response, error) {
@@ -398,8 +602,6 @@ async function adminGet(request, response) {
             <li><a href="/admin/settings?storeid=${store.id}">Change settings</a></li>
             <li><a href="/admin/package_form?storeid=${store.id}">Create package manually</a></li>
             <li><a href="/admin/employees?storeid=${store.id}">Manage employees</a></li>
-            <li><a href="/admin/employees/remove?storeid=${store.id}">Remove employees</a></li>
-            <li><a href="/admin/employees/add?storeid=${store.id}">Add employees</a></li>
         </ul>
     </body>
 </html>
