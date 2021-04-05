@@ -3,7 +3,7 @@ const sqlite3 = require("sqlite3");
 const fs = require("fs/promises");
 const crypto = require("crypto");
 
-const {is_string_int, is_string_number, receive_body, parseURLEncoded, assertAdminAccess} = require("./helpers");
+const {is_string_int, is_string_number, receive_body, parseURLEncoded, assertAdminAccess, sendEmail, setupEmail} = require("./helpers");
 const {queryMiddleware, sessionMiddleware, createUserMiddleware} = require("./middleware");
 const {adminNoAccess, invalidParameters} = require("./generic-responses");
 const {db_all, db_get, db_run, db_exec} = require("./db-helpers");
@@ -589,19 +589,19 @@ async function main() {
     const server = http.createServer(requestHandler);
 
     db = new sqlite3.Database(__dirname + "/../databasen.sqlite3");
-    
-    
-    let database_creation_command = (await fs.readFile(__dirname + "/database_creation.sql")).toString();
-    
-    userMiddleware = createUserMiddleware(db);
-    
-    console.log("Configuring database");
 
+    let database_creation_command = (await fs.readFile(__dirname + "/database_creation.sql")).toString();
+
+    console.log("Configuring database");
+    
     /* Execute the database creation commands */
     await db_exec(db, database_creation_command);
-
+    
     console.log("Database correctly configured");
 
+    userMiddleware = createUserMiddleware(db);
+
+    await setupEmail();
 
     /* Starts the server */
     server.listen(port, hostname, () => {
@@ -619,6 +619,7 @@ async function main() {
         });
     });
 }
+
 function no_access(request, response){
     response.statusCode = 401;
     response.write(`
