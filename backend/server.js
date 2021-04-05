@@ -145,7 +145,7 @@ async function apiKeyToStore(apiKey) {
 
 /* Returns true if the API POST body is valid. Further checks could be added. */
 function isApiPostValid(body) {
-    console.log(body);
+    //console.log(body);
     if(objLength(body) != 4) {
         console.log("POST body doesn't have 4 keys");
         return false;
@@ -232,14 +232,24 @@ function qsToObj(queryString) {
 }
 
 /* Adds a package to the 'package' table in the database */
-function add_package(storeId, customerEmail, customerName, externalOrderId) {
+async function add_package(storeId, customerEmail, customerName, externalOrderId) {
     let guid, bookedTimeId, creationDate, verificationCode;
-
     guid = crypto.randomBytes(8).toString("hex");
     bookedTimeId = null;
     creationDate = new Date();
     verificationCode = crypto.randomBytes(16).toString("hex");
-    
+    let existing_order = await new Promise((resolve, reject) => {
+        db.get("SELECT * FROM package WHERE externalOrderId=?", [externalOrderId], (err, row) => {
+            if(err) {
+                reject(err);
+            } else {
+                resolve(row);
+            }
+        });
+    }) /* Vi tjekker om en pakke med samme ordre id eksisterer og gør ikke så meget ved det*/
+    if (existing_order != null){
+        console.log("An order with this id already exists");
+    }
     let query = 'INSERT INTO package (guid, storeId, bookedTimeId, verificationCode, customerEmail, customerName, externalOrderId, creationDate) VALUES (?, ?, ?, ?, ?, ?, ?, ?)';
 
     db.run(query, [guid, storeId, bookedTimeId, verificationCode, customerEmail, customerName, externalOrderId, creationDate]);
