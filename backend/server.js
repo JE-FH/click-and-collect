@@ -219,11 +219,7 @@ function add_package(storeId, customerEmail, customerName, externalOrderId) {
     
     let query = 'INSERT INTO package (guid, storeId, bookedTimeId, verificationCode, customerEmail, customerName, externalOrderId, creationDate) VALUES (?, ?, ?, ?, ?, ?, ?, ?)';
 
-    /* Serialize er ikke nødvendig og hvis vi ville kunne vi samle i en linje
-    */
-    db.serialize(() => {
-        db.run(query, [guid, storeId, bookedTimeId, verificationCode, customerEmail, customerName, externalOrderId, creationDate]);
-    })
+    db.run(query, [guid, storeId, bookedTimeId, verificationCode, customerEmail, customerName, externalOrderId, creationDate]);
 
     console.log('Package added for: ' + customerName);
 }
