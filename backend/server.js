@@ -463,10 +463,10 @@ async function storeMenu(request, response){
     });
 
     /* Print the menu site and the buttons redirecting to their respective endpoints */
-    /* TOCO - button redirects to endpoints: */
+    /* TODO - button redirects to endpoints: */
     /* First button    href="/store/packages?storeid=...&packages=.." */
     /* Second button   href="/store/scan?storeid=..." */
-    console.log(store.id);
+    
     response.statusCode = 200;
     response.setHeader('Content-Type', 'text/html');
     response.write(`
@@ -532,7 +532,6 @@ async function packageList(request,response, error){
 
                 rows.forEach((row) => {
                     b = row;
-                    console.log(b);
                     a[i] = b;
                     i++;
 
@@ -560,7 +559,7 @@ async function packageList(request,response, error){
                 <title>Package overview</title>
             </head>
             <body>
-                <a href="/store"> Return to store menu </a> <br>
+                <a href="/store?storeid=${store.id}"> Return to store menu </a> <br>
                 <h> Package overview <h>
             </form>
             <br>
