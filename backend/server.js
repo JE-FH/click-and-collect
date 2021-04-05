@@ -70,9 +70,6 @@ async function requestHandler(request, response) {
                 case "/admin":
                     adminGet(request, response);
                     break;
-                case "/store":
-                    storeGet(request, response);
-                    break;
                 case "/admin/employees":
                     employeesDashboard(request, response);
                     break;
@@ -85,7 +82,15 @@ async function requestHandler(request, response) {
                 case "/static/style.css":
                     staticStyleCss(response);
                     break;
-                case "/static/queue_list_script.js":
+                case "/store":
+                    storeMenu(request, response);
+                    break;
+                case "/store/packages":
+                    packageList(request, response, "");
+                    break;
+                case "/store/scan":
+                    break;
+                case "/static/queueListScript.js":
                     staticQueueListScriptJS(response);
                     break;
                 case "/package":
@@ -387,13 +392,36 @@ async function loginPost(request, response) {
     }
 
 }
-async function storeGet(request, response){
-    let wantedStoreId = assertEmployeeAccess(request, request.query, response);
 
-    if (wantedStoreId == null) {
-        return;  
+async function storeMenu(request, response){
+
+    /* Check if the user is logged in */
+    if (request.user == null) {
+        response.statusCode = 401;
+        response.write("You need to be logged in to access this page");
+        response.end();
+        return;
+    }
+    
+    /* Check if the storeid is set up correctly */
+    if (typeof(request.query.storeid) != "string" || Number.isNaN(Number(request.query.storeid))) {
+        response.statusCode = 400;
+        response.write("Queryid malformed");
+        response.end();
+        return;
     }
 
+    /* Convert the storeid to a number */
+    let wantedStoreId = Number(request.query.storeid);
+
+    if (request.user.storeId != wantedStoreId) {
+        response.statusCode = 401;
+        response.write("You dont have access to this store");
+        response.end();
+        return;
+    }
+
+    /* Get the storeid from the database */
     let store = await new Promise((resolve, reject) => {
         db.serialize(() => {
             db.get("SELECT * FROM store WHERE id=?", [wantedStoreId], (err, row) => {
@@ -410,25 +438,123 @@ async function storeGet(request, response){
         });
     });
 
-    response.statusCode = 200;
-    response.setHeader("Content-Type", "text/html");
-    response.write(`
-<!DOCTYPE html>
-<html>
-    <head>
-        <title> Store page for ${store.name}</title>
-    </head>
-    <body>
-        <h1>Hello ${request.user.name} these are your links</h1>
-        <ul>
-            <li> You can do nothing ;)</li>
-        </ul>
-    </body>
-</html>
-`)
-    response.end();
+    /* Print the menu site and the buttons redirecting to their respective endpoints */
+    /* TODO - more buttons */
     
+    response.statusCode = 200;
+    response.setHeader('Content-Type', 'text/html');
+    response.write(`
+    <!DOCTYPE html>
+    <html>
+        <head>
+            <title>Store menu for ${store.name}</title>
+        </head>
+    
+        <body>
+            <h1>${store.name} menu</h1>
+            <ul>
+                <li><a href="/store/packages?storeid=${store.id}">Package overview</a></li>
+            </ul>
+        </body>
+    </html>
+    `)
+    response.end();
 }
+
+async function packageList(request,response, error){
+   
+        /* Check if the user is logged in */
+    if (request.user == null) {
+        response.statusCode = 401;
+        response.write("You need to be logged in to access this page");
+        response.end();
+        return;
+    }
+    
+    /* Check if the storeid is set up correctly */
+    if (typeof(request.query.storeid) != "string" || Number.isNaN(Number(request.query.storeid))) {
+        response.statusCode = 400;
+        response.write("Queryid malformed");
+        response.end();
+        return;
+    }
+
+    let wantedStoreId = Number(request.query.storeid);
+
+    if (request.user.storeId != wantedStoreId) {
+        response.statusCode = 401;
+        response.write("You dont have access to this store");
+        response.end();
+        return;
+    }
+
+    else{
+        let packages = await new Promise((resolve, reject) => {
+            let sql = `SELECT * FROM package WHERE storeId=${request.user.storeId} ORDER BY id`;
+            let a = [0];
+            i = 0;
+            
+            if(sql == null || sql == undefined){
+                resolve(a);
+            }
+
+            db.all(sql, [], (err, rows) => {
+                if (err) {
+                    reject(err);
+                }
+
+                rows.forEach((row) => {
+                    b = row;
+                    a[i] = b;
+                    i++;
+
+                });
+                resolve (a);
+            });
+            
+        });
+
+        let packageTable = "";
+        for (i = 0; i < packages.length; i++){
+            packageTable += `<tr> <th> 
+                            | Package ID :  ${packages[i].id} 
+                            | Customer's name: ${packages[i].customerName} 
+                            | Customer's e-mail address: ${packages[i].customerEmail} 
+                            | Booked time: ${packages[i].bookedTimeId}
+                            | Verification code: ${packages[i].verificationCode}
+                            | Order id: ${packages[i].externalOrderId}
+                            | Time of order: ${packages[i].creationDate} |
+                            </th> </tr> <br>\n`
+        }
+
+        // Måde at vise fejl til brugeren
+        request.session.display_error ? error = request.session.last_error : error = "";
+        request.session.display_error = false;
+
+        response.statusCode = 200;
+
+        response.write(`
+        <!DOCTYPE html>
+        <html>
+            <head>
+                <title>Package overview</title>
+            </head>
+            <body>
+                <a href="/store?storeid=${wantedStoreId}"> Return to store menu </a> <br>
+                <h> Package overview <h>
+            </form>
+            <br>
+            <b> List of current packages: </b>
+            <br> 
+            ${packageTable} 
+            </body>
+        </html>
+        `);
+        
+        response.end();
+        }
+}
+
 async function adminGet(request, response) {
     let wantedStoreId = assertAdminAccess(request, request.query, response);
     if (wantedStoreId == null) {
