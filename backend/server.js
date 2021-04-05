@@ -316,17 +316,6 @@ function defaultResponse(response) {
    
 }
 
-/* Example of a HTTP request case */
-function add_package() {
-    console.log('No API');
-    response.setHeader('Content-Type', 'text/plain');
-    response.write(' ');
-    response.end("\n");
-    response.statusCode = 404;
-}
-
-
-
 async function login_get(request, response, error) {
     response.statusCode = error == null ? 200 : 401;
     response.setHeader('Content-Type', 'text/html');
