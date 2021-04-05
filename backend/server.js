@@ -88,6 +88,9 @@ async function requestHandler(request, response) {
                 case "/static/queueListScript.js":
                     staticQueueListScriptJS(response);
                     break;
+                case "/package":
+                    getTime(request, response);
+                    break;
                 default:
                     defaultResponse(response);
                     break;
@@ -804,8 +807,8 @@ async function add_employee_post(request, response){
         response.statusCode = 302;
         response.setHeader('Location','/admin/employees/add?storeid=' + request.session.storeId);
         response.end()
-    }
 }
+
 
 
 async function remove_employee(request,response, error){
@@ -991,4 +994,151 @@ async function employee_list(request, response){
         
         response.end();
 }
+
+
+function getTime(request, response) {
+
+    /* Collects the data from the database */
+    db.all(`select 
+    id, 
+    startTime, 
+    endTime, 
+    strftime("%H:%M:%S", startTime) as time_format, 
+    group_concat(startTime) as startTimes,
+    group_concat(endTime) as endTimes
+    from timeSlot 
+    where storeId=?
+    GROUP BY time_format
+    ORDER BY startTime`, [4563], (err, result) => {
+
+        /* middle part of the html */
+        let rowsHTML = `<form action ="/package/:uid/:select_time" method="post">`;
+        /* Checks if there are data to be found, if not it will be logged*/
+        if (result.length > 0) {
+            console.table(result);
+            
+            /* Runs through the (result) which is the collected data */
+            for (let row of result) {
+                rowsHTML += `<tr>`;
+                let starttimes = row.startTimes.split(",").map(x => new Date(x));
+                let endtimes = row.endTimes.split(",").map(x => new Date(x));
+                console.log(endtimes);
+
+                /* Goes through the days of the week */
+                for (let i = 0; i < 7; i++) {
+                    let foundIndex = starttimes.findIndex((x) => {
+                        return ((x.getDay() + 6) % 7) == i
+                    });
+                    if (foundIndex != -1) {
+                        rowsHTML += `<td>${format_date_as_time(starttimes[foundIndex])} - ${format_date_as_time(endtimes[foundIndex])}</td>`
+                    } else {
+                        rowsHTML += `<td></td>`;
+                    }
+                }
+                rowsHTML += "</tr> </form>";
+            }
+            console.log(rowsHTML)
+        }
+        /* Ending of the rowsHTML, it might be edited because of the form */
+        rowsHTML += " </form>";
+    
+        
+        /* First part of html */
+        let html = `
+        <!DOCTYPE HTML>
+        <html>
+            <head>
+                <title>Timeslots</title>
+                <meta charset="UTF-8">
+            </head>
+            <style>
+
+            h1 {
+                text-align: center;
+                background-color: #E3BCBC;
+                background-position: 50% top;
+                padding: 50px;
+                font-weight: normal;
+            }
+            table {
+                border-collapse: collapse;
+                width: 100%;
+            }
+
+
+            th, td {
+                text-align: center;
+                border-radius: 5px;
+            }
+            th {
+                color: #666;
+                text-align: center;
+            }
+
+            td {
+                padding: 15px;
+            }
+            td:hover {background-color:#E3BCBC;}
+
+            </style>
+
+            <body> 
+
+                <h1> Week x </h1>
+            
+                <div class="time">
+                <table>
+                <thead>
+                    <tr>
+                        <th>Monday</th>
+                        <th>Tuesday</th>
+                        <th>Wednesday</th>
+                        <th>Thursday</th>
+                        <th>Friday</th>
+                        <th>Saturday</th>
+                        <th>Sunday</th>
+                    </tr>
+                </thead>
+            <tbody> 
+                `
+                
+                
+        /* Second part of html, right now there is an alert box when clicking on a td (timeslot)*/
+        let html2 = `
+
+        </div>
+        <script>
+        var elements= document.getElementsByTagName('td');
+        for(var i = 0; i < elements.length; i++){
+        (elements)[i].addEventListener("click", function(){
+        alert(this.innerHTML);
+        });
+        }
+        </script>
+
+        </body>
+
+        </html>
+        `
+
+        /* Stacks the html parts */
+        let page = html + rowsHTML+ html2;
+
+        response.statusCode = 200;
+        response.setHeader('Content-Type', 'text/html');
+        response.write(page);
+
+        response.end();
+    
+    });
+
+    
+
+}
+/* Helping function to the function getTime*/
+function format_date_as_time(date) {
+    return `${date.getHours().toString().padStart(2, "0")}:${date.getMinutes().toString().padStart(2, "0")}`;
+}
+
+
 main();
