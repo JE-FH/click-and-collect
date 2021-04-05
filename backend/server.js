@@ -73,6 +73,7 @@ async function requestHandler(request, response) {
                     storeMenu(request, response);
                     break;
                 case "/store/packages":
+                    packageList(request, response, "");
                     break;
                 case "/store/scan":
                     break;
@@ -261,7 +262,7 @@ async function storeMenu(request, response){
     /* TOCO - button redirects to endpoints: */
     /* First button    href="/store/packages?storeid=...&packages=.." */
     /* Second button   href="/store/scan?storeid=..." */
-
+    console.log(store.id);
     response.statusCode = 200;
     response.setHeader('Content-Type', 'text/html');
     response.write(`
@@ -274,7 +275,7 @@ async function storeMenu(request, response){
         <body>
             <h1>${store.name} menu</h1>
             <form action="/store" method="POST">
-                <input type="button" value="Overview of packages"><br><br>
+                <input type="button" value="Overview of packages" onclick="href="/store/packages?storeid=${store.id}""  ><br><br>
                 <input type="button" value="Confirm delivery" ><br>
             </form>
         </body>
@@ -283,22 +284,91 @@ async function storeMenu(request, response){
     response.end();
 }
 
-async function packageList(request, response){
-    let package = await new Promise((resolve, reject) => {
-        db.serialize(() => {
-            db.get("SELECT * FROM store WHERE id=?", [wantedStoreId], (err, row) => {
+async function packageList(request,response, error){
+   
+        /* Check if the user is logged in */
+    if (request.user == null) {
+        response.statusCode = 401;
+        response.write("You need to be logged in to access this page");
+        response.end();
+        return;
+    }
+    
+    /* Check if the storeid is set up correctly */
+    if (typeof(request.query.storeid) != "string" || Number.isNaN(Number(request.query.storeid))) {
+        response.statusCode = 400;
+        response.write("Queryid malformed");
+        response.end();
+        return;
+    }
+
+    let wantedStoreId = Number(request.query.storeid);
+
+    if (request.user.storeId != wantedStoreId) {
+        response.statusCode = 401;
+        response.write("You dont have access to this store");
+        response.end();
+        return;
+    }
+
+    else{
+        let packages = await new Promise((resolve, reject) => {
+            let sql = `SELECT * FROM package WHERE storeId=${request.user.storeId} ORDER BY id`;
+            let a = [0];
+            i = 0;
+            
+            if(sql == null || sql == undefined){
+                resolve(a);
+            }
+
+            db.all(sql, [], (err, rows) => {
                 if (err) {
-                    reject(err)
-                } else {
-                    if (row == undefined) {
-                        reject(`Expected package with id ${wantedStoreId} to exist`);
-                    } else {
-                        resolve(row);
-                    }
+                    reject(err);
                 }
-            })
+
+                rows.forEach((row) => {
+                    b = row;
+                    console.log(b);
+                    a[i] = b;
+                    i++;
+
+                });
+                resolve (a);
+            });
+            
         });
-    });
+
+        let packageTable = "";
+        for (i = 0; i < packages.length; i++){
+            packageTable += `<tr> <th> ${packages[i].id} ${packages[i].customerName}  </th> </tr> <br>\n`
+        }
+
+        // Måde at vise fejl til brugeren
+        request.session.display_error ? error = request.session.last_error : error = "";
+        request.session.display_error = false;
+
+        response.statusCode = 200;
+
+        response.write(`
+        <!DOCTYPE html>
+        <html>
+            <head>
+                <title>Package overview</title>
+            </head>
+            <body>
+                <a href="/store"> Return to store menu </a> <br>
+                <h> Package overview <h>
+            </form>
+            <br>
+            <b> List of current packages: </b>
+            <br> 
+            ${packageTable} 
+            </body>
+        </html>
+        `);
+        
+        response.end();
+        }
 }
 
 async function adminGet(request, response) {
