@@ -39,9 +39,6 @@ async function requestHandler(request, response) {
         }
         case "GET": {
             switch(request.path) {
-                case "/api":
-                    api_get(request, response);
-                    break;
                 case "/login":
                     login_get(request, response);
                     break;
@@ -66,17 +63,13 @@ async function requestHandler(request, response) {
     }
 }
 
-function api_get(request, response) {
-
-}
-
+/* Request handler for the /api/add_package endpoint */
 async function api_post(request, response) {
     let body = await extractBody(request);
     
     if(isApiPostValid(body)) {
         console.log('Valid post body');
         let store = await apiKeyToStore(body.apiKey);
-        console.log(store);
         add_package(store.id, body.customerEmail, body.customerName, body.orderId);
         response.statusCode = 200;
         response.end();
@@ -87,6 +80,7 @@ async function api_post(request, response) {
     }
 }
 
+/* Returns the associated store fram a given API key */
 async function apiKeyToStore(apiKey) {
     let store = await new Promise((resolve, reject) => {
         db.get("SELECT * FROM store WHERE apiKey=?", [apiKey], (err, row) => {
@@ -101,16 +95,12 @@ async function apiKeyToStore(apiKey) {
     return store;
 }
 
+/* Returns true if the API POST body is valid. Further checks could be added. */
 function isApiPostValid(body) {
     if(objLength(body) != 4) {
         console.log("POST body doesn't have 4 keys");
         return false;
-    } else if(!noNullVals) {
-        console.log("POST body contains a prohibited value");
-        return false;
-    }
-
-    return true;
+    } else return true;
 }
 
 function objLength(obj) {
@@ -121,14 +111,7 @@ function objLength(obj) {
     return size;
 }
 
-function noNullVals(obj) {
-    for(key in obj) {
-        if(key.value == null || key.value == 0 || key.value == '')
-        return false;
-    }
-    return true;
-}
-
+/* Adds a package from the form on /admin/add_package */ 
 async function packageFormHandler(request, response) {
 
     if (request.user == null) {
@@ -183,6 +166,7 @@ async function extractBody(request) {
     return promise;
 }
 
+/* Converts a query string to an object */
 function qsToObj(queryString) {
     let pairs = queryString.split('?');
     let result = {};
@@ -193,6 +177,7 @@ function qsToObj(queryString) {
     return result;
 }
 
+/* Adds a package to the 'package' table in the database */
 function add_package(storeId, customerEmail, customerName, externalOrderId) {
     let guid, bookedTimeId, creationDate, verificationCode;
 
@@ -200,9 +185,8 @@ function add_package(storeId, customerEmail, customerName, externalOrderId) {
     bookedTimeId = null;
     creationDate = new Date();
     verificationCode = crypto.randomBytes(16).toString("hex");
-
+    
     let query = 'INSERT INTO package (guid, storeId, bookedTimeId, verificationCode, customerEmail, customerName, externalOrderId, creationDate) VALUES (?, ?, ?, ?, ?, ?, ?, ?)';
-
     db.serialize(() => {
         db.run(query, [guid, storeId, bookedTimeId, verificationCode, customerEmail, customerName, externalOrderId, creationDate]);
     })
