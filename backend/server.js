@@ -198,7 +198,7 @@ async function login_post(request, response) {
         //same same but different
         request.session.user_id = user.id;
         request.session.storeId = user.storeId;
-        if (user.superuser == true) { //det gør en forskel af ukendte årsager at sige == true
+        if (user.superuser) { 
             response.setHeader('Location','/admin?storeid=' + user.storeId.toString());
             
         } else {
@@ -539,10 +539,10 @@ function add_employee(request, response){
                 <div id="wrapper">
     
                 <p>
-                <input type="radio" value="true" name="superuser" checked>Yes</input>
+                <input type="radio" value="1" name="superuser" checked>Yes</input>
                 </p>
                 <p>
-                <input type="radio" value="false" name="superuser">No</input>
+                <input type="radio" value="0" name="superuser">No</input>
                 </p>
                 </div>
                 <br>
