@@ -113,7 +113,7 @@ async function api_post(request, response) {
         if (store != null){
             console.log('Valid post body');
             add_package(store.id, body.customerEmail, body.customerName, body.orderId);
-            console.log(store);
+            //console.log(store);
             response.statusCode = 200;
             response.end();
         }
@@ -248,7 +248,7 @@ async function add_package(storeId, customerEmail, customerName, externalOrderId
         });
     }) /* Vi tjekker om en pakke med samme ordre id eksisterer og gør ikke så meget ved det*/
     if (existing_order != null){
-        console.log("An order with this id already exists");
+        console.log(`An order with this id already exists: ${externalOrderId}`);
     }
     let query = 'INSERT INTO package (guid, storeId, bookedTimeId, verificationCode, customerEmail, customerName, externalOrderId, creationDate) VALUES (?, ?, ?, ?, ?, ?, ?, ?)';
 
@@ -992,55 +992,37 @@ function employees_dashboard(request, response){
 /* Hjælpefunktion til at finde username, name, id og superuser til employee list
    clunky med den er funktionel ;)
 */
-async function find_x_in_user(find, storeId){
-    let x_list = await new Promise((resolve, reject) => {
-        let sql = `SELECT ${find} FROM user WHERE storeId=${storeId} ORDER BY id`;
-        let a = [0];
-        i = 0;
-        
-        db.all(sql, [], (err, rows) => {
-            if (err) {
-                reject(err);
-            }
-            rows.forEach((row) => {
-                username = row.username;
-                user_name = row.name;
-                id = row.id
-                superuser = row.superuser;
-                b = username || user_name || id || superuser;
-                a[i] = b;
-                i++;
-            });
-            resolve (a);
-        });
-    });
-    return x_list;
-}
 
 async function employee_list(request, response){
     if (request.user === null || request.user.superuser == 0 || request.query.storeid != request.user.storeId){
         admin_no_access(request, response);
     }
     else{
-        let username_list = await new Promise((resolve, reject) => {
-            resolve(find_x_in_user("username",request.user.storeId));
-        });
-        let name_list = await new Promise((resolve, reject) => {
-            resolve(find_x_in_user("name",request.user.storeId));
-        });
-        let id_list = await new Promise((resolve, reject) => {
-            resolve(find_x_in_user("id",request.user.storeId));
-        });
-        let superuser_list = await new Promise((resolve, reject) => {
-            resolve(find_x_in_user("superuser",request.user.storeId));
+        let user_list = await new Promise((resolve, reject) => {
+            let sql = `SELECT * FROM user WHERE storeId=${request.session.storeId} ORDER BY id`;
+            let a = [0];
+            i = 0;
+            
+            db.all(sql, [], (err, rows) => {
+                if (err) {
+                    reject(err);
+                }
+                rows.forEach((row) => {
+                    b = [ row.id, row.username, row.name,  row.superuser];
+                    a[i] = b;
+                    i++;
+                });
+                console.log(a);
+                resolve (a);
+            });
         });
         
         let html_table = await new Promise((resolve, reject) => {
         let html_table = `<table style="width=100%" border="1px">
         <tr> <th> Id </th> <th>Username</th> <th> Employee name </th> <th> Is the account a superuser </th>  </tr> <br>\n`;
-        for (i = 0; i < username_list.length; i++){
-            is_superuser = superuser_list[i] ? "yes" : "no";
-            html_table += `<tr> <td style="font-weight:normal" style="text-align:center" style="font-weight:normal"> ${id_list[i]} </td> <td style="font-weight:normal" style="text-align:center"> ${username_list[i]} </td> <td style="font-weight:normal" style="text-align:center"> ${name_list[i]} </td> <td style="font-weight:normal" style="text-align:center"> ${is_superuser}  </td>  </tr> <br>\n`;
+        for (i = 0; i < user_list.length; i++){
+            is_superuser = user_list[i][3] == 1 ? "yes" : "no";
+            html_table += `<tr> <td style="font-weight:normal" style="text-align:center" style="font-weight:normal"> ${user_list[i][0]} </td> <td style="font-weight:normal" style="text-align:center"> ${user_list[i][1]} </td> <td style="font-weight:normal" style="text-align:center"> ${user_list[i][2]} </td> <td style="font-weight:normal" style="text-align:center"> ${is_superuser}  </td>  </tr> <br>\n`;
         }
         html_table += `</table>`
         resolve(html_table);
