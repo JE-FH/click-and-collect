@@ -91,6 +91,18 @@ async function requestHandler(request, response) {
                 case "/package":
                     getTime(request, response);
                     break;
+                case "/store/scan":
+                    storeScan(request, response);
+                    break;
+                case "/static/qrScannerScript.js":
+                    serveFile(response, __dirname + "/../frontend/js/qrScannerScript.js", "text/javascript");
+                    break;
+                case "/static/js/external/qr-scanner.umd.min.js":
+                    serveFile(response, __dirname + "/../frontend/js/external/qr-scanner.umd.min.js", "text/javascript");
+                    break;
+                case "/static/js/external/qr-scanner-worker.min.js":
+                    serveFile(response, __dirname + "/../frontend/js/external/qr-scanner-worker.min.js", "text/javascript");
+                    break;
                 default:
                     defaultResponse(response);
                     break;
@@ -101,6 +113,14 @@ async function requestHandler(request, response) {
             defaultResponse(response);
             break;
     }
+}
+
+async function serveFile(response, filename, contentType) {
+    let content = (await fs.readFile(filename)).toString();
+    response.statusCode = 200;
+    response.setHeader("Content-Type", contentType);
+    response.write(content);
+    response.end();
 }
 
 /* Request handler for the /api/addPackage endpoint */
@@ -572,6 +592,49 @@ async function queueAdd(request, response) {
 
     response.statusCode = 302;
     response.setHeader("Location", "/admin/queues?storeid=" + wantedStoreId.toString());
+    response.end();
+}
+
+
+async function storeScan(request, response) {
+    let wantedStoreId = assertEmployeeAccess(request, request.query, response);
+    if (wantedStoreId == null) {
+        return;
+    }
+    
+    response.statusCode = 200;
+    response.setHeader("Content-Type", "text/html");
+    response.write(`
+    <!DOCTYPE html>
+    <html>
+        <head>
+            <title>scanner</title>
+            <style>
+                .hidden {
+                    display: none;
+                }
+            </style>
+        </head>
+        <body>
+            <h1>Scan a package</h1>
+            <p id="loading-placeholder">Trying to open camera...</p>
+            <div id="controls-container" class="hidden">
+                <video id="scanner-content" disablepictureinpicture playsinline></video><br>
+                <button id="start-scanner-btn">Start scanner</button>
+                <button id="stop-scanner-btn">Stop scanner</button><br>
+                <h2>Package details</h2>
+                <form action="/store/package" method="GET">
+                    <label for="validationKey">Validation key (when a qr code is found the key be set here): </label><br>
+                    <input id="validation-key-input" type="text" name="validationKey" value=""><br>
+                    <input type="hidden" value="${wantedStoreId}" name="storeid">
+                    <input type="submit" value="Go to package"><br>
+                </form>
+            </div>
+            <script src="/static/js/external/qr-scanner.umd.min.js"></script>
+            <script src="/static/qrScannerScript.js"></script>
+        </body>
+    </html>
+    `)
     response.end();
 }
 
