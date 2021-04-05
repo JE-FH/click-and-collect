@@ -102,15 +102,17 @@ async function api_post(request, response) {
         console.log('Valid post body');
         let store = await apiKeyToStore(body.apiKey);
         add_package(store.id, body.customerEmail, body.customerName, body.orderId);
+        console.log(store);
         response.statusCode = 200;
         response.end();
     } else {
+        console.log('Invalid post body');
         response.statusCode = 400;
         response.end()
     }
 }
 
-/* Returns the associated store fram a given API key */
+/* Returns the associated store from a given API key */
 async function apiKeyToStore(apiKey) {
     let store = await new Promise((resolve, reject) => {
         db.get("SELECT * FROM store WHERE apiKey=?", [apiKey], (err, row) => {
@@ -430,7 +432,6 @@ async function adminGet(request, response) {
             <li><a href="/admin/settings?storeid=${store.id}">Change settings</a></li>
             <li><a href="/admin/package_form?storeid=${store.id}">Create package manually</a></li>
             <li><a href="/admin/employees?storeid=${store.id}">Manage employees</a></li>
-            <li><a href="/admin/package_form?storeid=${store.id}">Add package manually</a></li>
         </ul>
     </body>
 </html>
