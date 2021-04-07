@@ -1212,6 +1212,9 @@ function getTime(request, response) {
                 padding: 50px;
                 font-weight: normal;
             }
+            h2 {
+                text-align: center;
+            }
             table {
                 border-collapse: collapse;
                 width: 100%;
@@ -1268,6 +1271,16 @@ function getTime(request, response) {
               cursor: pointer;
             }
 
+            .submitbtn {
+                position: relative;
+                left: 47%;
+                cursor: pointer;
+            }
+            .sTime {
+                text-align: center;
+            }
+
+
             </style>
 
             <body> 
@@ -1300,10 +1313,10 @@ function getTime(request, response) {
 
             <div class="modal-content">
                 <span class="close">&times;</span>
-                <h2>Press submit to accept the selected time slot</h2>
-                <p id="test"> </p>
+                <h2>Do you want the following time slot?</h2>
+                <p id="selectedTime" class="sTime"> </p>
                 <form action="/package/confirm" method="GET">
-                    <input type="submit" value="Submit" style="font-size:20px;"/>
+                    <input type="submit" class="submitbtn" value="Submit" style="font-size:20px;"/>
                 </form>
                 
             </div>
@@ -1324,7 +1337,7 @@ function getTime(request, response) {
 
            var x = this.innerHTML;
 
-           document.getElementById("test").innerHTML = x;
+           document.getElementById("selectedTime").innerHTML = x;
            console.log(dataId);
            console.log(this);
 
