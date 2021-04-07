@@ -88,8 +88,8 @@ async function requestHandler(request, response) {
                 case "/store/packages":
                     packageList(request, response, "");
                     break;
-                case "/static/queueListScript.js":
-                    staticQueueListScriptJS(response);
+                case "/static/js/queueListScript.js":
+                    serveFile(response, __dirname + "/../frontend/js/queueListScript.js", "text/javascript");
                     break;
                 case "/package":
                     getTime(request, response);
@@ -97,7 +97,7 @@ async function requestHandler(request, response) {
                 case "/store/scan":
                     storeScan(request, response);
                     break;
-                case "/static/qrScannerScript.js":
+                case "/static/js/qrScannerScript.js":
                     serveFile(response, __dirname + "/../frontend/js/qrScannerScript.js", "text/javascript");
                     break;
                 case "/static/js/external/qr-scanner.umd.min.js":
@@ -285,14 +285,6 @@ async function staticStyleCss(response) {
     let content = (await fs.readFile(__dirname + "/../frontend/css/style.css")).toString();
     response.statusCode = 200;
     response.setHeader("Content-Type", "text/css");
-    response.write(content);
-    response.end();
-}
-
-async function staticQueueListScriptJS(response) {
-    let content = (await fs.readFile(__dirname + "/../frontend/js/queueListScript.js")).toString();
-    response.statusCode = 200;
-    response.setHeader("Content-Type", "text/javascript");
     response.write(content);
     response.end();
 }
@@ -643,7 +635,7 @@ async function queueList(request, response) {
         <script type="text/javascript">
             var queues = ${JSON.stringify(queues)};
         </script>
-        <script type="text/javascript" src="/static/queue_list_script.js"></script>
+        <script type="text/javascript" src="/static/js/queueListScript.js"></script>
     </body>
 </html>
 `);
@@ -737,7 +729,7 @@ async function storeScan(request, response) {
                 </form>
             </div>
             <script src="/static/js/external/qr-scanner.umd.min.js"></script>
-            <script src="/static/qrScannerScript.js"></script>
+            <script src="/static/js/qrScannerScript.js"></script>
         </body>
     </html>
     `)
