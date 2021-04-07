@@ -3,7 +3,7 @@ const sqlite3 = require("sqlite3");
 const fs = require("fs/promises");
 const crypto = require("crypto");
 
-const {isStringInt, isStringNumber, receiveBody, parseURLEncoded, assertAdminAccess, assertEmployeeAccess, setupEmail} = require("./helpers");
+const {isStringInt, isStringNumber, receiveBody, parseURLEncoded, assertAdminAccess, assertEmployeeAccess, setupEmail, sendEmail} = require("./helpers");
 const {queryMiddleware, sessionMiddleware, createUserMiddleware} = require("./middleware");
 const {adminNoAccess, invalidParameters} = require("./generic-responses");
 const {dbAll, dbGet, dbRun, dbExec} = require("./db-helpers");
@@ -165,6 +165,21 @@ async function apiKeyToStore(apiKey) {
     return store;
 }
 
+/* Returns the associated store from a given store id */
+async function storeIdToStore(storeId) {
+    let store = await new Promise((resolve, reject) => {
+        db.get("SELECT * FROM store WHERE id=?", [storeId], (err, row) => {
+            if(err) {
+                reject(err);
+            } else {
+                resolve(row);
+            }
+        });
+    })
+
+    return store;
+}
+
 /* Returns true if the API POST body is valid. Further checks could be added. */
 function isApiPostValid(body) {
     if(body == null) {
@@ -240,6 +255,29 @@ async function addPackage(storeId, customerEmail, customerName, externalOrderId)
     db.run(query, [guid, storeId, bookedTimeId, verificationCode, customerEmail, customerName, externalOrderId, creationDate]);
 
     console.log('Package added for: ' + customerName);
+
+    let store = await storeIdToStore(storeId);
+    
+
+    await sendEmail(customerEmail, customerName, `${store.name}: Choose a pickup time slot`, `Link: http://127.0.0.1:8000/package/${guid}/select_time`, await renderMailTemplate(customerName, store, guid, creationDate));
+}
+
+async function renderMailTemplate(name, store, uid, timestamp) {
+    return `
+        <html>
+            <head>
+                <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+                <title>Choose pickup</title>
+            </head>
+            <body>
+                <h1>Pick a time slot</h1>
+                <p>Hello ${name}. You have ordered items from ${store.name}.</p>
+                <p>Order received ${timestamp}.</p>
+                <h2>Your link:</h2>
+                <p>http://127.0.0.1:8000/package/${uid}/select_time</p>
+            </body>
+        </html>
+    `;
 }
 
 function packageFormGet(request, response) {
