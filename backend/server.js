@@ -514,18 +514,30 @@ async function packageList(request,response, error){
             
         });
 
-        let packageTable = "";
+        let packageTable = `<table>
+                            <tr>
+                                <th>Package ID</th>
+                                <th>Customer's name</th>
+                                <th>Customer's e-mail address</th>
+                                <th>Booked time</th>
+                                <th>Verification code</th>
+                                <th>Order id</th>
+                                <th>Time of order</th>
+                            </tr>`
         for (i = 0; i < packages.length; i++){
-            packageTable += `<tr> <th> 
-                            | Package ID :  ${packages[i].id} 
-                            | Customer's name: ${packages[i].customerName} 
-                            | Customer's e-mail address: ${packages[i].customerEmail} 
-                            | Booked time: ${packages[i].bookedTimeId}
-                            | Verification code: ${packages[i].verificationCode}
-                            | Order id: ${packages[i].externalOrderId}
-                            | Time of order: ${packages[i].creationDate} |
-                            </th> </tr> <br>\n`
+            packageTable += `
+                            <tr>
+                                <td>${packages[i].id}</td>
+                                <td>${packages[i].customerName}</td>
+                                <td>${packages[i].customerEmail}</td>
+                                <td>${packages[i].bookedTimeId}</td>
+                                <td>${packages[i].verificationCode}</td>
+                                <td>${packages[i].externalOrderId}</td>
+                                <td>${packages[i].creationDate}</td>
+                            </tr>
+            `
         }
+        packageTable += `</table>`
 
         // Måde at vise fejl til brugeren
         request.session.display_error ? error = request.session.last_error : error = "";
