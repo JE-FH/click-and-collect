@@ -395,30 +395,14 @@ async function loginPost(request, response) {
 
 async function storeMenu(request, response){
 
-    /* Check if the user is logged in */
-    if (request.user == null) {
-        response.statusCode = 401;
-        response.write("You need to be logged in to access this page");
-        response.end();
-        return;
-    }
-    
-    /* Check if the storeid is set up correctly */
-    if (typeof(request.query.storeid) != "string" || Number.isNaN(Number(request.query.storeid))) {
-        response.statusCode = 400;
-        response.write("Queryid malformed");
-        response.end();
+    let wantedStoreId = assertEmployeeAccess(request, request.query, response);
+    if (wantedStoreId == null) {
         return;
     }
 
-    /* Convert the storeid to a number */
-    let wantedStoreId = Number(request.query.storeid);
-
-    if (request.user.storeId != wantedStoreId) {
-        response.statusCode = 401;
-        response.write("You dont have access to this store");
-        response.end();
-        return;
+    let storeId = await dbGet(db, "SELECT * FROM store WHERE id=?", [wantedStoreId]);
+    if (storeId == undefined) {
+        throw new Error(`Expected store with id ${wantedStoreId} to exist`);
     }
 
     /* Get the storeid from the database */
@@ -463,29 +447,14 @@ async function storeMenu(request, response){
 
 async function packageList(request,response, error){
    
-        /* Check if the user is logged in */
-    if (request.user == null) {
-        response.statusCode = 401;
-        response.write("You need to be logged in to access this page");
-        response.end();
-        return;
-    }
-    
-    /* Check if the storeid is set up correctly */
-    if (typeof(request.query.storeid) != "string" || Number.isNaN(Number(request.query.storeid))) {
-        response.statusCode = 400;
-        response.write("Queryid malformed");
-        response.end();
+    let wantedStoreId = assertEmployeeAccess(request, request.query, response);
+    if (wantedStoreId == null) {
         return;
     }
 
-    let wantedStoreId = Number(request.query.storeid);
-
-    if (request.user.storeId != wantedStoreId) {
-        response.statusCode = 401;
-        response.write("You dont have access to this store");
-        response.end();
-        return;
+    let storeId = await dbGet(db, "SELECT * FROM store WHERE id=?", [wantedStoreId]);
+    if (storeId == undefined) {
+        throw new Error(`Expected store with id ${wantedStoreId} to exist`);
     }
 
     else{
