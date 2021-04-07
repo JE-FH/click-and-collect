@@ -63,7 +63,7 @@ async function requestHandler(request, response) {
                     break;
                 case "/admin/employees/remove":
                     removeEmployee(request,response, "");
-                break;
+                    break;
                 case "/admin/queues":
                     queueList(request, response);
                     break;
@@ -87,8 +87,6 @@ async function requestHandler(request, response) {
                     break;
                 case "/store/packages":
                     packageList(request, response, "");
-                    break;
-                case "/store/scan":
                     break;
                 case "/static/queueListScript.js":
                     staticQueueListScriptJS(response);
@@ -438,6 +436,7 @@ async function storeMenu(request, response){
             <h1>${store.name} menu</h1>
             <ul>
                 <li><a href="/store/packages?storeid=${store.id}">Package overview</a></li>
+                <li><a href="/store/scan?storeid=${store.id}">Scan package</a></li>
             </ul>
         </body>
     </html>
