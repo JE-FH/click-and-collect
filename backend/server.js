@@ -393,30 +393,14 @@ async function loginPost(request, response) {
 
 async function storeMenu(request, response){
 
-    /* Check if the user is logged in */
-    if (request.user == null) {
-        response.statusCode = 401;
-        response.write("You need to be logged in to access this page");
-        response.end();
-        return;
-    }
-    
-    /* Check if the storeid is set up correctly */
-    if (typeof(request.query.storeid) != "string" || Number.isNaN(Number(request.query.storeid))) {
-        response.statusCode = 400;
-        response.write("Queryid malformed");
-        response.end();
+    let wantedStoreId = assertEmployeeAccess(request, request.query, response);
+    if (wantedStoreId == null) {
         return;
     }
 
-    /* Convert the storeid to a number */
-    let wantedStoreId = Number(request.query.storeid);
-
-    if (request.user.storeId != wantedStoreId) {
-        response.statusCode = 401;
-        response.write("You dont have access to this store");
-        response.end();
-        return;
+    let storeId = await dbGet(db, "SELECT * FROM store WHERE id=?", [wantedStoreId]);
+    if (storeId == undefined) {
+        throw new Error(`Expected store with id ${wantedStoreId} to exist`);
     }
 
     /* Get the storeid from the database */
@@ -462,29 +446,14 @@ async function storeMenu(request, response){
 
 async function packageList(request,response, error){
    
-        /* Check if the user is logged in */
-    if (request.user == null) {
-        response.statusCode = 401;
-        response.write("You need to be logged in to access this page");
-        response.end();
-        return;
-    }
-    
-    /* Check if the storeid is set up correctly */
-    if (typeof(request.query.storeid) != "string" || Number.isNaN(Number(request.query.storeid))) {
-        response.statusCode = 400;
-        response.write("Queryid malformed");
-        response.end();
+    let wantedStoreId = assertEmployeeAccess(request, request.query, response);
+    if (wantedStoreId == null) {
         return;
     }
 
-    let wantedStoreId = Number(request.query.storeid);
-
-    if (request.user.storeId != wantedStoreId) {
-        response.statusCode = 401;
-        response.write("You dont have access to this store");
-        response.end();
-        return;
+    let storeId = await dbGet(db, "SELECT * FROM store WHERE id=?", [wantedStoreId]);
+    if (storeId == undefined) {
+        throw new Error(`Expected store with id ${wantedStoreId} to exist`);
     }
 
     else{
@@ -513,18 +482,30 @@ async function packageList(request,response, error){
             
         });
 
-        let packageTable = "";
+        let packageTable = `<table>
+                            <tr>
+                                <th>Package ID</th>
+                                <th>Customer's name</th>
+                                <th>Customer's e-mail address</th>
+                                <th>Booked time</th>
+                                <th>Verification code</th>
+                                <th>Order id</th>
+                                <th>Time of order</th>
+                            </tr>`
         for (i = 0; i < packages.length; i++){
-            packageTable += `<tr> <th> 
-                            | Package ID :  ${packages[i].id} 
-                            | Customer's name: ${packages[i].customerName} 
-                            | Customer's e-mail address: ${packages[i].customerEmail} 
-                            | Booked time: ${packages[i].bookedTimeId}
-                            | Verification code: ${packages[i].verificationCode}
-                            | Order id: ${packages[i].externalOrderId}
-                            | Time of order: ${packages[i].creationDate} |
-                            </th> </tr> <br>\n`
+            packageTable += `
+                            <tr>
+                                <td>${packages[i].id}</td>
+                                <td>${packages[i].customerName}</td>
+                                <td>${packages[i].customerEmail}</td>
+                                <td>${packages[i].bookedTimeId}</td>
+                                <td>${packages[i].verificationCode}</td>
+                                <td>${packages[i].externalOrderId}</td>
+                                <td>${packages[i].creationDate}</td>
+                            </tr>
+            `
         }
+        packageTable += `</table>`
 
         // Måde at vise fejl til brugeren
         request.session.display_error ? error = request.session.last_error : error = "";
