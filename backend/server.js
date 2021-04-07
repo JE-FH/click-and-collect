@@ -63,7 +63,7 @@ async function requestHandler(request, response) {
                     break;
                 case "/admin/employees/remove":
                     removeEmployee(request,response, "");
-                break;
+                    break;
                 case "/admin/queues":
                     queueList(request, response);
                     break;
