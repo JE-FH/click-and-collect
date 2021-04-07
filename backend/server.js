@@ -3,7 +3,7 @@ const sqlite3 = require("sqlite3");
 const fs = require("fs/promises");
 const crypto = require("crypto");
 
-const {isStringInt, isStringNumber, receiveBody, parseURLEncoded, assertAdminAccess, assertEmployeeAccess, setupEmail} = require("./helpers");
+const {isStringInt, isStringNumber, receiveBody, parseURLEncoded, assertAdminAccess, assertEmployeeAccess, setupEmail, sendEmail} = require("./helpers");
 const {queryMiddleware, sessionMiddleware, createUserMiddleware} = require("./middleware");
 const {adminNoAccess, invalidParameters} = require("./generic-responses");
 const {dbAll, dbGet, dbRun, dbExec} = require("./db-helpers");
@@ -97,8 +97,8 @@ async function requestHandler(request, response) {
                 case "/store/package":
                     packageStoreView(request, response);
                     break;
-                case "/static/queueListScript.js":
-                    staticQueueListScriptJS(response);
+                case "/static/js/queueListScript.js":
+                    serveFile(response, __dirname + "/../frontend/js/queueListScript.js", "text/javascript");
                     break;
                 case "/package":
                     getTime(request, response);
@@ -106,7 +106,7 @@ async function requestHandler(request, response) {
                 case "/store/scan":
                     storeScan(request, response);
                     break;
-                case "/static/qrScannerScript.js":
+                case "/static/js/qrScannerScript.js":
                     serveFile(response, __dirname + "/../frontend/js/qrScannerScript.js", "text/javascript");
                     break;
                 case "/static/js/external/qr-scanner.umd.min.js":
@@ -163,6 +163,21 @@ async function apiPost(request, response) {
 async function apiKeyToStore(apiKey) {
     let store = await new Promise((resolve, reject) => {
         db.get("SELECT * FROM store WHERE apiKey=?", [apiKey], (err, row) => {
+            if(err) {
+                reject(err);
+            } else {
+                resolve(row);
+            }
+        });
+    })
+
+    return store;
+}
+
+/* Returns the associated store from a given store id */
+async function storeIdToStore(storeId) {
+    let store = await new Promise((resolve, reject) => {
+        db.get("SELECT * FROM store WHERE id=?", [storeId], (err, row) => {
             if(err) {
                 reject(err);
             } else {
@@ -249,6 +264,29 @@ async function addPackage(storeId, customerEmail, customerName, externalOrderId)
     db.run(query, [guid, storeId, bookedTimeId, verificationCode, customerEmail, customerName, externalOrderId, creationDate]);
 
     console.log('Package added for: ' + customerName);
+
+    let store = await storeIdToStore(storeId);
+    
+
+    await sendEmail(customerEmail, customerName, `${store.name}: Choose a pickup time slot`, `Link: http://127.0.0.1:8000/package/${guid}/select_time`, await renderMailTemplate(customerName, store, guid, creationDate));
+}
+
+async function renderMailTemplate(name, store, uid, timestamp) {
+    return `
+        <html>
+            <head>
+                <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+                <title>Choose pickup</title>
+            </head>
+            <body>
+                <h1>Pick a time slot</h1>
+                <p>Hello ${name}. You have ordered items from ${store.name}.</p>
+                <p>Order received ${timestamp}.</p>
+                <h2>Your link:</h2>
+                <p>http://127.0.0.1:8000/package/${uid}/select_time</p>
+            </body>
+        </html>
+    `;
 }
 
 function packageFormGet(request, response) {
@@ -294,14 +332,6 @@ async function staticStyleCss(response) {
     let content = (await fs.readFile(__dirname + "/../frontend/css/style.css")).toString();
     response.statusCode = 200;
     response.setHeader("Content-Type", "text/css");
-    response.write(content);
-    response.end();
-}
-
-async function staticQueueListScriptJS(response) {
-    let content = (await fs.readFile(__dirname + "/../frontend/js/queueListScript.js")).toString();
-    response.statusCode = 200;
-    response.setHeader("Content-Type", "text/javascript");
     response.write(content);
     response.end();
 }
@@ -402,30 +432,14 @@ async function loginPost(request, response) {
 
 async function storeMenu(request, response){
 
-    /* Check if the user is logged in */
-    if (request.user == null) {
-        response.statusCode = 401;
-        response.write("You need to be logged in to access this page");
-        response.end();
-        return;
-    }
-    
-    /* Check if the storeid is set up correctly */
-    if (typeof(request.query.storeid) != "string" || Number.isNaN(Number(request.query.storeid))) {
-        response.statusCode = 400;
-        response.write("Queryid malformed");
-        response.end();
+    let wantedStoreId = assertEmployeeAccess(request, request.query, response);
+    if (wantedStoreId == null) {
         return;
     }
 
-    /* Convert the storeid to a number */
-    let wantedStoreId = Number(request.query.storeid);
-
-    if (request.user.storeId != wantedStoreId) {
-        response.statusCode = 401;
-        response.write("You dont have access to this store");
-        response.end();
-        return;
+    let storeId = await dbGet(db, "SELECT * FROM store WHERE id=?", [wantedStoreId]);
+    if (storeId == undefined) {
+        throw new Error(`Expected store with id ${wantedStoreId} to exist`);
     }
 
     /* Get the storeid from the database */
@@ -471,29 +485,14 @@ async function storeMenu(request, response){
 
 async function packageList(request,response, error){
    
-        /* Check if the user is logged in */
-    if (request.user == null) {
-        response.statusCode = 401;
-        response.write("You need to be logged in to access this page");
-        response.end();
-        return;
-    }
-    
-    /* Check if the storeid is set up correctly */
-    if (typeof(request.query.storeid) != "string" || Number.isNaN(Number(request.query.storeid))) {
-        response.statusCode = 400;
-        response.write("Queryid malformed");
-        response.end();
+    let wantedStoreId = assertEmployeeAccess(request, request.query, response);
+    if (wantedStoreId == null) {
         return;
     }
 
-    let wantedStoreId = Number(request.query.storeid);
-
-    if (request.user.storeId != wantedStoreId) {
-        response.statusCode = 401;
-        response.write("You dont have access to this store");
-        response.end();
-        return;
+    let storeId = await dbGet(db, "SELECT * FROM store WHERE id=?", [wantedStoreId]);
+    if (storeId == undefined) {
+        throw new Error(`Expected store with id ${wantedStoreId} to exist`);
     }
 
     else{
@@ -522,18 +521,30 @@ async function packageList(request,response, error){
             
         });
 
-        let packageTable = "";
+        let packageTable = `<table>
+                            <tr>
+                                <th>Package ID</th>
+                                <th>Customer's name</th>
+                                <th>Customer's e-mail address</th>
+                                <th>Booked time</th>
+                                <th>Verification code</th>
+                                <th>Order id</th>
+                                <th>Time of order</th>
+                            </tr>`
         for (i = 0; i < packages.length; i++){
-            packageTable += `<tr> <th> 
-                            | Package ID :  ${packages[i].id} 
-                            | Customer's name: ${packages[i].customerName} 
-                            | Customer's e-mail address: ${packages[i].customerEmail} 
-                            | Booked time: ${packages[i].bookedTimeId}
-                            | Verification code: ${packages[i].verificationCode}
-                            | Order id: ${packages[i].externalOrderId}
-                            | Time of order: ${packages[i].creationDate} |
-                            </th> </tr> <br>\n`
+            packageTable += `
+                            <tr>
+                                <td>${packages[i].id}</td>
+                                <td>${packages[i].customerName}</td>
+                                <td>${packages[i].customerEmail}</td>
+                                <td>${packages[i].bookedTimeId}</td>
+                                <td>${packages[i].verificationCode}</td>
+                                <td>${packages[i].externalOrderId}</td>
+                                <td>${packages[i].creationDate}</td>
+                            </tr>
+            `
         }
+        packageTable += `</table>`
 
         // Måde at vise fejl til brugeren
         request.session.display_error ? error = request.session.last_error : error = "";
@@ -671,7 +682,7 @@ async function queueList(request, response) {
         <script type="text/javascript">
             var queues = ${JSON.stringify(queues)};
         </script>
-        <script type="text/javascript" src="/static/queue_list_script.js"></script>
+        <script type="text/javascript" src="/static/js/queueListScript.js"></script>
     </body>
 </html>
 `);
@@ -765,7 +776,7 @@ async function storeScan(request, response) {
                 </form>
             </div>
             <script src="/static/js/external/qr-scanner.umd.min.js"></script>
-            <script src="/static/qrScannerScript.js"></script>
+            <script src="/static/js/qrScannerScript.js"></script>
         </body>
     </html>
     `)
