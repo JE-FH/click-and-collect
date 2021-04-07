@@ -1160,24 +1160,24 @@ function getTime(request, response) {
     endTime, 
     strftime("%H:%M:%S", startTime) as time_format, 
     group_concat(startTime) as startTimes,
-    group_concat(endTime) as endTimes
+    group_concat(endTime) as endTimes,
+    group_concat(id) as ids
     from timeSlot 
     where storeId=?
     GROUP BY time_format
-    ORDER BY startTime`, [4563], (err, result) => {
+    ORDER BY time_format ASC`, [4563], (err, result) => {
 
         /* middle part of the html */
-        let rowsHTML = `<form action ="/package/:uid/:select_time" method="post">`;
+        let rowsHTML = ``;
         /* Checks if there are data to be found, if not it will be logged*/
         if (result.length > 0) {
-            console.table(result);
             
             /* Runs through the (result) which is the collected data */
             for (let row of result) {
-                rowsHTML += `<tr>`;
+                rowsHTML += `<tr onclick="myFunction(this)">`;
                 let starttimes = row.startTimes.split(",").map(x => new Date(x));
                 let endtimes = row.endTimes.split(",").map(x => new Date(x));
-                console.log(endtimes);
+                let ids = row.ids.split(",");
 
                 /* Goes through the days of the week */
                 for (let i = 0; i < 7; i++) {
@@ -1185,17 +1185,14 @@ function getTime(request, response) {
                         return ((x.getDay() + 6) % 7) == i
                     });
                     if (foundIndex != -1) {
-                        rowsHTML += `<td>${format_date_as_time(starttimes[foundIndex])} - ${format_date_as_time(endtimes[foundIndex])}</td>`
+                        rowsHTML += `<td data-id="${ids[foundIndex]}">${format_date_as_time(starttimes[foundIndex])} - ${format_date_as_time(endtimes[foundIndex])}</td>`
                     } else {
                         rowsHTML += `<td></td>`;
                     }
                 }
-                rowsHTML += "</tr> </form>";
+                rowsHTML += "</tr>";
             }
-            console.log(rowsHTML)
         }
-        /* Ending of the rowsHTML, it might be edited because of the form */
-        rowsHTML += " </form>";
     
         
         /* First part of html */
@@ -1235,6 +1232,42 @@ function getTime(request, response) {
             }
             td:hover {background-color:#E3BCBC;}
 
+            .modal {
+                display: none; /* Hidden by default */
+                position: fixed; /* Stay in place */
+                z-index: 1; /* Sit on top */
+                padding-top: 200px; /* Location of the box */
+                left: 0;
+                top: 0;
+                width: 100%; /* Full width */
+                height: 100%; /* Full height */
+                overflow: auto; /* Enable scroll if needed */
+                background-color: rgb(0,0,0); /* Fallback color */
+                background-color: rgba(0,0,0,0.4); /* Black w/ opacity */
+            }
+            
+            .modal-content {
+                background-color: #fefefe;
+                margin: auto;
+                padding: 20px;
+                border: 1px solid #888;
+                width: 80%;
+            }
+            
+            .close {
+                color: #aaaaaa;
+                float: right;
+                font-size: 28px;
+                font-weight: bold;
+            }
+            
+            .close:hover,
+            .close:focus {
+              color: #000;
+              text-decoration: none;
+              cursor: pointer;
+            }
+
             </style>
 
             <body> 
@@ -1262,12 +1295,53 @@ function getTime(request, response) {
         let html2 = `
 
         </div>
+
+        <div id="myModal" class="modal">
+
+            <div class="modal-content">
+                <span class="close">&times;</span>
+                <h2>Press submit to accept the selected time slot</h2>
+                <p id="test"> </p>
+                <form action="/package/confirm" method="GET">
+                    <input type="submit" value="Submit" style="font-size:20px;"/>
+                </form>
+                
+            </div>
+        </div>
+
         <script>
+        var modal = document.getElementById("myModal");
+        var btn = document.getElementById("myBtn");
+        var span = document.getElementsByClassName("close")[0];
+        
         var elements= document.getElementsByTagName('td');
         for(var i = 0; i < elements.length; i++){
         (elements)[i].addEventListener("click", function(){
-        alert(this.innerHTML);
+           modal.style.display = "block";
+
+           
+           var dataId = this.getAttribute('data-id');
+
+           var x = this.innerHTML;
+
+           document.getElementById("test").innerHTML = x;
+           console.log(dataId);
+           console.log(this);
+
+           if (this.innerHTML == "") {
+               modal.style.display = "none";
+           }
         });
+        }
+       
+        span.onclick = function() {
+        modal.style.display = "none";
+        }
+
+        window.onclick = function(event) {
+        if (event.target == modal) {
+            modal.style.display = "none";
+            }
         }
         </script>
 
@@ -1286,8 +1360,6 @@ function getTime(request, response) {
         response.end();
     
     });
-
-    
 
 }
 /* Helping function to the function getTime*/
