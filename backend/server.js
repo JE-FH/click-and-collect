@@ -827,6 +827,13 @@ function addEmployee(request, response){
         <html>
             <head>
                 <title>Adding new employee </title>
+
+                <style>
+                    .container i {
+                        margin-left: -30px;
+                        cursor: pointer;
+                    }
+                </style>
             </head>
             <body>
                 ${error ? `<p>${error}</p>` : ""}
@@ -841,7 +848,9 @@ function addEmployee(request, response){
                 <input type="text" name="employeeName" placeholder="Employee name" required><br> <br>
 
                 <label for="password"> Password:     </label>
-                <input type="password" name="password" placeholder="password" id="password" onchange='checkPass();' required> <br>
+                <input type="password" name="password" placeholder="password" id="password" onchange='checkPass();' minlength="8" required> <br>
+
+                <i class="far fa-eye" id="togglePassword"> </i>
 
                 <label for="confirmPassword"> Confirm password: </label>
                 <input type="password" name="confirmPassword" placeholder="password" id="confirmPassword" onchange='checkPass();' required> <br>
@@ -892,16 +901,6 @@ async function addEmployeePost(request, response){
         return;  
     }
 
-    
-    console.log(postParameters);
-    /*  Dårlig måde aat håndtere fejl*/
-    if (!(typeof postParameters["username"] == "string" && typeof postParameters["password"] == "string" && typeof postParameters["employeeName"] == "string")) { 
-        response.statusCode = 400;
-        response.write("Some of the input is wrong");
-        response.end();
-        return;
-    }
-
     /* Find the user if it exists */
     let usernameUnique = await new Promise((resolve, reject) => {
         db.serialize(() => {
@@ -920,23 +919,7 @@ async function addEmployeePost(request, response){
         });
     });
 
-    let employeeNameUnique = await new Promise((resolve, reject) => {
-        db.serialize(() => {
-            db.get("SELECT id FROM user WHERE name=?", [postParameters["employeeName"]], (err, row) => {
-                if (err) {
-                    resolve(null);
-                } else {
-                    if (row == undefined) {
-                        resolve(true);
-                    } else {                            
-                        request.session.lastError = "User with employee name already exists";
-                        resolve(false);
-                    }
-                }
-            })
-        });
-    });
-    if (usernameUnique && employeeNameUnique) {
+    if (usernameUnique) {
         request.session.lastError = "User succesfully added to database";
         let salt = crypto.randomBytes(16).toString(HASHING_HASH_ENCODING);
         let hashed = await new Promise((resolve, reject) => {
@@ -1029,12 +1012,9 @@ async function removeEmployeePost(request, response){
         return;  
     }
     
-    
-    
-    
     let user = await new Promise((resolve, reject) => {
         db.serialize(() => {
-            db.get("SELECT id, password, salt, superuser FROM user WHERE username=? AND storeId=?", [postParameters["username"],request.user.storeId], (err, row) => {
+            db.get("SELECT username, id, password, salt, superuser FROM user WHERE username=? AND storeId=?", [postParameters["username"],request.user.storeId], (err, row) => {
                 if (err) {
                     resolve(null);
                 } else {
@@ -1048,10 +1028,13 @@ async function removeEmployeePost(request, response){
         });
     });
     if (user == null){
-        request.session.lastError = "Bruger ikke fundet";
+        request.session.lastError = "User not found";
+    }
+    else if(user.username == request.user.username){
+        request.session.lastError = "You can't delete your own user";
     }
     else{
-        request.session.lastError = "Bruger slettet";
+        request.session.lastError = "User deleted";
         db.run("DELETE FROM user WHERE username=? AND storeId=?", [postParameters["username"], request.user.storeId]);
     }
     
