@@ -242,7 +242,7 @@ async function packageFormHandler(request, response) {
 
 /* Adds a package to the 'package' table in the database */
 async function addPackage(storeId, customerEmail, customerName, externalOrderId) {
-    let guid, bookedTimeId, creationDate, verificationCode;
+    let guid, bookedTimeId, creationDate, verificationCode, delivered = 0;
     guid = crypto.randomBytes(8).toString("hex");
     bookedTimeId = null;
     creationDate = new Date();
@@ -259,9 +259,9 @@ async function addPackage(storeId, customerEmail, customerName, externalOrderId)
     if (existingOrder != null){
         console.log(`An order with this id already exists: ${externalOrderId}`);
     }
-    let query = 'INSERT INTO package (guid, storeId, bookedTimeId, verificationCode, customerEmail, customerName, externalOrderId, creationDate) VALUES (?, ?, ?, ?, ?, ?, ?, ?)';
+    let query = 'INSERT INTO package (guid, storeId, bookedTimeId, verificationCode, customerEmail, customerName, externalOrderId, creationDate, delivered) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)';
 
-    db.run(query, [guid, storeId, bookedTimeId, verificationCode, customerEmail, customerName, externalOrderId, creationDate]);
+    db.run(query, [guid, storeId, bookedTimeId, verificationCode, customerEmail, customerName, externalOrderId, creationDate, delivered]);
 
     console.log('Package added for: ' + customerName);
 
