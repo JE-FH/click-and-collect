@@ -506,12 +506,6 @@ async function packageList(request,response, error){
     if (wantedStoreId == null) {
         return;
     }
-
-    let storeId = await dbGet(db, "SELECT * FROM store WHERE id=?", [wantedStoreId]);
-    if (storeId == undefined) {
-        throw new Error(`Expected store with id ${wantedStoreId} to exist`);
-    }
-
     else{
         let packages = await new Promise((resolve, reject) => {
             let sql = `SELECT * FROM package WHERE storeId=${request.user.storeId} ORDER BY id`;
@@ -537,7 +531,6 @@ async function packageList(request,response, error){
             });
             
         });
-
         let packageTable = `<table>
                             <tr>
                                 <th>Package ID</th>
@@ -548,6 +541,10 @@ async function packageList(request,response, error){
                                 <th>Order id</th>
                                 <th>Time of order</th>
                             </tr>`
+        if (packages.length == 1 && packages.id == undefined){
+
+        }
+        else{
         for (i = 0; i < packages.length; i++){
             packageTable += `
                             <tr>
@@ -560,12 +557,8 @@ async function packageList(request,response, error){
                                 <td>${packages[i].creationDate}</td>
                             </tr>
             `
-        }
+        }}
         packageTable += `</table>`
-
-        // Måde at vise fejl til brugeren
-        request.session.display_error ? error = request.session.last_error : error = "";
-        request.session.display_error = false;
 
         response.statusCode = 200;
 
