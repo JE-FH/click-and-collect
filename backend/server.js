@@ -343,7 +343,15 @@ async function loginGet(request, response, error) {
 <!DOCTYPE html>
 <html>
     <head>
+        <link href="https://maxcdn.bootstrapcdn.com/font-awesome/4.2.0/css/font-awesome.min.css" rel="stylesheet">
+        <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.13.0/css/all.min.css">
         <title>login</title>
+        <style>
+                    .container i {
+                        margin-left: -30px;
+                        cursor: pointer;
+                    }
+                </style>
     </head>
 
     <body>
@@ -351,11 +359,29 @@ async function loginGet(request, response, error) {
         <form action="/login" method="POST">
             <label for="username">Username: </label>
             <input type="text" name="username" placeholder="username" required><br>
-            <label for="password">Password: </label>
-            <input type="password" name="password" placeholder="password" required><br>
+            <div class="container">
+                    <label for="password"> Password:     </label>
+                    <input type="password" name="password" placeholder="password" id="password" required>
+                    <i class="fas fa-eye" id="togglePassword"> </i>
+                </div>
             <input type="submit" value="login">
         </form>
+
+        <script>
+            // Eye toggle for password
+            const togglePassword = document.querySelector('#togglePassword');
+            const password = document.querySelector('#password');
+
+            togglePassword.addEventListener('click', function (e) {
+                const type = password.getAttribute('type') === 'password' ? 'text' : 'password';
+                password.setAttribute('type', type);
+                this.classList.toggle('fa-eye-slash');
+            });
+    
+        </script>
+
     </body>
+    
 </html>
 `);
     response.end();
@@ -745,6 +771,8 @@ async function storeScan(request, response) {
     <html>
         <head>
             <title>scanner</title>
+            <link href="https://maxcdn.bootstrapcdn.com/font-awesome/4.2.0/css/font-awesome.min.css" rel="stylesheet">
+            <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.13.0/css/all.min.css">
             <style>
                 .hidden {
                     display: none;
@@ -753,6 +781,7 @@ async function storeScan(request, response) {
         </head>
         <body>
             <h1>Scan a package</h1>
+            <a href="/store?storeid=${request.user.storeId}"> Go to employee startpage </a> <br>
             <p id="loading-placeholder">Trying to open camera...</p>
             <div id="controls-container" class="hidden">
                 <video id="scanner-content" disablepictureinpicture playsinline></video><br>
@@ -760,14 +789,24 @@ async function storeScan(request, response) {
                 <button id="stop-scanner-btn">Stop scanner</button><br>
                 <h2>Package details</h2>
                 <form action="/store/package" method="GET">
-                    <label for="validationKey">Validation key (when a qr code is found the key be set here): </label><br>
-                    <input id="validation-key-input" type="text" name="validationKey" value=""><br>
+                    <label for="validationKey">Validation key, automatically set when a qr code is scanned. Press the lock to manually input package: </label><br>
+                    <input id="validation-key-input" type="text" name="validationKey" disabled="true" value="">
+                    <i class="fas fa-unlock" onclick="toggleValidationInput()"> </i> <br>
                     <input type="hidden" value="${wantedStoreId}" name="storeid">
                     <input type="submit" value="Go to package"><br>
                 </form>
             </div>
+
+            <!-- Burde måske samles i en script -->
             <script src="/static/js/external/qr-scanner.umd.min.js"></script>
             <script src="/static/js/qrScannerScript.js"></script>
+            <script>
+                function toggleValidationInput(){
+                    console.log("hej");
+                    elm = document.getElementById('validation-key-input');
+                    elm.disabled ? elm.disabled = false : elm.disabled = true;
+                }
+            </script>
         </body>
     </html>
     `)
@@ -827,7 +866,9 @@ function addEmployee(request, response){
         <html>
             <head>
                 <title>Adding new employee </title>
-
+                <link href="https://maxcdn.bootstrapcdn.com/font-awesome/4.2.0/css/font-awesome.min.css" rel="stylesheet">
+                <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.13.0/css/all.min.css">
+                
                 <style>
                     .container i {
                         margin-left: -30px;
@@ -846,14 +887,19 @@ function addEmployee(request, response){
 
                 <label for="name"> Employee name: </label>
                 <input type="text" name="employeeName" placeholder="Employee name" required><br> <br>
+                <div class="container">
+                    <label for="password"> Password:     </label>
+                    <input type="password" name="password" placeholder="password" id="password" onchange='checkPass();' minlength="8" required>
 
-                <label for="password"> Password:     </label>
-                <input type="password" name="password" placeholder="password" id="password" onchange='checkPass();' minlength="8" required> <br>
-
-                <i class="far fa-eye" id="togglePassword"> </i>
-
-                <label for="confirmPassword"> Confirm password: </label>
-                <input type="password" name="confirmPassword" placeholder="password" id="confirmPassword" onchange='checkPass();' required> <br>
+                    <i class="fas fa-eye" id="togglePassword"> </i>
+                </div>
+                
+                <div class="container">
+                    <label for="confirmPassword"> Confirm password: </label>
+                    <input type="password" name="confirmPassword" placeholder="password" id="confirmPassword" onchange='checkPass();' required>
+                    
+                    <i class="fas fa-eye" id="toggleConfirmPassword"> </i>
+                </div>
                 <input type="hidden" value="${wantedStoreId}" name="storeid">    
                 <p id="matchingPasswords" style="color:red" hidden> The passwords do not match </p>
                 
@@ -882,6 +928,29 @@ function addEmployee(request, response){
                     document.getElementById('matchingPasswords').hidden = false;
                 }
             }
+            
+           // Eye toggle for password
+            const togglePassword = document.querySelector('#togglePassword');
+            const password = document.querySelector('#password');
+
+            togglePassword.addEventListener('click', function (e) {
+                const type = password.getAttribute('type') === 'password' ? 'text' : 'password';
+                password.setAttribute('type', type);
+                this.classList.toggle('fa-eye-slash');
+            });
+            
+
+            // Eye toggle for confirmPassword
+            const toggleConfirmPassword = document.querySelector('#toggleConfirmPassword');
+            const ConfirmPassword = document.querySelector('#confirmPassword');
+
+            toggleConfirmPassword.addEventListener('click', function (e) {
+                const type = confirmPassword.getAttribute('type') === 'password' ? 'text' : 'password';
+                confirmPassword.setAttribute('type', type);
+                this.classList.toggle('fa-eye-slash');
+            });
+            
+            
             </script>
             </body>
         </html>
