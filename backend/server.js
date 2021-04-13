@@ -463,28 +463,12 @@ async function storeMenu(request, response){
         return;
     }
 
-    let storeId = await dbGet(db, "SELECT * FROM store WHERE id=?", [wantedStoreId]);
-    if (storeId == undefined) {
+    let store = await dbGet(db, "SELECT * FROM store WHERE id=?", [wantedStoreId]);
+    if (store == undefined) {
         throw new Error(`Expected store with id ${wantedStoreId} to exist`);
     }
 
-    /* Get the storeid from the database */
-    let store = await new Promise((resolve, reject) => {
-        db.serialize(() => {
-            db.get("SELECT * FROM store WHERE id=?", [wantedStoreId], (err, row) => {
-                if (err) {
-                    reject(err)
-                } else {
-                    if (row == undefined) {
-                        reject(`Expected store with id ${wantedStoreId} to exist`);
-                    } else {
-                        resolve(row);
-                    }
-                }
-            })
-        });
-    });
-
+    let superuser = request.user.superuser;
     /* Print the menu site and the buttons redirecting to their respective endpoints */
     /* TODO - more buttons */
     
@@ -498,10 +482,11 @@ async function storeMenu(request, response){
         </head>
     
         <body>
-            <h1>${store.name} menu</h1>
+            <h1>Menu for ${request.user.name}:</h1>
             <ul>
-                <li><a href="/store/packages?storeid=${store.id}">Package overview</a></li>
-                <li><a href="/store/scan?storeid=${store.id}">Scan package</a></li>
+                ${superuser ? `<li> <a href="/admin?storeid=${wantedStoreId}"> Back to admin page </a> </li>` : ""}
+                <li><a href="/store/packages?storeid=${wantedStoreId}">Package overview</a></li>
+                <li><a href="/store/scan?storeid=${wantedStoreId}">Scan package</a></li>
             </ul>
         </body>
     </html>
@@ -613,7 +598,7 @@ async function adminGet(request, response) {
         <title>Store admin for ${store.name}</title>
     </head>
     <body>
-        <h1>Hello ${request.user.name} these are your links</h1>
+        <h1> Admin menu for ${request.user.name}: </h1>
         <ul>
         <li><a href="/store?storeid=${store.id}"> Go to standard employee dashboard</a></li>
             <li><a href="/admin/queues?storeid=${store.id}">Manage queues</a></li>
@@ -804,7 +789,6 @@ async function storeScan(request, response) {
             <script src="/static/js/qrScannerScript.js"></script>
             <script>
                 function toggleValidationInput(){
-                    console.log("hej");
                     elm = document.getElementById('validation-key-input');
                     elm.disabled ? elm.disabled = false : elm.disabled = true;
                 }
@@ -821,13 +805,13 @@ async function packageStoreView(request, response) {
         return;
     }
     if (typeof(request.query.validationKey) != "string") {
-        invalidParameters(response, "validationKey was not set", `/store/scan?queryid=${wantedStoreId}`, "package scanner");
+        invalidParameters(response, "validationKey was not set", `/store/scan?storeid=${wantedStoreId}`, "package scanner");
         return;
     }
 
     let package = await dbGet(db, "SELECT * FROM package WHERE verificationCode=? AND storeId=?", [request.query.validationKey, wantedStoreId]);
     if (package == null) {
-        invalidParameters(response, "validationKey was not valid", `/store/scan?queryid=${wantedStoreId}`, "package scanner");
+        invalidParameters(response, "package with given validationKey does not exist", `/store/scan?storeid=${wantedStoreId}`, "package scanner");
         return;
     }
 
@@ -1232,7 +1216,7 @@ function employeesDashboard(request, response){
                 <title>Store admin for ${request.session.storeName}</title>
             </head>
             <body>
-                <h1>Hello ${request.user.name} these are your links</h1>
+                <h1>Manage employees </h1>
                 <ul>
                     <li><a href="/admin/employees/employee_list?storeid=${request.session.storeId}">View a list of employees</a></li>
                     <li><a href="/admin/employees/remove?storeid=${request.session.storeId}">Remove employees</a></li>
@@ -1270,7 +1254,6 @@ async function employeeList(request, response){
                     a[i] = b;
                     i++;
                 });
-                console.log(a);
                 resolve (a);
             });
         });
@@ -1279,7 +1262,7 @@ async function employeeList(request, response){
         let htmlTable = `<table style="width=100%" border="1px">
         <tr> <th> Id </th> <th>Username</th> <th> Employee name </th> <th> Is the account a superuser </th>  </tr> <br>\n`;
         for (i = 0; i < userList.length; i++){
-            isSuperuser = userList[i][3] == 1 ? "yes" : "no";
+            let isSuperuser = userList[i][3] == 1 ? "yes" : "no";
             htmlTable += `<tr> <td style="font-weight:normal" style="text-align:center" style="font-weight:normal"> ${userList[i][0]} </td> <td style="font-weight:normal" style="text-align:center"> ${userList[i][1]} </td> <td style="font-weight:normal" style="text-align:center"> ${userList[i][2]} </td> <td style="font-weight:normal" style="text-align:center"> ${isSuperuser}  </td>  </tr> <br>\n`;
         }
         htmlTable += `</table>`
