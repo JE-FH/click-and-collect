@@ -848,9 +848,6 @@ function addEmployee(request, response){
                 <input type="hidden" value="${wantedStoreId}" name="storeid">    
                 <p id="matchingPasswords" style="color:red" hidden> The passwords do not match </p>
                 
-
-
-
                 <label for="superuser"> Is the account an admin account: </label>
                 <div id="wrapper">
     
@@ -863,7 +860,6 @@ function addEmployee(request, response){
                 </div>
                 <br>
             
-
                 <input type="submit" id="submit" value="Create user" disabled>
             </form>
             <script>
@@ -875,7 +871,6 @@ function addEmployee(request, response){
                 } else {
                     document.getElementById('submit').disabled = true;
                     document.getElementById('matchingPasswords').hidden = false;
-                    
                 }
             }
             </script>
