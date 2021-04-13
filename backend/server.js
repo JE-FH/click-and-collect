@@ -1316,33 +1316,40 @@ function getTime(request, response) {
     startTime, 
     endTime, 
     strftime("%H:%M:%S", startTime) as time_format, 
-    group_concat(startTime) as startTimes,
-    group_concat(endTime) as endTimes,
-    group_concat(id) as ids
+    group_concat(startTime || "," || endTime || "," || id, ";") as timeSlotDataStr
     from timeSlot 
     where storeId=?
     GROUP BY time_format
     ORDER BY time_format ASC`, [4563], (err, result) => {
-
+        result.forEach(row => {
+            row.timeSlotData = [];
+            let split = row.timeSlotDataStr.split(";");
+            split.forEach(x => {
+                let split2 = x.split(",");
+                if (split2.length != 3) {
+                    throw new Error("Database returned invalid data");
+                }
+                row.timeSlotData.push({
+                    id: Number(split2[2]),
+                    startTime: new Date(split2[0]),
+                    endTime: new Date(split2[1])
+                });
+            });
+        });
         /* middle part of the html */
         let rowsHTML = ``;
         /* Checks if there are data to be found, if not it will be logged*/
         if (result.length > 0) {
-            
             /* Runs through the (result) which is the collected data */
             for (let row of result) {
                 rowsHTML += `<tr onclick="myFunction(this)">`;
-                let starttimes = row.startTimes.split(",").map(x => new Date(x));
-                let endtimes = row.endTimes.split(",").map(x => new Date(x));
-                let ids = row.ids.split(",");
-
                 /* Goes through the days of the week */
                 for (let i = 0; i < 7; i++) {
-                    let foundIndex = starttimes.findIndex((x) => {
-                        return ((x.getDay() + 6) % 7) == i
+                    let found = row.timeSlotData.find((x) => {
+                        return ((x.startTime.getDay() + 6) % 7) == i
                     });
-                    if (foundIndex != -1) {
-                        rowsHTML += `<td data-id="${ids[foundIndex]}">${format_date_as_time(starttimes[foundIndex])} - ${format_date_as_time(endtimes[foundIndex])}</td>`
+                    if (found != null) {
+                        rowsHTML += `<td data-id="${found.id}">${format_date_as_time(found.startTime)} - ${format_date_as_time(found.endTime)}</td>`
                     } else {
                         rowsHTML += `<td></td>`;
                     }
@@ -1472,7 +1479,8 @@ function getTime(request, response) {
                 <span class="close">&times;</span>
                 <h2>Do you want the following time slot?</h2>
                 <p id="selectedTime" class="sTime"> </p>
-                <form action="/package/confirm" method="GET">
+                <form action="/package/confirm" method="POST">
+                    <input id="selected-time-id" type="hidden" value="" name="selectedTimeId">
                     <input type="submit" class="submitbtn" value="Submit" style="font-size:20px;"/>
                 </form>
                 
@@ -1495,8 +1503,7 @@ function getTime(request, response) {
            var x = this.innerHTML;
 
            document.getElementById("selectedTime").innerHTML = x;
-           console.log(dataId);
-           console.log(this);
+           document.getElementById("selected-time-id").value = dataId;
 
            if (this.innerHTML == "") {
                modal.style.display = "none";
