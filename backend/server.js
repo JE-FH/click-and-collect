@@ -46,6 +46,12 @@ async function requestHandler(request, response) {
                 case "/admin/queues/remove":
                     queueRemove(request, response);
                     break;
+                case "/store/package/confirm":
+                    packageStoreConfirm(request, response);
+                    break;
+                case "/store/package/undeliver":
+                    packageStoreUnconfirm(request, response);
+                    break;
                 case "/admin/queues/add":
                     queueAdd(request, response);
                     break;
@@ -87,6 +93,9 @@ async function requestHandler(request, response) {
                     break;
                 case "/store/packages":
                     packageList(request, response, "");
+                    break;
+                case "/store/package":
+                    packageStoreView(request, response);
                     break;
                 case "/static/js/queueListScript.js":
                     serveFile(response, __dirname + "/../frontend/js/queueListScript.js", "text/javascript");
@@ -803,6 +812,110 @@ async function storeScan(request, response) {
         </body>
     </html>
     `)
+    response.end();
+}
+
+async function packageStoreView(request, response) {
+    let wantedStoreId = assertEmployeeAccess(request, request.query, response);
+    if (wantedStoreId == null) {
+        return;
+    }
+    if (typeof(request.query.validationKey) != "string") {
+        invalidParameters(response, "validationKey was not set", `/store/scan?queryid=${wantedStoreId}`, "package scanner");
+        return;
+    }
+
+    let package = await dbGet(db, "SELECT * FROM package WHERE verificationCode=? AND storeId=?", [request.query.validationKey, wantedStoreId]);
+    if (package == null) {
+        invalidParameters(response, "validationKey was not valid", `/store/scan?queryid=${wantedStoreId}`, "package scanner");
+        return;
+    }
+
+    response.statusCode = 200;
+    response.setHeader("Content-Type", "text/html");
+    response.write(`
+    <!DOCTYPE html>
+    <html>
+        <head>
+            <title>Package overview</title>
+        </head>
+        <body>
+            <a href="/store/scan?storeid=${wantedStoreId}">Back to scanner</a>
+            <h1>Package overview</h1>
+            <h2>Details</h2>
+            <p>status: ${package.delivered == 0 ? "NOT DELIVERED" : "DELIVERED"}
+            <p>guid: ${package.guid}</p>
+            <p>bookedTimeId: ${package.bookedTimeId}</p>
+            <p>verificationCode: ${package.verificationCode}</p>
+            <p>customerEmail: ${package.customerEmail}</p>
+            <p>customerName: ${package.customerName}</p>
+            <p>externalOrderId: ${package.externalOrderId}</p>
+            <p>creationDate: ${package.creationDate}</p>
+            <h2>Actions</h2>
+            <form action="/store/package/${package.delivered == 0 ? "confirm" : "undeliver"}" method="POST">
+                <input type="hidden" value="${wantedStoreId}" name="storeid">
+                <input type="hidden" value="${package.id}" name="packageid">
+                <input type="submit" value="${package.delivered == 0 ? "Confirm delivery" : "Mark as not delivered"}">
+            </form>
+        </body>
+    </html>
+    `)
+    response.end();
+}
+
+async function packageStoreConfirm(request, response) {
+    let post_data = parseURLEncoded(await receiveBody(request));
+    
+    let wantedStoreId = assertEmployeeAccess(request, post_data, response);
+    if (wantedStoreId == null) {
+        return;
+    }
+
+    if (!isStringInt(post_data.packageid)) {
+        invalidParameters(response, "packageid was not set", `/store?storeid=${wantedStoreId}`, "store dashboard");
+        return;
+    }
+
+    let actual_package_id = Number(post_data.packageid);
+
+    let package = await dbGet(db, "SELECT * FROM package WHERE id=? AND storeId=? AND delivered=0", [actual_package_id, wantedStoreId]);
+    if (package == null) {
+        invalidParameters(response, "packageid was not valid", `/store/scan?queryid=${wantedStoreId}`, "package scanner");
+        return;
+    }
+
+    await dbRun(db, "UPDATE package SET delivered=1 WHERE id=? AND storeId=? AND delivered=0", [actual_package_id, wantedStoreId]);
+
+    response.statusCode = 302;
+    response.setHeader("Location", `/store/package?storeid=${wantedStoreId.toString()}&validationKey=${package.verificationCode}`);
+    response.end();
+}
+
+async function packageStoreUnconfirm(request, response) {
+    let post_data = parseURLEncoded(await receiveBody(request));
+    
+    let wantedStoreId = assertEmployeeAccess(request, post_data, response);
+    if (wantedStoreId == null) {
+        return;
+    }
+
+    if (!isStringInt(post_data.packageid)) {
+        invalidParameters(response, "packageid was not set", `/store?storeid=${wantedStoreId}`, "store dashboard");
+        return;
+    }
+
+    let actual_package_id = Number(post_data.packageid);
+
+    let package = await dbGet(db, "SELECT * FROM package WHERE id=? AND storeId=? AND delivered=1", [actual_package_id, wantedStoreId]);
+    if (package == null) {
+        invalidParameters(response, "packageid was not valid", `/store/scan?queryid=${wantedStoreId}`, "package scanner");
+        return;
+    }
+
+    await dbRun(db, "UPDATE package SET delivered=0 WHERE id=? AND storeId=? AND delivered=1", [actual_package_id, wantedStoreId]);
+
+    response.statusCode = 302;
+    response.setHeader("Location", `/store/package?storeid=${wantedStoreId.toString()}&validationKey=${package.verificationCode}`);
     response.end();
 }
 
