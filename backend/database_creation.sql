@@ -58,7 +58,7 @@ CREATE TABLE IF NOT EXISTS package (
 	storeId integer NOT NULL,
 	bookedTimeId integer,
 	verificationCode varchar,
-	customerEmail varchar,
+	customerEmail varchar NOT NULL,
 	customerName varchar,
 	externalOrderId integer,
 	creationDate timestamp NOT NULL,
