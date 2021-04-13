@@ -26,7 +26,7 @@ async function requestHandler(request, response) {
         case "POST": {
             switch(request.path) {
                 default:
-                    defaultResponse(response);
+                    defaultResponse(request, response);
                     break;
                 case "/login":
                     loginPost(request, response);
@@ -116,13 +116,13 @@ async function requestHandler(request, response) {
                     serveFile(response, __dirname + "/../frontend/js/external/qr-scanner-worker.min.js", "text/javascript");
                     break;
                 default:
-                    defaultResponse(response);
+                    defaultResponse(request, response);
                     break;
             }
             break;
         }
         default:
-            defaultResponse(response);
+            defaultResponse(request, response);
             break;
     }
 }
@@ -337,10 +337,31 @@ async function staticStyleCss(response) {
 }
 
 /* Request handler for any endpoint that isn't explicitally handled */
-function defaultResponse(response) {
+function defaultResponse(request, response) {
     response.statusCode = 404;
-    response.setHeader('Content-Type', 'text/plain');
-    response.write("Page not found");
+    response.setHeader('Content-Type', 'text/html');
+    let userId = null;
+    if (request.user != null){
+        userId = request.user.storeId;
+    }
+    
+    console.log(userId);
+
+    response.write(`
+    <!DOCTYPE html>
+    <html>
+        <head>
+            <title>404 page not found</title>
+        </head>
+        <body>
+            <b> Webpage can not be found. <br></b>
+            <a href="/login">Go to login page </a> <br>
+            <a href="/store?storeid=${userId}"> Go to employee dashboard</a> <br>
+            <a href="/admin?storeid=${userId}"> Go to admin dashboard</a> <br>
+
+        </body>
+    </html>
+    `);
     response.end();
    
 }
