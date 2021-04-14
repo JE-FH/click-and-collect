@@ -56,6 +56,9 @@ async function requestHandler(request, response) {
                 case "/admin/queues/add":
                     queueAdd(request, response);
                     break;
+                case "/package/select_time":
+                    selectTimeSlot(request, response);
+                    break;
             }
             break;
         }
@@ -1476,9 +1479,10 @@ async function timeSlotSelector(request, response) {
                         <span class="close">&times;</span>
                         <h2>Do you want the following time slot?</h2>
                         <p id="selectedTime" class="sTime"> </p>
-                        <form action="/package/confirm" method="POST">
+                        <form action="/package/select_time" method="POST">
+                            <input name="guid" type="hidden" value="${targetPackage.guid}">
                             <input id="selected-time-id" type="hidden" value="" name="selectedTimeId">
-                            <input type="submit" class="submitbtn" value="Submit" style="font-size:20px;"/>
+                            <input type="submit" class="submitbtn" value="Submit" style="font-size:20px;">
                         </form>
                     </div>
                 </div>
@@ -1523,6 +1527,52 @@ async function timeBookedPage(request, response, package) {
         </html>
     `);
 
+    response.end();
+}
+
+
+async function selectTimeSlot(request, response) {
+    let postData = parseURLEncoded(await receiveBody(request));
+    if (typeof(postData.guid) != "string") {
+        invalidParameters(response, "The link was invalid, if you believe this is a mistake, contact the store you ordered your item at");
+        return;
+    }
+
+    let targetPackage = await dbGet(db, "SELECT * FROM package WHERE guid=?", [postData.guid]);
+    if (targetPackage == null) {
+        invalidParameters(response, "The link was invalid, if you believe this is a mistake, contact the store you ordered your item at");
+        return;
+    }
+    
+    if (targetPackage.delivered || targetPackage.bookedTimeSlot != null) {
+        invalidParameters(response, "You already booked a time slot", `/package?guid=${postData.guid}`, "package status");
+        return;
+    }
+
+    if (!isStringInt(postData.selectedTimeId)) {
+        invalidParameters(response, "The selected time id was invalid or got taken before you, try again", `/package?guid=${postData.guid}`, "timeslot selector");
+        return;
+    }
+
+    let parsedSelectedTimeId = Number(postData.selectedTimeId);
+
+    let now = moment();
+
+    let timeSlotDetails = await dbGet(db, `select t.id as tid, COUNT(p.id) as bookCount, q."size" as maxSize
+    from timeSlot t
+    left outer join package p on t.id = p.bookedTimeId
+    left outer join queue q on t.queueId = q.id
+    where t.id = ? AND t.storeId = ? AND t.startTime > datetime(?)`, [parsedSelectedTimeId, targetPackage.storeId, now.format("YYYY-MM-DDTHH:mm:ss")]);
+    
+    if (timeSlotDetails == null || timeSlotDetails.bookCount >= timeSlotDetails.maxSize) {
+        invalidParameters(response, "The selected time id was invalid or got taken before you, try again", `/package?guid=${postData.guid}`, "timeslot selector");
+        return;
+    }
+
+    await dbRun(db, `update package set bookedTimeId=? where id=?`, [timeSlotDetails.tid, targetPackage.id]);
+
+    response.statusCode = 302;
+    response.setHeader('Location', request.headers['referer']);
     response.end();
 }
 
