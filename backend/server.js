@@ -346,7 +346,7 @@ async function addPackage(storeId, customerEmail, customerName, externalOrderId)
     guid = crypto.randomBytes(8).toString("hex");
     bookedTimeId = null;
     creationDate = new Date();
-    verificationCode = crypto.randomBytes(16).toString("hex");
+    verificationCode = generateVerification();
     let existingOrder = await new Promise((resolve, reject) => {
         db.get("SELECT * FROM package WHERE externalOrderId=?", [externalOrderId], (err, row) => {
             if(err) {
@@ -369,6 +369,18 @@ async function addPackage(storeId, customerEmail, customerName, externalOrderId)
     
 
     await sendEmail(customerEmail, customerName, `${store.name}: Choose a pickup time slot`, `Link: http://127.0.0.1:8000/package/${guid}/select_time`, await renderMailTemplate(customerName, store, guid, creationDate));
+}
+
+function generateVerification() {
+    const length = 8;
+    let result = [];
+    let chars = "ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789"; // 36
+
+    for(let i = 0; i < length; i++) {
+        result.push(chars[Math.floor(Math.random() * 36)]);
+    }
+
+    return result.join('');
 }
 
 /* Email template for reminders */
