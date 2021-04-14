@@ -116,6 +116,12 @@ async function requestHandler(request, response) {
                 case "/static/js/external/qr-scanner-worker.min.js":
                     serveFile(response, __dirname + "/../frontend/js/external/qr-scanner-worker.min.js", "text/javascript");
                     break;
+                case "/static/css/timeSlotSelection.css":
+                    serveFile(response, __dirname + "/../frontend/css/timeSlotSelection.css", "text/css");
+                    break;
+                case "/static/js/timeSlotSelection.js":
+                    serveFile(response, __dirname + "/../frontend/js/timeSlotSelection.js", "text/javascript");
+                    break;
                 default:
                     defaultResponse(request, response);
                     break;
@@ -1368,7 +1374,7 @@ async function getTime(request, response) {
     console.log(`Selected time range ${lower} - ${upper}`);
     
     /* Collects the data from the database */
-    let result = dbAll(`WITH valid_timeslots (id, storeId, startTime, endTime, queueId) as (
+    let result = await dbAll(db, `WITH valid_timeslots (id, storeId, startTime, endTime, queueId) as (
         select t.id as timeSlotId, t.storeId, t.startTime, t.endTime, t.queueId
         from timeSlot t
         left outer join package p on t.id = p.bookedTimeId
@@ -1432,82 +1438,8 @@ async function getTime(request, response) {
             <head>
                 <title>Timeslots</title>
                 <meta charset="UTF-8">
+                <link href="/static/css/timeSlotSelection.css" rel="stylesheet">
             </head>
-            <style>
-
-            h1 {
-                text-align: center;
-                background-color: #E3BCBC;
-                background-position: 50% top;
-                padding: 50px;
-                font-weight: normal;
-            }
-            h2 {
-                text-align: center;
-            }
-            table {
-                border-collapse: collapse;
-                width: 100%;
-            }
-
-
-            th, td {
-                text-align: center;
-                border-radius: 5px;
-            }
-            th {
-                color: #666;
-                text-align: center;
-            }
-
-            .modal {
-                display: none; /* Hidden by default */
-                position: fixed; /* Stay in place */
-                z-index: 1; /* Sit on top */
-                padding-top: 200px; /* Location of the box */
-                left: 0;
-                top: 0;
-                width: 100%; /* Full width */
-                height: 100%; /* Full height */
-                overflow: auto; /* Enable scroll if needed */
-                background-color: rgb(0,0,0); /* Fallback color */
-                background-color: rgba(0,0,0,0.4); /* Black w/ opacity */
-            }
-            
-            .modal-content {
-                background-color: #fefefe;
-                margin: auto;
-                padding: 20px;
-                border: 1px solid #888;
-                width: 80%;
-            }
-            
-            .close {
-                color: #aaaaaa;
-                float: right;
-                font-size: 28px;
-                font-weight: bold;
-            }
-            
-            .close:hover,
-            .close:focus {
-              color: #000;
-              text-decoration: none;
-              cursor: pointer;
-            }
-
-            .submitbtn {
-                position: relative;
-                left: 47%;
-                cursor: pointer;
-            }
-            .sTime {
-                text-align: center;
-            }
-
-
-            </style>
-
             <body> 
                 <form action="/package">
                     <input type="hidden" name="week" value="${selected_week - 1}">
@@ -1556,39 +1488,8 @@ async function getTime(request, response) {
             </div>
         </div>
 
-        <script>
-        var modal = document.getElementById("myModal");
-        var btn = document.getElementById("myBtn");
-        var span = document.getElementsByClassName("close")[0];
-        
-        var elements= document.querySelectorAll("button[data-id]");
-        for(var i = 0; i < elements.length; i++){
-        (elements)[i].addEventListener("click", function(){
-           modal.style.display = "block";
-
-           
-           var dataId = this.getAttribute('data-id');
-
-           var x = this.innerHTML;
-
-           document.getElementById("selectedTime").innerHTML = x;
-           document.getElementById("selected-time-id").value = dataId;
-        });
-        }
-       
-        span.onclick = function() {
-        modal.style.display = "none";
-        }
-
-        window.onclick = function(event) {
-        if (event.target == modal) {
-            modal.style.display = "none";
-            }
-        }
-        </script>
-
+        <script src="/static/js/timeSlotSelection.js"></script>
         </body>
-
         </html>
         `
 
