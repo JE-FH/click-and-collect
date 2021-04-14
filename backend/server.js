@@ -146,6 +146,7 @@ async function sendReminders() {
 
 /* Sends a reminder to the customer associated with the package if it more than 3 days old and isn't booked for pickup yet */
 async function sendReminder(package) {
+    const host = "http://127.0.0.1:8000";
     const msPerDay = 86400000;
     const days = 3;
     let now = new Date();
@@ -153,7 +154,7 @@ async function sendReminder(package) {
 
     if(creationDelta >= msPerDay*days) {
         console.log('Sending reminder to: ' + package.customerEmail + ' (3 days has passed)');
-        sendEmail(package.customerEmail, package.customerName, "Reminder: no time slot booked", `Link: http://127.0.0.1:8000/package/${package.guid}/select_time`, await reminderHTML(package));
+        sendEmail(package.customerEmail, package.customerName, "Reminder: no time slot booked", `Link: ${host}/package?guid=${package.guid}`, await reminderHTML(package));
         /* Increment package.remindersSent in database */
         db.run("UPDATE package SET remindersSent=1 WHERE id=?", [package.id]);
     } else {
@@ -197,6 +198,7 @@ async function reminderStoreHTML(package) {
 
 async function reminderHTML(package) {
     let store = await storeIdToStore(package.storeId);
+    const host = "http://127.0.0.1:8000";
 
     return `
         <html>
@@ -207,7 +209,7 @@ async function reminderHTML(package) {
                 <h1>Unbooked time slot</h1>
                 <p>Hello ${package.customerName}, you still have not picked a time slot for picking up your order from ${store.name}</p>
                 <p>Follow this link to book a time slot:</p>
-                <a target="_blank" href="http://127.0.0.1:8000/package/${package.guid}/select_time">http://127.0.0.1:8000/package/${package.guid}/select_time</a>
+                <a target="_blank" href="${host}/package?guid=${package.guid}">${host}/package?guid=${package.guid}</a>
             </body>
         </html>
     `
@@ -244,7 +246,6 @@ async function apiPost(request, response) {
         if (store != null){
             console.log('Valid post body');
             addPackage(store.id, body.customerEmail, body.customerName, body.orderId);
-            //console.log(store);
             response.statusCode = 200;
             response.end();
         }
@@ -366,18 +367,18 @@ async function addPackage(storeId, customerEmail, customerName, externalOrderId)
     console.log('Package added for: ' + customerName);
 
     let store = await storeIdToStore(storeId);
-    
+    const host = "http://127.0.0.1:8000";
 
-    await sendEmail(customerEmail, customerName, `${store.name}: Choose a pickup time slot`, `Link: http://127.0.0.1:8000/package/${guid}/select_time`, await renderMailTemplate(customerName, store, guid, creationDate));
+    await sendEmail(customerEmail, customerName, `${store.name}: Choose a pickup time slot`, `Link: ${host}/package?guid=${guid}`, await renderMailTemplate(customerName, store, guid, creationDate));
 }
 
 function generateVerification() {
     const length = 8;
     let result = [];
-    let chars = "ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789"; // 36
+    let chars = "ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789";
 
     for(let i = 0; i < length; i++) {
-        result.push(chars[Math.floor(Math.random() * 36)]);
+        result.push(chars[crypto.randomInt(0, 36)]);
     }
 
     return result.join('');
@@ -385,6 +386,8 @@ function generateVerification() {
 
 /* Email template for reminders */
 async function renderMailTemplate(name, store, uid, timestamp) {
+    const host = "http://127.0.0.1:8000";
+
     return `
         <html>
             <head>
@@ -396,7 +399,7 @@ async function renderMailTemplate(name, store, uid, timestamp) {
                 <p>Hello ${name}. You have ordered items from ${store.name}.</p>
                 <p>Order received ${timestamp}.</p>
                 <h2>Your link:</h2>
-                <a target="_blank" href="http://127.0.0.1:8000/package/${uid}/select_time">http://127.0.0.1:8000/package/${uid}/select_time</a>
+                <a target="_blank" href="${host}/package?guid=${uid}">${host}/package?guid=${uid}</a>
             </body>
         </html>
     `;
