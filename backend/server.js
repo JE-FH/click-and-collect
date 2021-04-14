@@ -1407,6 +1407,7 @@ async function employeeList(request, response){
         resolve(htmlTable);
         });
 
+        response.statusCode = 200;
         response.write(`
         <!DOCTYPE html>
         <html>
