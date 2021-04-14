@@ -1601,7 +1601,7 @@ async function cancelTimeSlot(request, response) {
 
     response.statusCode = 302;
     response.setHeader('Location', `/package?guid=${targetPackage.guid}`);
-    response.end();//
+    response.end();
 }
 
 /* Helping function to the function getTime*/
