@@ -7,7 +7,7 @@ const {isStringInt, isStringNumber, receiveBody, parseURLEncoded, assertAdminAcc
 const {queryMiddleware, sessionMiddleware, createUserMiddleware} = require("./middleware");
 const {adminNoAccess, invalidParameters} = require("./generic-responses");
 const {dbAll, dbGet, dbRun, dbExec} = require("./db-helpers");
-const { Console } = require("console");
+const QRCode = require("qrcode");
 
 
 const port = 8000;
@@ -1561,11 +1561,12 @@ async function selectTimeSlot(request, response) {
 
     let now = moment();
 
-    let timeSlotDetails = await dbGet(db, `select t.id as tid, COUNT(p.id) as bookCount, q."size" as maxSize
+    let timeSlotDetails = await dbGet(db, `select 
+    t.id as tid, COUNT(p.id) as bookCount, q."size" as maxSize, t.startTime as startTime, t.endTime as endTime, q.latitude as qlatitude, q.longitude as qlongitude, q.id as qid
     from timeSlot t
     left outer join package p on t.id = p.bookedTimeId
     left outer join queue q on t.queueId = q.id
-    where t.id = ? AND t.storeId = ? AND t.startTime > datetime(?)`, [parsedSelectedTimeId, targetPackage.storeId, now.format("YYYY-MM-DDTHH:mm:ss")]);
+    where t.id = ? AND t.storeId = ? AND t.endTime > datetime(?)`, [parsedSelectedTimeId, targetPackage.storeId, now.format("YYYY-MM-DDTHH:mm:ss")]);
     
     if (timeSlotDetails == null || timeSlotDetails.bookCount >= timeSlotDetails.maxSize) {
         invalidParameters(response, "The selected time id was invalid or got taken before you, try again", `/package?guid=${postData.guid}`, "timeslot selector");
@@ -1573,6 +1574,8 @@ async function selectTimeSlot(request, response) {
     }
 
     await dbRun(db, `update package set bookedTimeId=? where id=?`, [timeSlotDetails.tid, targetPackage.id]);
+
+    await sendPickupDocumentation(targetPackage, timeSlotDetails)
 
     response.statusCode = 302;
     response.setHeader('Location', `/package?guid=${targetPackage.guid}`);
@@ -1602,6 +1605,36 @@ async function cancelTimeSlot(request, response) {
     response.statusCode = 302;
     response.setHeader('Location', `/package?guid=${targetPackage.guid}`);
     response.end();
+}
+
+async function sendPickupDocumentation(package, timeSlotDetails) {
+    let qrCode = await QRCode.toDataURL(package.verificationCode);
+
+    sendEmail(package.customerEmail, package.customerName ?? package.customerEmail, "Click&Collect pickup documentation", "Hello my friend you have been scam", `
+        <!DOCTYPE html>
+        <html>
+            <head>
+                <title>Test Email Sample</title>
+                <meta http–equiv=“Content-Type” content=“text/html; charset=UTF-8” />
+                <meta http–equiv=“X-UA-Compatible” content=“IE=edge” />
+                <meta name=“viewport” content=“width=device-width, initial-scale=1.0 “ />
+            </head>
+            <body>
+                <h1>Hello ${package.customerName ?? ""}</h1>
+                <p>You have selected the following time slot</p>
+                <p>${timeSlotDetails.startTime} - ${timeSlotDetails.endTime}</p>
+                <p>You have been put in queue ${timeSlotDetails.qid} </p>
+                <p>
+                    the queue location can be seen 
+                    <a href="https://www.google.com/maps/search/${encodeURIComponent(`${timeSlotDetails.qlatitude}, ${timeSlotDetails.qlongitude}`)}">here</a>
+                </p>
+                <h2>Show the following qr code to the employee when you go to the pickup location</h2>
+                <img src="${qrCode}" style="display: block;max-width: 100vh;height: auto;max-height: 100vh;width: 100%;"/>
+                <p>If the image is not visible you can try to enable image displaying in your email client or use the following code instead of the qr code at the pickup</p>
+                <code>${package.verificationCode}</code>
+            </body>
+        </html>
+    `)
 }
 
 /* Helping function to the function getTime*/
