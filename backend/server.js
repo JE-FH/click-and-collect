@@ -11,6 +11,7 @@ const {dbAll, dbGet, dbRun, dbExec} = require("./db-helpers");
 
 const port = 8000;
 const hostname = '127.0.0.1';
+const HOST = "http://127.0.0.1:8000";
 
 let db;
 let userMiddleware;
@@ -127,6 +128,106 @@ async function requestHandler(request, response) {
     }
 }
 
+async function sendReminders() {
+    let unbookedPackages = await getUnbookedPackages();
+
+    for await (let package of unbookedPackages) {
+        switch(package.remindersSent) {
+            case 0:
+                await sendReminder(package);
+                break;
+            case 1:
+                await remindStoreOwner(package);
+                break;
+            default:
+                break;
+        }
+    }
+}
+
+/* Sends a reminder to the customer associated with the package if it more than 3 days old and isn't booked for pickup yet */
+async function sendReminder(package) {
+    const msPerDay = 86400000;
+    const days = 3;
+    let now = new Date();
+    let creationDelta = now-package.creationDate;
+
+    if(creationDelta >= msPerDay*days) {
+        console.log('Sending reminder to: ' + package.customerEmail + ' (3 days has passed)');
+        sendEmail(package.customerEmail, package.customerName, "Reminder: no time slot booked", `Link: ${HOST}/package?guid=${package.guid}`, await reminderHTML(package));
+        /* Increment package.remindersSent in database */
+        db.run("UPDATE package SET remindersSent=1 WHERE id=?", [package.id]);
+    } else {
+        return;
+    }
+}
+
+/* Sends a reminder to the store owner associated with the package if it more than 14 days old and isn't booked for pickup yet */
+async function remindStoreOwner(package) {
+    const msPerDay = 86400000;
+    const days = 14;
+    let now = new Date();
+    let creationDelta = now-package.creationDate;
+    let store = await storeIdToStore(package.storeId);
+
+    if(creationDelta >= msPerDay*days) {
+        console.log('Sending reminder to store owner: ' + store.storeEmail + ' (14 days has passed - order: ' + package.externalOrderId + ')');
+        sendEmail(store.storeEmail, store.name, "Reminder: no time slot booked", `Order: ${package.externalOrderId}`, await reminderStoreHTML(package));
+        /* Increment package.remindersSent in database */
+        db.run("UPDATE package SET remindersSent=2 WHERE id=?", [package.id]);
+    } else {
+        return;
+    }
+}
+
+async function reminderStoreHTML(package) {
+    return `
+        <html>
+            <head>
+                <meta charset="UTF-8">
+            </head>
+            <body>
+                <h1>Unbooked time slot</h1>
+                <p>Order: ${package.externalOrderId}</p>
+                <p>Customer info:<br>${package.customerName} (${package.customerEmail})</p>
+                <p>Created: ${new Date(package.creationDate)}</p>
+            </body>
+        </html>
+    `
+}
+
+async function reminderHTML(package) {
+    let store = await storeIdToStore(package.storeId);
+
+    return `
+        <html>
+            <head>
+                <meta charset="UTF-8">
+            </head>
+            <body>
+                <h1>Unbooked time slot</h1>
+                <p>Hello ${package.customerName}, you still have not picked a time slot for picking up your order from ${store.name}</p>
+                <p>Follow this link to book a time slot:</p>
+                <a target="_blank" href="${HOST}/package?guid=${package.guid}">${HOST}/package?guid=${package.guid}</a>
+            </body>
+        </html>
+    `
+}
+
+async function getUnbookedPackages() {
+    let packages = await new Promise((resolve, reject) => {
+       db.all("SELECT * FROM package WHERE bookedTimeId IS NULL", (err, rows) => {
+           if(err) {
+               reject(err);
+           } else {
+               resolve(rows);
+           }
+       }) 
+    })
+
+    return packages;
+}
+
 async function serveFile(response, filename, contentType) {
     let content = (await fs.readFile(filename)).toString();
     response.statusCode = 200;
@@ -144,7 +245,6 @@ async function apiPost(request, response) {
         if (store != null){
             console.log('Valid post body');
             addPackage(store.id, body.customerEmail, body.customerName, body.orderId);
-            //console.log(store);
             response.statusCode = 200;
             response.end();
         }
@@ -246,7 +346,7 @@ async function addPackage(storeId, customerEmail, customerName, externalOrderId)
     guid = crypto.randomBytes(8).toString("hex");
     bookedTimeId = null;
     creationDate = new Date();
-    verificationCode = crypto.randomBytes(16).toString("hex");
+    verificationCode = generateVerification();
     let existingOrder = await new Promise((resolve, reject) => {
         db.get("SELECT * FROM package WHERE externalOrderId=?", [externalOrderId], (err, row) => {
             if(err) {
@@ -266,11 +366,23 @@ async function addPackage(storeId, customerEmail, customerName, externalOrderId)
     console.log('Package added for: ' + customerName);
 
     let store = await storeIdToStore(storeId);
-    
 
-    await sendEmail(customerEmail, customerName, `${store.name}: Choose a pickup time slot`, `Link: http://127.0.0.1:8000/package/${guid}/select_time`, await renderMailTemplate(customerName, store, guid, creationDate));
+    await sendEmail(customerEmail, customerName, `${store.name}: Choose a pickup time slot`, `Link: ${HOST}/package?guid=${guid}`, await renderMailTemplate(customerName, store, guid, creationDate));
 }
 
+function generateVerification() {
+    const length = 8;
+    let result = [];
+    let chars = "ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789";
+
+    for(let i = 0; i < length; i++) {
+        result.push(chars[crypto.randomInt(0, 36)]);
+    }
+
+    return result.join('');
+}
+
+/* Email template for reminders */
 async function renderMailTemplate(name, store, uid, timestamp) {
     return `
         <html>
@@ -283,7 +395,7 @@ async function renderMailTemplate(name, store, uid, timestamp) {
                 <p>Hello ${name}. You have ordered items from ${store.name}.</p>
                 <p>Order received ${timestamp}.</p>
                 <h2>Your link:</h2>
-                <p>http://127.0.0.1:8000/package/${uid}/select_time</p>
+                <a target="_blank" href="${HOST}/package?guid=${uid}">${HOST}/package?guid=${uid}</a>
             </body>
         </html>
     `;
@@ -941,6 +1053,11 @@ async function main() {
     userMiddleware = createUserMiddleware(db);
 
     await setupEmail();
+
+    /* Sends reminders to customers who hasn't booked a time slot. Checks every 10 minutes. */
+    setInterval(async () => {
+        await sendReminders();
+    }, 600000);
 
     /* Starts the server */
     server.listen(port, hostname, () => {
