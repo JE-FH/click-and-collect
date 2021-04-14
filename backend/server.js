@@ -145,7 +145,7 @@ async function sendReminders() {
     }
 }
 
-/* Sends a reminder to the customer associated with the package if it more than 3 days old and isn't booked for pickup yet */
+/* Sends a reminder to the customer associated with the package if it is more than 3 days old and isn't booked for pickup yet */
 async function sendReminder(package) {
     const msPerDay = 86400000;
     const days = 3;
@@ -162,7 +162,7 @@ async function sendReminder(package) {
     }
 }
 
-/* Sends a reminder to the store owner associated with the package if it more than 14 days old and isn't booked for pickup yet */
+/* Sends a reminder to the store owner associated with the package if it is more than 14 days old and isn't booked for pickup yet */
 async function remindStoreOwner(package) {
     const msPerDay = 86400000;
     const days = 14;
