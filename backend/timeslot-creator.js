@@ -33,7 +33,7 @@ async function main() {
 
 	let queueAgnosticTimeslots = []
 
-	for (let current_time = moment(beginningTime); current_time.isBefore(applicable_range_end); current_time.add("1", "hour")) {
+	for (let current_time = moment(beginningTime); current_time.isBefore(applicable_range_end); current_time.add(1, "hour")) {
 		queueAgnosticTimeslots.push({start: moment(current_time).add(0, "minute"), end: moment(current_time).add(15, "minute")});
 		queueAgnosticTimeslots.push({start: moment(current_time).add(15, "minute"), end: moment(current_time).add(30, "minute")});
 		queueAgnosticTimeslots.push({start: moment(current_time).add(30, "minute"), end: moment(current_time).add(45, "minute")});
@@ -53,7 +53,6 @@ async function main() {
 			db.parallelize(() => {
 				values.forEach(v => {
 					stmt.run(v);
-					console.log(v);
 				})
 			})
 			stmt.finalize(() => {
