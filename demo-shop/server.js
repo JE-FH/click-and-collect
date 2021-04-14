@@ -1,6 +1,5 @@
 const http = require('http');
 const fetch = require('node-fetch');
-const { stringify } = require('querystring');
 
 const port = 3000;
 const hostname = '127.0.0.1';
