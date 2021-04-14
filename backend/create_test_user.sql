@@ -1,9 +1,9 @@
-INSERT INTO store (id, name, openingTime, closingTime, pickupDelay, apiKey) VALUES
-	(4563, "dkfaoef", "00:00:00", "00:00:00", "00:00:00", "ksokg");
+INSERT INTO store (id, name, openingTime, closingTime, pickupDelay, apiKey, storeEmail) VALUES
+	(4563, "dkfaoef", "00:00:00", "00:00:00", "00:00:00", "ksokg", "dkfaoef@mail.com");
 
 --demo web shop
-INSERT INTO store (id, name, openingTime, closingTime, pickupDelay, apiKey) VALUES
-	(2, "Demo shop", "00:00:00", "00:00:00", "00:00:00", "demo-shop-94835577175941");
+INSERT INTO store (id, name, openingTime, closingTime, pickupDelay, apiKey, storeEmail) VALUES
+	(2, "Demo shop", "00:00:00", "00:00:00", "00:00:00", "demo-shop-94835577175941", "demo-shop@mail.com");
 
 --password is "password"
 INSERT INTO user (username, password, salt, name, superuser, storeId) VALUES
