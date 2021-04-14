@@ -102,7 +102,7 @@ async function requestHandler(request, response) {
                     serveFile(response, __dirname + "/../frontend/js/queueListScript.js", "text/javascript");
                     break;
                 case "/package":
-                    getTime(request, response);
+                    timeSlotSelector(request, response);
                     break;
                 case "/store/scan":
                     storeScan(request, response);
@@ -1315,7 +1315,7 @@ async function employeeList(request, response){
 }
 
 
-async function getTime(request, response) {
+async function timeSlotSelector(request, response) {
     if (typeof(request.query.guid) != "string") {
         invalidParameters(response, "The link was invalid, if you believe this is a mistake, contact the store you ordered your item at");
         return;
