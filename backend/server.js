@@ -1321,56 +1321,56 @@ async function timeSlotSelector(request, response) {
         return;
     }
 
-    let target_package = await dbGet(db, "SELECT * FROM package WHERE guid=?", [request.query.guid]);
-    if (target_package == null) {
+    let targetPackage = await dbGet(db, "SELECT * FROM package WHERE guid=?", [request.query.guid]);
+    if (targetPackage == null) {
         invalidParameters(response, "The link was invalid, if you believe this is a mistake, contact the store you ordered your item at");
         return;
     }
 
-    if (target_package.bookedTimeId != null || target_package.delivered == 1) {
-        time_booked_page(request, response, target_package);
+    if (targetPackage.bookedTimeId != null || targetPackage.delivered == 1) {
+        timeBookedPage(request, response, targetPackage);
         return;
     }
 
     let now = moment();
-    let selected_year = now.isoWeekYear();
-    let selected_week = now.isoWeek();
-    let starting_point = moment(now);
+    let selectedYear = now.isoWeekYear();
+    let selectedWeek = now.isoWeek();
+    let startingPoint = moment(now);
 
     if (typeof(request.query.year) == "string") {
-        let parsed_year = Number(request.query.year);                                     //Just some limits that should avoid some edge cases
-        if (!Number.isNaN(parsed_year) && Number.isInteger(parsed_year) && parsed_year >= now.year() - 5 && parsed_year < now.year() + 5) {
-            selected_year = parsed_year;
+        let parsedYear = Number(request.query.year);                                     //Just some limits that should avoid some edge cases
+        if (!Number.isNaN(parsedYear) && Number.isInteger(parsedYear) && parsedYear >= now.year() - 5 && parsedYear < now.year() + 5) {
+            selectedYear = parsedYear;
         }
     }
 
     if (typeof(request.query.week) == "string") {
-        let parsed_week = Number(request.query.week);
-        if (!Number.isNaN(parsed_week) && Number.isInteger(parsed_week) && parsed_week >= 0) {
-            let lowerBound = moment(starting_point).startOf("year").startOf("isoWeek");
-            let upperBound = moment(starting_point).endOf("year").endOf("isoWeek"); 
-            let proposed_date = moment(starting_point).isoWeek(parsed_week);
-            if (proposed_date.isAfter(upperBound) || proposed_date.isBefore(lowerBound) || parsed_week == 0) {
-                if (proposed_date.isAfter(upperBound)) {
+        let parsedWeek = Number(request.query.week);
+        if (!Number.isNaN(parsedWeek) && Number.isInteger(parsedWeek) && parsedWeek >= 0) {
+            let lowerBound = moment(startingPoint).startOf("year").startOf("isoWeek");
+            let upperBound = moment(startingPoint).endOf("year").endOf("isoWeek"); 
+            let proposedDate = moment(startingPoint).isoWeek(parsedWeek);
+            if (proposedDate.isAfter(upperBound) || proposedDate.isBefore(lowerBound) || parsedWeek == 0) {
+                if (proposedDate.isAfter(upperBound)) {
                     response.statusCode = 302;
-                    response.setHeader("Location", `/package?week=1&year=${selected_year+1}`);
+                    response.setHeader("Location", `/package?week=1&year=${selectedYear+1}`);
                     response.end();
                     return;
                 } else {
                     response.statusCode = 302;
-                    response.setHeader("Location", `/package?week=${moment().isoWeekYear(selected_year).isoWeeksInYear()}&year=${selected_year-1}`);
+                    response.setHeader("Location", `/package?week=${moment().isoWeekYear(selectedYear).isoWeeksInYear()}&year=${selectedYear-1}`);
                     response.end();
                     return;
                 }
             } else {
-                selected_week = proposed_date.isoWeek();
+                selectedWeek = proposedDate.isoWeek();
             }
         }
     }
 
-    let selected_week_day = moment().isoWeekYear(selected_year).isoWeek(selected_week);
-    let lower = moment(selected_week_day).startOf("isoWeek");
-    let upper = moment(selected_week_day).endOf("isoWeek");
+    let selectedWeekDay = moment().isoWeekYear(selectedYear).isoWeek(selectedWeek);
+    let lower = moment(selectedWeekDay).startOf("isoWeek");
+    let upper = moment(selectedWeekDay).endOf("isoWeek");
     console.log(`Selected time range ${lower} - ${upper}`);
     
     /* Collects the data from the database */
@@ -1391,7 +1391,7 @@ async function timeSlotSelector(request, response) {
             group_concat(startTime || "," || endTime || "," || id, ";") as timeSlotDataStr
         FROM valid_timeslots
         GROUP BY time_format
-        ORDER BY time_format ASC`, [lower.format("YYYY-MM-DDTHH:mm:ss"), upper.format("YYYY-MM-DDTHH:mm:ss"), target_package.storeId]);
+        ORDER BY time_format ASC`, [lower.format("YYYY-MM-DDTHH:mm:ss"), upper.format("YYYY-MM-DDTHH:mm:ss"), targetPackage.storeId]);
 
         result.forEach(row => {
             row.timeSlotData = [];
@@ -1442,16 +1442,16 @@ async function timeSlotSelector(request, response) {
             </head>
             <body> 
                 <form action="/package">
-                    <input type="hidden" name="week" value="${selected_week - 1}">
-                    <input type="hidden" name="year" value="${selected_year}">
-                    <input type="hidden" name="guid" value="${target_package.guid}">
+                    <input type="hidden" name="week" value="${selectedWeek - 1}">
+                    <input type="hidden" name="year" value="${selectedYear}">
+                    <input type="hidden" name="guid" value="${targetPackage.guid}">
                     <input type="submit" value="Previous week">
                 </form>
-                <h1>Week ${selected_week_day.isoWeek() }</h1>
+                <h1>Week ${selectedWeekDay.isoWeek() }</h1>
                 <form action="/package">
-                    <input type="hidden" name="week" value="${selected_week + 1}">
-                    <input type="hidden" name="year" value="${selected_year}">
-                    <input type="hidden" name="guid" value="${target_package.guid}">
+                    <input type="hidden" name="week" value="${selectedWeek + 1}">
+                    <input type="hidden" name="year" value="${selectedYear}">
+                    <input type="hidden" name="guid" value="${targetPackage.guid}">
                     <input type="submit" value="Next week">
                 </form>
             
@@ -1494,7 +1494,7 @@ async function timeSlotSelector(request, response) {
 
 }
 
-async function time_booked_page(request, response, package) {
+async function timeBookedPage(request, response, package) {
     let bookedTimeSlot = null;
     if (package.bookedTimeId != null) {
         bookedTimeSlot = await dbGet(db, "SELECT * FROM timeSlot where id=?", [package.bookedTimeId]);
