@@ -59,6 +59,9 @@ async function requestHandler(request, response) {
                 case "/package/select_time":
                     selectTimeSlot(request, response);
                     break;
+                case "/package/cancel":
+                    cancelTimeSlot(request, response);
+                    break;
             }
             break;
         }
@@ -1572,8 +1575,33 @@ async function selectTimeSlot(request, response) {
     await dbRun(db, `update package set bookedTimeId=? where id=?`, [timeSlotDetails.tid, targetPackage.id]);
 
     response.statusCode = 302;
-    response.setHeader('Location', request.headers['referer']);
+    response.setHeader('Location', `/package?guid=${targetPackage.guid}`);
     response.end();
+}
+
+async function cancelTimeSlot(request, response) {
+    let postData = parseURLEncoded(await receiveBody(request));
+    if (typeof(postData.guid) != "string") {
+        invalidParameters(response, "The link was invalid, if you believe this is a mistake, contact the store you ordered your item at");
+        return;
+    }
+
+    let targetPackage = await dbGet(db, "SELECT * FROM package WHERE guid=?", [postData.guid]);
+    if (targetPackage == null) {
+        invalidParameters(response, "The link was invalid, if you believe this is a mistake, contact the store you ordered your item at");
+        return;
+    }
+    
+    if (targetPackage.delivered == 1) {
+        invalidParameters(response, "This package was already delivered", `/package?guid=${postData.guid}`, "package status");
+        return;
+    }
+
+    await dbRun(db, "update package set bookedTimeId=NULL where id = ?", [targetPackage.id]);
+
+    response.statusCode = 302;
+    response.setHeader('Location', `/package?guid=${targetPackage.guid}`);
+    response.end();//
 }
 
 /* Helping function to the function getTime*/
