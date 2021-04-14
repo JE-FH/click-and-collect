@@ -11,6 +11,7 @@ const {dbAll, dbGet, dbRun, dbExec} = require("./db-helpers");
 
 const port = 8000;
 const hostname = '127.0.0.1';
+const HOST = "http://127.0.0.1:8000";
 
 let db;
 let userMiddleware;
@@ -146,7 +147,6 @@ async function sendReminders() {
 
 /* Sends a reminder to the customer associated with the package if it more than 3 days old and isn't booked for pickup yet */
 async function sendReminder(package) {
-    const host = "http://127.0.0.1:8000";
     const msPerDay = 86400000;
     const days = 3;
     let now = new Date();
@@ -154,7 +154,7 @@ async function sendReminder(package) {
 
     if(creationDelta >= msPerDay*days) {
         console.log('Sending reminder to: ' + package.customerEmail + ' (3 days has passed)');
-        sendEmail(package.customerEmail, package.customerName, "Reminder: no time slot booked", `Link: ${host}/package?guid=${package.guid}`, await reminderHTML(package));
+        sendEmail(package.customerEmail, package.customerName, "Reminder: no time slot booked", `Link: ${HOST}/package?guid=${package.guid}`, await reminderHTML(package));
         /* Increment package.remindersSent in database */
         db.run("UPDATE package SET remindersSent=1 WHERE id=?", [package.id]);
     } else {
@@ -198,7 +198,6 @@ async function reminderStoreHTML(package) {
 
 async function reminderHTML(package) {
     let store = await storeIdToStore(package.storeId);
-    const host = "http://127.0.0.1:8000";
 
     return `
         <html>
@@ -209,7 +208,7 @@ async function reminderHTML(package) {
                 <h1>Unbooked time slot</h1>
                 <p>Hello ${package.customerName}, you still have not picked a time slot for picking up your order from ${store.name}</p>
                 <p>Follow this link to book a time slot:</p>
-                <a target="_blank" href="${host}/package?guid=${package.guid}">${host}/package?guid=${package.guid}</a>
+                <a target="_blank" href="${HOST}/package?guid=${package.guid}">${HOST}/package?guid=${package.guid}</a>
             </body>
         </html>
     `
@@ -367,9 +366,8 @@ async function addPackage(storeId, customerEmail, customerName, externalOrderId)
     console.log('Package added for: ' + customerName);
 
     let store = await storeIdToStore(storeId);
-    const host = "http://127.0.0.1:8000";
 
-    await sendEmail(customerEmail, customerName, `${store.name}: Choose a pickup time slot`, `Link: ${host}/package?guid=${guid}`, await renderMailTemplate(customerName, store, guid, creationDate));
+    await sendEmail(customerEmail, customerName, `${store.name}: Choose a pickup time slot`, `Link: ${HOST}/package?guid=${guid}`, await renderMailTemplate(customerName, store, guid, creationDate));
 }
 
 function generateVerification() {
@@ -386,8 +384,6 @@ function generateVerification() {
 
 /* Email template for reminders */
 async function renderMailTemplate(name, store, uid, timestamp) {
-    const host = "http://127.0.0.1:8000";
-
     return `
         <html>
             <head>
@@ -399,7 +395,7 @@ async function renderMailTemplate(name, store, uid, timestamp) {
                 <p>Hello ${name}. You have ordered items from ${store.name}.</p>
                 <p>Order received ${timestamp}.</p>
                 <h2>Your link:</h2>
-                <a target="_blank" href="${host}/package?guid=${uid}">${host}/package?guid=${uid}</a>
+                <a target="_blank" href="${HOST}/package?guid=${uid}">${HOST}/package?guid=${uid}</a>
             </body>
         </html>
     `;
@@ -1037,10 +1033,10 @@ async function main() {
 
     await setupEmail();
 
-    /* Sends reminders to customers who hasn't booked a time slot */
+    /* Sends reminders to customers who hasn't booked a time slot. Checks every 10 minutes. */
     setInterval(async () => {
         await sendReminders();
-    }, 5000);
+    }, 600000);
 
     /* Starts the server */
     server.listen(port, hostname, () => {
