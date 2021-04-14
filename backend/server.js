@@ -130,16 +130,13 @@ async function requestHandler(request, response) {
 async function sendReminders() {
     let unbookedPackages = await getUnbookedPackages();
 
-    //console.log(unbookedPackages);
-
     for await (let package of unbookedPackages) {
         switch(package.remindersSent) {
             case 0:
                 await sendReminder(package);
                 break;
             case 1:
-                break;
-            case 2:
+                await remindStoreOwner(package);
                 break;
             default:
                 break;
@@ -147,7 +144,7 @@ async function sendReminders() {
     }
 }
 
-/* Sends a reminder to the customer associated with the package if it more than 3 days old */
+/* Sends a reminder to the customer associated with the package if it more than 3 days old and isn't booked for pickup yet */
 async function sendReminder(package) {
     const msPerDay = 86400000;
     const days = 3;
@@ -155,13 +152,47 @@ async function sendReminder(package) {
     let creationDelta = now-package.creationDate;
 
     if(creationDelta >= msPerDay*days) {
-        console.log('Sending reminder to: ' + package.customerEmail);
+        console.log('Sending reminder to: ' + package.customerEmail + ' (3 days has passed)');
         sendEmail(package.customerEmail, package.customerName, "Reminder: no time slot booked", `Link: http://127.0.0.1:8000/package/${package.guid}/select_time`, await reminderHTML(package));
-        /* Increment package.remindersSent */
+        /* Increment package.remindersSent in database */
         db.run("UPDATE package SET remindersSent=1 WHERE id=?", [package.id]);
     } else {
         return;
     }
+}
+
+/* Sends a reminder to the store owner associated with the package if it more than 14 days old and isn't booked for pickup yet */
+async function remindStoreOwner(package) {
+    const msPerDay = 86400000;
+    const days = 14;
+    let now = new Date();
+    let creationDelta = now-package.creationDate;
+    let store = await storeIdToStore(package.storeId);
+
+    if(creationDelta >= msPerDay*days) {
+        console.log('Sending reminder to store owner: ' + store.storeEmail + ' (14 days has passed - order: ' + package.externalOrderId + ')');
+        sendEmail(store.storeEmail, store.name, "Reminder: no time slot booked", `Order: ${package.externalOrderId}`, await reminderStoreHTML(package));
+        /* Increment package.remindersSent in database */
+        db.run("UPDATE package SET remindersSent=2 WHERE id=?", [package.id]);
+    } else {
+        return;
+    }
+}
+
+async function reminderStoreHTML(package) {
+    return `
+        <html>
+            <head>
+                <meta charset="UTF-8">
+            </head>
+            <body>
+                <h1>Unbooked time slot</h1>
+                <p>Order: ${package.externalOrderId}</p>
+                <p>Customer info:<br>${package.customerName} (${package.customerEmail})</p>
+                <p>Created: ${new Date(package.creationDate)}</p>
+            </body>
+        </html>
+    `
 }
 
 async function reminderHTML(package) {
@@ -340,6 +371,7 @@ async function addPackage(storeId, customerEmail, customerName, externalOrderId)
     await sendEmail(customerEmail, customerName, `${store.name}: Choose a pickup time slot`, `Link: http://127.0.0.1:8000/package/${guid}/select_time`, await renderMailTemplate(customerName, store, guid, creationDate));
 }
 
+/* Email template for reminders */
 async function renderMailTemplate(name, store, uid, timestamp) {
     return `
         <html>
