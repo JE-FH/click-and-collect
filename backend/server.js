@@ -127,6 +127,75 @@ async function requestHandler(request, response) {
     }
 }
 
+async function sendReminders() {
+    let unbookedPackages = await getUnbookedPackages();
+
+    //console.log(unbookedPackages);
+
+    for await (let package of unbookedPackages) {
+        switch(package.remindersSent) {
+            case 0:
+                await sendReminder(package);
+                break;
+            case 1:
+                break;
+            case 2:
+                break;
+            default:
+                break;
+        }
+    }
+}
+
+/* Sends a reminder to the customer associated with the package if it more than 3 days old */
+async function sendReminder(package) {
+    const msPerDay = 86400000;
+    const days = 3;
+    let now = new Date();
+    let creationDelta = now-package.creationDate;
+
+    if(creationDelta >= msPerDay*days) {
+        console.log('Sending reminder to: ' + package.customerEmail);
+        sendEmail(package.customerEmail, package.customerName, "Reminder: no time slot booked", `Link: http://127.0.0.1:8000/package/${package.guid}/select_time`, await reminderHTML(package));
+        /* Increment package.remindersSent */
+        db.run("UPDATE package SET remindersSent=1 WHERE id=?", [package.id]);
+    } else {
+        return;
+    }
+}
+
+async function reminderHTML(package) {
+    let store = await storeIdToStore(package.storeId);
+
+    return `
+        <html>
+            <head>
+                <meta charset="UTF-8">
+            </head>
+            <body>
+                <h1>Unbooked time slot</h1>
+                <p>Hello ${package.customerName}, you still have not picked a time slot for picking up your order from ${store.name}</p>
+                <p>Follow this link to book a time slot:</p>
+                <a target="_blank" href="http://127.0.0.1:8000/package/${package.guid}/select_time">http://127.0.0.1:8000/package/${package.guid}/select_time</a>
+            </body>
+        </html>
+    `
+}
+
+async function getUnbookedPackages() {
+    let packages = await new Promise((resolve, reject) => {
+       db.all("SELECT * FROM package WHERE bookedTimeId IS NULL", (err, rows) => {
+           if(err) {
+               reject(err);
+           } else {
+               resolve(rows);
+           }
+       }) 
+    })
+
+    return packages;
+}
+
 async function serveFile(response, filename, contentType) {
     let content = (await fs.readFile(filename)).toString();
     response.statusCode = 200;
@@ -283,7 +352,7 @@ async function renderMailTemplate(name, store, uid, timestamp) {
                 <p>Hello ${name}. You have ordered items from ${store.name}.</p>
                 <p>Order received ${timestamp}.</p>
                 <h2>Your link:</h2>
-                <p>http://127.0.0.1:8000/package/${uid}/select_time</p>
+                <a target="_blank" href="http://127.0.0.1:8000/package/${uid}/select_time">http://127.0.0.1:8000/package/${uid}/select_time</a>
             </body>
         </html>
     `;
@@ -920,6 +989,11 @@ async function main() {
     userMiddleware = createUserMiddleware(db);
 
     await setupEmail();
+
+    /* Sends reminders to customers who hasn't booked a time slot */
+    setInterval(async () => {
+        await sendReminders();
+    }, 5000);
 
     /* Starts the server */
     server.listen(port, hostname, () => {
