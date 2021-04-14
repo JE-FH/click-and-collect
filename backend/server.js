@@ -2,11 +2,12 @@ const http = require("http");
 const sqlite3 = require("sqlite3");
 const fs = require("fs/promises");
 const crypto = require("crypto");
-
+const moment = require("moment");
 const {isStringInt, isStringNumber, receiveBody, parseURLEncoded, assertAdminAccess, assertEmployeeAccess, setupEmail, sendEmail} = require("./helpers");
 const {queryMiddleware, sessionMiddleware, createUserMiddleware} = require("./middleware");
 const {adminNoAccess, invalidParameters} = require("./generic-responses");
 const {dbAll, dbGet, dbRun, dbExec} = require("./db-helpers");
+const { Console } = require("console");
 
 
 const port = 8000;
@@ -851,7 +852,7 @@ async function packageStoreView(request, response) {
             <p>status: ${package.delivered == 0 ? "NOT DELIVERED" : "DELIVERED"}
             <p>guid: ${package.guid}</p>
             <p>bookedTimeId: ${package.bookedTimeId}</p>
-            <p>verificationCode: ${package.verificationCode}</p>
+            <p>verification code: ${package.verificationCode}</p>
             <p>customerEmail: ${package.customerEmail}</p>
             <p>customerName: ${package.customerName}</p>
             <p>externalOrderId: ${package.externalOrderId}</p>
@@ -1308,19 +1309,84 @@ async function employeeList(request, response){
 }
 
 
-function getTime(request, response) {
+async function getTime(request, response) {
+    if (typeof(request.query.guid) != "string") {
+        invalidParameters(response, "The link was invalid, if you believe this is a mistake, contact the store you ordered your item at");
+        return;
+    }
 
+    let target_package = await dbGet(db, "SELECT * FROM package WHERE guid=?", [request.query.guid]);
+    if (target_package == null) {
+        invalidParameters(response, "The link was invalid, if you believe this is a mistake, contact the store you ordered your item at");
+        return;
+    }
+
+    if (target_package.bookedTimeId != null || target_package.delivered == 1) {
+        time_booked_page(request, response, target_package);
+        return;
+    }
+
+    let now = moment();
+    let selected_year = now.isoWeekYear();
+    let selected_week = now.isoWeek();
+    let starting_point = moment(now);
+
+    if (typeof(request.query.year) == "string") {
+        let parsed_year = Number(request.query.year);                                     //Just some limits that should avoid some edge cases
+        if (!Number.isNaN(parsed_year) && Number.isInteger(parsed_year) && parsed_year >= now.year() - 5 && parsed_year < now.year() + 5) {
+            selected_year = parsed_year;
+        }
+    }
+
+    if (typeof(request.query.week) == "string") {
+        let parsed_week = Number(request.query.week);
+        if (!Number.isNaN(parsed_week) && Number.isInteger(parsed_week) && parsed_week >= 0) {
+            let lowerBound = moment(starting_point).startOf("year").startOf("isoWeek");
+            let upperBound = moment(starting_point).endOf("year").endOf("isoWeek"); 
+            let proposed_date = moment(starting_point).isoWeek(parsed_week);
+            if (proposed_date.isAfter(upperBound) || proposed_date.isBefore(lowerBound) || parsed_week == 0) {
+                if (proposed_date.isAfter(upperBound)) {
+                    response.statusCode = 302;
+                    response.setHeader("Location", `/package?week=1&year=${selected_year+1}`);
+                    response.end();
+                    return;
+                } else {
+                    response.statusCode = 302;
+                    response.setHeader("Location", `/package?week=${moment().isoWeekYear(selected_year).isoWeeksInYear()}&year=${selected_year-1}`);
+                    response.end();
+                    return;
+                }
+            } else {
+                selected_week = proposed_date.isoWeek();
+            }
+        }
+    }
+
+    let selected_week_day = moment().isoWeekYear(selected_year).isoWeek(selected_week);
+    let lower = moment(selected_week_day).startOf("isoWeek");
+    let upper = moment(selected_week_day).endOf("isoWeek");
+    console.log(`Selected time range ${lower} - ${upper}`);
+    
     /* Collects the data from the database */
-    db.all(`select 
-    id, 
-    startTime, 
-    endTime, 
-    strftime("%H:%M:%S", startTime) as time_format, 
-    group_concat(startTime || "," || endTime || "," || id, ";") as timeSlotDataStr
-    from timeSlot 
-    where storeId=?
-    GROUP BY time_format
-    ORDER BY time_format ASC`, [4563], (err, result) => {
+    let result = dbAll(`WITH valid_timeslots (id, storeId, startTime, endTime, queueId) as (
+        select t.id as timeSlotId, t.storeId, t.startTime, t.endTime, t.queueId
+        from timeSlot t
+        left outer join package p on t.id = p.bookedTimeId
+        left outer join queue q on t.queueId = q.id
+        where t.startTime >= datetime(?) AND t.startTime <= datetime(?) AND t.storeId=?
+        GROUP BY t.id, p.bookedTimeId
+        having  q."size" > count(p.id)
+        )
+        SELECT 
+            id, 
+            startTime, 
+            endTime, 
+            strftime("%H:%M:%S", startTime) as time_format, 
+            group_concat(startTime || "," || endTime || "," || id, ";") as timeSlotDataStr
+        FROM valid_timeslots
+        GROUP BY time_format
+        ORDER BY time_format ASC`, [lower.format("YYYY-MM-DDTHH:mm:ss"), upper.format("YYYY-MM-DDTHH:mm:ss"), target_package.storeId]);
+
         result.forEach(row => {
             row.timeSlotData = [];
             let split = row.timeSlotDataStr.split(";");
@@ -1342,14 +1408,14 @@ function getTime(request, response) {
         if (result.length > 0) {
             /* Runs through the (result) which is the collected data */
             for (let row of result) {
-                rowsHTML += `<tr onclick="myFunction(this)">`;
+                rowsHTML += `<tr>`;
                 /* Goes through the days of the week */
                 for (let i = 0; i < 7; i++) {
                     let found = row.timeSlotData.find((x) => {
                         return ((x.startTime.getDay() + 6) % 7) == i
                     });
-                    if (found != null) {
-                        rowsHTML += `<td data-id="${found.id}">${format_date_as_time(found.startTime)} - ${format_date_as_time(found.endTime)}</td>`
+                    if (found != null) {                     //Adding 5 minute so the user has time to click it
+                        rowsHTML += `<td><button ${new Date().getTime() + 1000 * 60 * 5 < found.endTime.getTime() ? "" : "disabled"} data-id="${found.id}">${format_date_as_time(found.startTime)} - ${format_date_as_time(found.endTime)}</button></td>`
                     } else {
                         rowsHTML += `<td></td>`;
                     }
@@ -1393,11 +1459,6 @@ function getTime(request, response) {
                 color: #666;
                 text-align: center;
             }
-
-            td {
-                padding: 15px;
-            }
-            td:hover {background-color:#E3BCBC;}
 
             .modal {
                 display: none; /* Hidden by default */
@@ -1448,20 +1509,28 @@ function getTime(request, response) {
             </style>
 
             <body> 
-
-                <h1> Week x </h1>
+                <form action="/package">
+                    <input type="hidden" name="week" value="${selected_week - 1}">
+                    <input type="hidden" name="year" value="${selected_year}">
+                    <input type="hidden" name="guid" value="${target_package.guid}">
+                    <input type="submit" value="Previous week">
+                </form>
+                <h1>Week ${selected_week_day.isoWeek() }</h1>
+                <form action="/package">
+                    <input type="hidden" name="week" value="${selected_week + 1}">
+                    <input type="hidden" name="year" value="${selected_year}">
+                    <input type="hidden" name="guid" value="${target_package.guid}">
+                    <input type="submit" value="Next week">
+                </form>
             
                 <div class="time">
                 <table>
                 <thead>
                     <tr>
-                        <th>Monday</th>
-                        <th>Tuesday</th>
-                        <th>Wednesday</th>
-                        <th>Thursday</th>
-                        <th>Friday</th>
-                        <th>Saturday</th>
-                        <th>Sunday</th>
+                        ${(Array(7).fill().map((_, i) => {
+                            let thing = moment(lower).isoWeekday(i + 1);
+                            return `<th>${thing.format("dddd")}<br>${thing.format("DD/MM/YYYY")}</th>`;
+                        })).join("\n")}
                     </tr>
                 </thead>
             <tbody> 
@@ -1492,7 +1561,7 @@ function getTime(request, response) {
         var btn = document.getElementById("myBtn");
         var span = document.getElementsByClassName("close")[0];
         
-        var elements= document.getElementsByTagName('td');
+        var elements= document.querySelectorAll("button[data-id]");
         for(var i = 0; i < elements.length; i++){
         (elements)[i].addEventListener("click", function(){
            modal.style.display = "block";
@@ -1504,10 +1573,6 @@ function getTime(request, response) {
 
            document.getElementById("selectedTime").innerHTML = x;
            document.getElementById("selected-time-id").value = dataId;
-
-           if (this.innerHTML == "") {
-               modal.style.display = "none";
-           }
         });
         }
        
@@ -1535,10 +1600,41 @@ function getTime(request, response) {
         response.write(page);
 
         response.end();
-    
-    });
 
 }
+
+async function time_booked_page(request, response, package) {
+    let bookedTimeSlot = null;
+    if (package.bookedTimeId != null) {
+        bookedTimeSlot = await dbGet(db, "SELECT * FROM timeSlot where id=?", [package.bookedTimeId]);
+    }
+
+    response.statusCode = 200;
+    response.setHeader('Content-Type', 'text/html');
+    response.write(`<!DOCTYPE html>
+        <html>
+            <head>
+                <title>Package status</title>
+            </head>
+            <body>
+                <h1>Hey ${package.customerName == null ? "" : package.customerName}</h1>
+                <p>You already selected a timeslot for this package, here is the information about your pacakge</p>
+                <p>booked time period: ${bookedTimeSlot.startTime} - ${bookedTimeSlot.endTime}</p>
+                <p>verificationCode: ${package.verificationCode}</p>
+                <h2>Actions</h2>
+                ${package.delivered == 0 ? `
+                <p>If you cant pickup the package at the booked time, you can cancel the booked time and book a new time which fits better</p> 
+                <form action="/package/cancel" method="POST">
+                    <input type="hidden" value="${package.guid}" name="guid">
+                    <input type="submit" value="Cancel the booked time">
+                </form>` : ""}
+            </body>
+        </html>
+    `);
+
+    response.end();
+}
+
 /* Helping function to the function getTime*/
 function format_date_as_time(date) {
     return `${date.getHours().toString().padStart(2, "0")}:${date.getMinutes().toString().padStart(2, "0")}`;
