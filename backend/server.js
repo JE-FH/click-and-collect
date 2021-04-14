@@ -1432,7 +1432,7 @@ async function getTime(request, response) {
     
         
         /* First part of html */
-        let html = `
+        let page = `
         <!DOCTYPE HTML>
         <html>
             <head>
@@ -1456,45 +1456,35 @@ async function getTime(request, response) {
                 </form>
             
                 <div class="time">
-                <table>
-                <thead>
-                    <tr>
-                        ${(Array(7).fill().map((_, i) => {
-                            let thing = moment(lower).isoWeekday(i + 1);
-                            return `<th>${thing.format("dddd")}<br>${thing.format("DD/MM/YYYY")}</th>`;
-                        })).join("\n")}
-                    </tr>
-                </thead>
-            <tbody> 
-                `
-                
-                
-        /* Second part of html, right now there is an alert box when clicking on a td (timeslot)*/
-        let html2 = `
+                    <table>
+                        <thead>
+                            <tr>
+                            ${(Array(7).fill().map((_, i) => {
+                                let thing = moment(lower).isoWeekday(i + 1);
+                                return `<th>${thing.format("dddd")}<br>${thing.format("DD/MM/YYYY")}</th>`;
+                            })).join("\n")}
+                            </tr>
+                        </thead>
+                        <tbody> 
+                            ${rowsHTML}
+                        </tbody>
+                    </table>
+                </div>
 
-        </div>
-
-        <div id="myModal" class="modal">
-
-            <div class="modal-content">
-                <span class="close">&times;</span>
-                <h2>Do you want the following time slot?</h2>
-                <p id="selectedTime" class="sTime"> </p>
-                <form action="/package/confirm" method="POST">
-                    <input id="selected-time-id" type="hidden" value="" name="selectedTimeId">
-                    <input type="submit" class="submitbtn" value="Submit" style="font-size:20px;"/>
-                </form>
-                
-            </div>
-        </div>
-
-        <script src="/static/js/timeSlotSelection.js"></script>
-        </body>
-        </html>
-        `
-
-        /* Stacks the html parts */
-        let page = html + rowsHTML+ html2;
+                <div id="myModal" class="modal">
+                    <div class="modal-content">
+                        <span class="close">&times;</span>
+                        <h2>Do you want the following time slot?</h2>
+                        <p id="selectedTime" class="sTime"> </p>
+                        <form action="/package/confirm" method="POST">
+                            <input id="selected-time-id" type="hidden" value="" name="selectedTimeId">
+                            <input type="submit" class="submitbtn" value="Submit" style="font-size:20px;"/>
+                        </form>
+                    </div>
+                </div>
+                <script src="/static/js/timeSlotSelection.js"></script>
+            </body>
+        </html>`
 
         response.statusCode = 200;
         response.setHeader('Content-Type', 'text/html');
