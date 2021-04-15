@@ -36,9 +36,19 @@ function renderNavigation(store) {
     `
 }
 
+function renderEmployeeNav(store) {
+    return `
+        <nav class="employee-nav">
+            <div>
+                <a href="/store?storeid=${store.id}">Home</a>
+                <a id="scan" href="/store/scan?storeid=${store.id}">Scan</a>
+            </div>
+        </nav>
+    `;
+}
+
 exports.renderAdmin = function renderAdmin(request, store) {
     let page = `
-        <!DOCTYPE html>
         <html>
             <head>
                 <link rel="stylesheet" href="/static/css/style.css">
@@ -48,15 +58,15 @@ exports.renderAdmin = function renderAdmin(request, store) {
     
     page += `${renderNavigation(store)}`;
     page += `
-                <div class="wrap1">
+                <div class="main-body">
                     <h1>Admin dashboard</h1>
                     <h2>Welcome, ${request.user.name}</h2>
-                    <ul>
-                    <li><a href="/store?storeid=${store.id}"> Go to standard employee dashboard</a></li>
-                        <li><a href="/admin/queues?storeid=${store.id}">Manage queues</a></li>
-                        <li><a href="/admin/settings?storeid=${store.id}">Change settings</a></li>
-                        <li><a href="/admin/package_form?storeid=${store.id}">Create package manually</a></li>
-                        <li><a href="/admin/employees?storeid=${store.id}">Manage employees</a></li>
+                    <ul class="dash">
+                        <a href="/store?storeid=${store.id}"><li>Go to standard employee dashboard</li></a>
+                        <a href="/admin/queues?storeid=${store.id}"><li>Manage queues</li></a>
+                        <a href="/admin/settings?storeid=${store.id}"><li>Change settings</li></a>
+                        <a href="/admin/package_form?storeid=${store.id}"><li>Create package manually</li></a>
+                        <a href="/admin/employees?storeid=${store.id}"><li>Manage employees</li></a>
                     </ul>
                 </div> 
             </body>
@@ -67,7 +77,6 @@ exports.renderAdmin = function renderAdmin(request, store) {
 
 exports.renderQueueList = function renderQueueList(store, queues) {
     let page = `
-        <!DOCTYPE html>
         <html>
             <head>
                 <title>Queue list for ${store.name}</title>
@@ -85,6 +94,7 @@ exports.renderQueueList = function renderQueueList(store, queues) {
 
     page += `${renderNavigation(store)}`;
     page += `
+                <div class="main-body">
                 <h1>List of queues for ${store.name}</h1>
                 <table>
                     <thead>
@@ -126,6 +136,7 @@ exports.renderQueueList = function renderQueueList(store, queues) {
                     var queues = ${JSON.stringify(queues)};
                 </script>
                 <script type="text/javascript" src="/static/js/queueListScript.js"></script>
+                </div>
             </body>
         </html>
     `;
@@ -144,13 +155,15 @@ exports.renderPackageForm = function renderPackageForm(store) {
             <body>`;
     page += `${renderNavigation(store)}`;
     page += `
-                <h1>Add package</h1>
-                <form action="/package_form_handler?storeid=${store.id}" method="POST">
-                    <input type="text" name="customerName" placeholder="Customer name" required>
-                    <input type="text" name="customerEmail" placeholder="Customer email" required>
-                    <input type="text" name="externalOrderId" placeholder="Order ID" required> 
-                    <input type="submit">
-                </form>
+                <div class="main-body">
+                    <h1>Add package</h1>
+                    <form action="/package_form_handler?storeid=${store.id}" method="POST">
+                        <input type="text" name="customerName" placeholder="Customer name" required>
+                        <input type="text" name="customerEmail" placeholder="Customer email" required>
+                        <input type="text" name="externalOrderId" placeholder="Order ID" required> 
+                        <input type="submit">
+                    </form>
+                </div>
             </body>
         </html>
     `;
@@ -168,13 +181,15 @@ exports.manageEmployees = function manageEmployees(store, request) {
     
     page += `${renderNavigation(store)}`;
     page += `
-                <h1>Manage employees </h1>
-                <ul>
-                    <li><a href="/admin/employees/employee_list?storeid=${request.session.storeId}">View a list of employees</a></li>
-                    <li><a href="/admin/employees/remove?storeid=${request.session.storeId}">Remove employees</a></li>
-                    <li><a href="/admin/employees/add?storeid=${request.session.storeId}">Add employees</a></li>
-                    <li><a href="/admin?storeid=${request.session.storeId}">Back to the homepage</a></li>
-                </ul>
+                <div class="main-body">
+                    <h1>Manage employees </h1>
+                    <ul class="dash">
+                        <a href="/admin/employees/employee_list?storeid=${request.session.storeId}"><li>View a list of employees</li></a>
+                        <a href="/admin/employees/remove?storeid=${request.session.storeId}"><li>Remove employees</li></a>
+                        <a href="/admin/employees/add?storeid=${request.session.storeId}"><li>Add employees</li></a>
+                        <a href="/admin?storeid=${request.session.storeId}"><li>Back to dashboard</li></a>
+                    </ul>
+                </div>
             </body>
         </html>
     `;
@@ -193,8 +208,10 @@ exports.employeeListPage = function employeeListPage(store, htmlTable) {
     
     page += `${renderNavigation(store)}`;
     page += `
+            <div class="main-body">
                 <h> Employee list <h> <br>
                 <b> Here is a table of the current employee accounts: <br> ${htmlTable} </b>
+            </div>
             </body>
         </html>
     `;
@@ -213,6 +230,7 @@ exports.employeeListRemPage = function employeeListRemPage(store, error, htmlTab
     
     page += `${renderNavigation(store)}`;
     page += `
+            <div class="main-body">
                 ${error ? `<p>${error}</p>` : ""}
                 <h> Removing employee from the store <h>
                 
@@ -224,6 +242,7 @@ exports.employeeListRemPage = function employeeListRemPage(store, error, htmlTab
                 <input type="submit" value="Delete user" onclick="return confirm('Are you sure?')" />
             </form>
             <b> Here is a table of the current employee accounts: <br> ${htmlTable} </b>
+            </div>
             </body>
         </html>
     `;
@@ -256,45 +275,37 @@ exports.addEmployeePage = function addEmployeePage(store, error) {
 
     page += `${renderNavigation(store)}`;
     page += `
-                ${error ? `<p>${error}</p>` : ""}
-                <h> Adding new employee to the store <h>
+                <div class="main-body">
+                    ${error ? `<p>${error}</p>` : ""}
+                    <h> Adding new employee to the store <h>
                 
-                <form action="/admin/employees/add" method="POST">
-                <label for="username">Username:      </label>
-                <input type="text" name="username" placeholder="username" required><br>
+                    <form action="/admin/employees/add" method="POST">
+                        <label for="username">Username:      </label>
+                        <input type="text" name="username" placeholder="username" required><br>
 
-                <label for="name"> Employee name: </label>
-                <input type="text" name="employeeName" placeholder="Employee name" required><br> <br>
-                <div class="container">
-                    <label for="password"> Password:     </label>
-                    <input type="password" name="password" placeholder="password" id="password" onchange='checkPass();' minlength="8" required>
-
-                    <i class="fas fa-eye" id="togglePassword"> </i>
-                </div>
-                
-                <div class="container">
-                    <label for="confirmPassword"> Confirm password: </label>
-                    <input type="password" name="confirmPassword" placeholder="password" id="confirmPassword" onchange='checkPass();' required>
+                        <label for="name"> Employee name: </label>
+                        <input type="text" name="employeeName" placeholder="Employee name" required><br> <br>
+                        <label for="password"> Password:     </label>
+                        <div class="container">
+                            <input type="password" name="password" placeholder="password" id="password" onchange='checkPass();' minlength="8" required>
+                            <i class="fas fa-eye" id="togglePassword"> </i>
+                        </div>
+                        
+                        <label for="confirmPassword"> Confirm password: </label>
+                        <div class="container">
+                            <input type="password" name="confirmPassword" placeholder="password" id="confirmPassword" onchange='checkPass();' required>
+                            <i class="fas fa-eye" id="toggleConfirmPassword"> </i>
+                        </div>
+                        <input type="hidden" value="${store.id}" name="storeid">    
+                        <p id="matchingPasswords" style="color:red" hidden> The passwords do not match </p>
+                        
+                        <label for="superuser"> Is the account an admin account: </label>
+                        <input type="radio" value="1" name="superuser" checked>Yes</input>
+                        <input type="radio" value="0" name="superuser">No</input>
                     
-                    <i class="fas fa-eye" id="toggleConfirmPassword"> </i>
+                        <input type="submit" id="submit" value="Create user" disabled>
+                    </form>
                 </div>
-                <input type="hidden" value="${store.id}" name="storeid">    
-                <p id="matchingPasswords" style="color:red" hidden> The passwords do not match </p>
-                
-                <label for="superuser"> Is the account an admin account: </label>
-                <div id="wrapper">
-
-                <p>
-                <input type="radio" value="1" name="superuser" checked>Yes</input>
-                </p>
-                <p>
-                <input type="radio" value="0" name="superuser">No</input>
-                </p>
-                </div>
-                <br>
-            
-                <input type="submit" id="submit" value="Create user" disabled>
-            </form>
             <script>
             function checkPass() {
                 if (document.getElementById('password').value ==
@@ -330,6 +341,34 @@ exports.addEmployeePage = function addEmployeePage(store, error) {
             
             
             </script>
+            </body>
+        </html>
+    `;
+
+    return page;
+}
+
+exports.renderStoreMenu = function renderStoreMenu(store, request) {
+    let page = `
+        <html>
+            <head>
+                <title>Store menu for ${store.name}</title>
+                <link rel="stylesheet" href="/static/css/style.css">
+            </head>
+
+            <body>`;
+
+    page += `${renderEmployeeNav(store)}`;
+    page += `
+
+                <div class="main-body">
+                <h1>Menu for ${request.user.name}:</h1>
+                <ul class="dash">
+                    ${request.user.superuser ? `<a href="/admin?storeid=${store.id}"><li>Back to admin page</li></a>` : ""}
+                    <a href="/store/packages?storeid=${store.id}"><li>Package overview</li></a>
+                    <a href="/store/scan?storeid=${store.id}"><li>Scan package</li></a>
+                </ul>
+                </div>
             </body>
         </html>
     `;

@@ -7,7 +7,7 @@ const {isStringInt, isStringNumber, receiveBody, parseURLEncoded, assertAdminAcc
 const {queryMiddleware, sessionMiddleware, createUserMiddleware} = require("./middleware");
 const {adminNoAccess, invalidParameters} = require("./generic-responses");
 const {dbAll, dbGet, dbRun, dbExec} = require("./db-helpers");
-const {renderAdmin, renderQueueList, renderPackageForm, manageEmployees, employeeListPage, employeeListRemPage, addEmployeePage} = require("./render-functions");
+const {renderAdmin, renderQueueList, renderPackageForm, manageEmployees, employeeListPage, employeeListRemPage, addEmployeePage, renderStoreMenu} = require("./render-functions");
 
 
 const port = 8000;
@@ -594,23 +594,7 @@ async function storeMenu(request, response){
     
     response.statusCode = 200;
     response.setHeader('Content-Type', 'text/html');
-    response.write(`
-    <!DOCTYPE html>
-    <html>
-        <head>
-            <title>Store menu for ${store.name}</title>
-        </head>
-    
-        <body>
-            <h1>Menu for ${request.user.name}:</h1>
-            <ul>
-                ${superuser ? `<li> <a href="/admin?storeid=${wantedStoreId}"> Back to admin page </a> </li>` : ""}
-                <li><a href="/store/packages?storeid=${wantedStoreId}">Package overview</a></li>
-                <li><a href="/store/scan?storeid=${wantedStoreId}">Scan package</a></li>
-            </ul>
-        </body>
-    </html>
-    `)
+    response.write(renderStoreMenu(store, request));
     response.end();
 }
 
