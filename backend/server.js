@@ -7,7 +7,7 @@ const {isStringInt, isStringNumber, receiveBody, parseURLEncoded, assertAdminAcc
 const {queryMiddleware, sessionMiddleware, createUserMiddleware} = require("./middleware");
 const {adminNoAccess, invalidParameters} = require("./generic-responses");
 const {dbAll, dbGet, dbRun, dbExec} = require("./db-helpers");
-const {renderAdmin, renderQueueList, renderPackageForm, manageEmployees} = require("./render-functions");
+const {renderAdmin, renderQueueList, renderPackageForm, manageEmployees, employeeListPage} = require("./render-functions");
 
 
 const port = 8000;
@@ -1305,19 +1305,9 @@ async function employeeList(request, response){
         resolve(htmlTable);
         });
 
-        response.write(`
-        <!DOCTYPE html>
-        <html>
-            <head>
-                <title>Employee list </title>
-            </head>
-            <body>
-                <a href="/admin?storeid=${request.user.storeId}"> Go to admin startpage </a> <br>
-                <h> Employee list <h> <br>
-                <b> Here is a table of the current employee accounts: <br> ${htmlTable} </b>
-            </body>
-        </html>
-        `);
+        let store = await storeIdToStore(wantedStoreId);
+
+        response.write(employeeListPage(store, htmlTable));
         
         response.end();
 }

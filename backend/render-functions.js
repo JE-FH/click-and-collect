@@ -181,3 +181,23 @@ exports.manageEmployees = function manageEmployees(store, request) {
 
     return page;
 }
+
+exports.employeeListPage = function employeeListPage(store, htmlTable) {
+    let page = `
+        <html>
+            <head>
+                <title>Employee list </title>
+                <link rel="stylesheet" href="/static/css/style.css">
+            </head>
+            <body>`;
+    
+    page += `${renderNavigation(store)}`;
+    page += `
+                <h> Employee list <h> <br>
+                <b> Here is a table of the current employee accounts: <br> ${htmlTable} </b>
+            </body>
+        </html>
+    `;
+
+    return page;
+}
