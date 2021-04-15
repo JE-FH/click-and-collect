@@ -7,7 +7,7 @@ const {isStringInt, isStringNumber, receiveBody, parseURLEncoded, assertAdminAcc
 const {queryMiddleware, sessionMiddleware, createUserMiddleware} = require("./middleware");
 const {adminNoAccess, invalidParameters} = require("./generic-responses");
 const {dbAll, dbGet, dbRun, dbExec} = require("./db-helpers");
-const {renderAdmin, renderQueueList, renderPackageForm, manageEmployees, employeeListPage, employeeListRemPage, addEmployeePage, renderStoreMenu} = require("./render-functions");
+const {renderAdmin, renderQueueList, renderPackageForm, manageEmployees, employeeListPage, employeeListRemPage, addEmployeePage, renderStoreMenu, renderPackageList, renderSettings} = require("./render-functions");
 
 
 const port = 8000;
@@ -77,6 +77,9 @@ async function requestHandler(request, response) {
                     break;
                 case "/admin":
                     adminGet(request, response);
+                    break;
+                case "/admin/settings":
+                    settingsGet(request, response);
                     break;
                 case "/admin/employees":
                     employeesDashboard(request, response);
@@ -403,13 +406,30 @@ async function renderMailTemplate(name, store, uid, timestamp) {
     `;
 }
 
+async function settingsGet(request, response) {
+    let wantedStoreId = assertAdminAccess(request, request.query, response);
+    if (wantedStoreId == null) {
+        return;
+    }
+
+    let store = await storeIdToStore(wantedStoreId);
+    if (store == undefined) {
+        throw new Error(`Expected store with id ${wantedStoreId} to exist`);
+    }
+
+    response.statusCode = 200;
+    response.setHeader('Content-Type', 'text/html');
+    response.write(renderSettings(store));
+    response.end();
+}
+
 async function packageFormGet(request, response) {
     let wantedStoreId = assertAdminAccess(request, request.query, response);
     if (wantedStoreId == null) {
         return;
     }
 
-    let store = await dbGet(db, "SELECT * FROM store WHERE id=?", [wantedStoreId]);
+    let store = await storeIdToStore(wantedStoreId);
     if (store == undefined) {
         throw new Error(`Expected store with id ${wantedStoreId} to exist`);
     }
@@ -658,25 +678,11 @@ async function packageList(request,response, error){
         }}
         packageTable += `</table>`
 
+        let store = await storeIdToStore(request.user.storeId);
+
         response.statusCode = 200;
 
-        response.write(`
-        <!DOCTYPE html>
-        <html>
-            <head>
-                <title>Package overview</title>
-            </head>
-            <body>
-                <a href="/store?storeid=${wantedStoreId}"> Return to store menu </a> <br>
-                <h> Package overview <h>
-            </form>
-            <br>
-            <b> List of current packages: </b>
-            <br> 
-            ${packageTable} 
-            </body>
-        </html>
-        `);
+        response.write(renderPackageList(store, packageTable));
         
         response.end();
         }

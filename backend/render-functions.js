@@ -375,3 +375,49 @@ exports.renderStoreMenu = function renderStoreMenu(store, request) {
 
     return page;
 }
+
+exports.renderPackageList = function renderPackageList(store, packageTable) {
+    let page = `
+        <html>
+            <head>
+                <title>Package overview</title>
+                <link rel="stylesheet" href="/static/css/style.css">
+            </head>
+            <body>`;
+
+    page += `${renderEmployeeNav(store)}`;
+    page += `
+                <h> Package overview <h>
+                </form>
+                <br>
+                <b> List of current packages: </b>
+                <br> 
+                ${packageTable} 
+            </body>
+        </html>
+    `;
+
+    return page;
+}
+
+exports.renderSettings = function renderSettings(store) {
+    let page = `
+        <html>
+            <head>
+                <title>Store settings</title>
+                <link rel="stylesheet" href="/static/css/style.css">
+            </head>
+            <body>`;
+
+    page += `${renderNavigation(store)}`;
+    page += `
+            <div class="main-body">
+                <h1>Settings</h1>
+
+            </div>
+            </body>
+        </html>
+    `
+
+    return page;
+}
