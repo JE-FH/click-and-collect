@@ -421,3 +421,177 @@ exports.renderSettings = function renderSettings(store) {
 
     return page;
 }
+
+exports.renderGetTime = function renderGetTime(rowsHTML) {
+    let html = `
+    <!DOCTYPE HTML>
+    <html>
+        <head>
+            <title>Timeslots</title>
+            <meta charset="UTF-8">
+        </head>
+        <style>
+
+        h1 {
+            text-align: center;
+            background-color: #E3BCBC;
+            background-position: 50% top;
+            padding: 50px;
+            font-weight: normal;
+        }
+        h2 {
+            text-align: center;
+        }
+        table {
+            border-collapse: collapse;
+            width: 100%;
+        }
+
+
+        th, td {
+            text-align: center;
+            border-radius: 5px;
+        }
+        th {
+            color: #666;
+            text-align: center;
+        }
+
+        td {
+            padding: 15px;
+        }
+        td:hover {background-color:#E3BCBC;}
+
+        .modal {
+            display: none; /* Hidden by default */
+            position: fixed; /* Stay in place */
+            z-index: 1; /* Sit on top */
+            padding-top: 200px; /* Location of the box */
+            left: 0;
+            top: 0;
+            width: 100%; /* Full width */
+            height: 100%; /* Full height */
+            overflow: auto; /* Enable scroll if needed */
+            background-color: rgb(0,0,0); /* Fallback color */
+            background-color: rgba(0,0,0,0.4); /* Black w/ opacity */
+        }
+        
+        .modal-content {
+            background-color: #fefefe;
+            margin: auto;
+            padding: 20px;
+            border: 1px solid #888;
+            width: 80%;
+        }
+        
+        .close {
+            color: #aaaaaa;
+            float: right;
+            font-size: 28px;
+            font-weight: bold;
+        }
+        
+        .close:hover,
+        .close:focus {
+          color: #000;
+          text-decoration: none;
+          cursor: pointer;
+        }
+
+        .submitbtn {
+            position: relative;
+            left: 47%;
+            cursor: pointer;
+        }
+        .sTime {
+            text-align: center;
+        }
+
+
+        </style>
+
+        <body> 
+
+            <h1> Week x </h1>
+        
+            <div class="time">
+            <table>
+            <thead>
+                <tr>
+                    <th>Monday</th>
+                    <th>Tuesday</th>
+                    <th>Wednesday</th>
+                    <th>Thursday</th>
+                    <th>Friday</th>
+                    <th>Saturday</th>
+                    <th>Sunday</th>
+                </tr>
+            </thead>
+        <tbody> 
+    `;
+    html += rowsHTML;  
+            
+    /* Second part of html, right now there is an alert box when clicking on a td (timeslot)*/
+    let html2 = `
+
+        </div>
+
+        <div id="myModal" class="modal">
+
+            <div class="modal-content">
+                <span class="close">&times;</span>
+                <h2>Do you want the following time slot?</h2>
+                <p id="selectedTime" class="sTime"> </p>
+                <form action="/package/confirm" method="GET">
+                    <input type="submit" class="submitbtn" value="Submit" style="font-size:20px;"/>
+                </form>
+                
+            </div>
+        </div>
+
+        <script>
+        var modal = document.getElementById("myModal");
+        var btn = document.getElementById("myBtn");
+        var span = document.getElementsByClassName("close")[0];
+        
+        var elements= document.getElementsByTagName('td');
+        for(var i = 0; i < elements.length; i++){
+        (elements)[i].addEventListener("click", function(){
+        modal.style.display = "block";
+
+        
+        var dataId = this.getAttribute('data-id');
+
+        var x = this.innerHTML;
+
+        document.getElementById("selectedTime").innerHTML = x;
+        console.log(dataId);
+        console.log(this);
+
+        if (this.innerHTML == "") {
+            modal.style.display = "none";
+        }
+        });
+        }
+    
+        span.onclick = function() {
+        modal.style.display = "none";
+        }
+
+        window.onclick = function(event) {
+        if (event.target == modal) {
+            modal.style.display = "none";
+            }
+        }
+        </script>
+
+        </body>
+
+        </html>
+        `
+
+        /* Stacks the html parts */
+        let page = html + rowsHTML+ html2;
+
+        return page;
+}
