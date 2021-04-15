@@ -7,7 +7,7 @@ const {isStringInt, isStringNumber, receiveBody, parseURLEncoded, assertAdminAcc
 const {queryMiddleware, sessionMiddleware, createUserMiddleware} = require("./middleware");
 const {adminNoAccess, invalidParameters} = require("./generic-responses");
 const {dbAll, dbGet, dbRun, dbExec} = require("./db-helpers");
-const {renderAdmin, renderQueueList, renderPackageForm} = require("./render-functions");
+const {renderAdmin, renderQueueList, renderPackageForm, manageEmployees} = require("./render-functions");
 
 
 const port = 8000;
@@ -1252,28 +1252,16 @@ async function removeEmployeePost(request, response){
     response.end()
 }
 
-function employeesDashboard(request, response){
+async function employeesDashboard(request, response){
     let wantedStoreId = assertAdminAccess(request, request.query, response);
 
     if (wantedStoreId == null) {
         return;  
     }
-        response.write(`<!DOCTYPE html>
-        <html>
-            <head>
-                <title>Store admin for ${request.session.storeName}</title>
-            </head>
-            <body>
-                <h1>Manage employees </h1>
-                <ul>
-                    <li><a href="/admin/employees/employee_list?storeid=${request.session.storeId}">View a list of employees</a></li>
-                    <li><a href="/admin/employees/remove?storeid=${request.session.storeId}">Remove employees</a></li>
-                    <li><a href="/admin/employees/add?storeid=${request.session.storeId}">Add employees</a></li>
-                    <li><a href="/admin?storeid=${request.session.storeId}">Back to the homepage</a></li>
-                </ul>
-            </body>
-        </html>
-        `)
+
+    let store = await storeIdToStore(wantedStoreId);
+    
+    response.write(manageEmployees(store, request));
     response.end();
     
 }

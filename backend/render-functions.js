@@ -156,3 +156,28 @@ exports.renderPackageForm = function renderPackageForm(store) {
     `;
     return page;
 }
+
+exports.manageEmployees = function manageEmployees(store, request) {
+    let page = `
+        <html>
+            <head>
+                <title>Store admin for ${request.session.storeName}</title>
+                <link rel="stylesheet" href="/static/css/style.css">
+            </head>
+            <body> `;
+    
+    page += `${renderNavigation(store)}`;
+    page += `
+                <h1>Manage employees </h1>
+                <ul>
+                    <li><a href="/admin/employees/employee_list?storeid=${request.session.storeId}">View a list of employees</a></li>
+                    <li><a href="/admin/employees/remove?storeid=${request.session.storeId}">Remove employees</a></li>
+                    <li><a href="/admin/employees/add?storeid=${request.session.storeId}">Add employees</a></li>
+                    <li><a href="/admin?storeid=${request.session.storeId}">Back to the homepage</a></li>
+                </ul>
+            </body>
+        </html>
+    `;
+
+    return page;
+}
