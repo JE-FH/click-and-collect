@@ -1,7 +1,7 @@
 function renderNavigation(store) {
     return `
         <nav class="navigation">
-            <a href="/store"><h1 style="padding-left: 0.5em;">Admin</h1></a>
+            <a href="/admin?storeid=${store.id}"><h1 style="padding-left: 0.5em;">Admin</h1></a>
             <ul>
                 <a href="/store?storeid=${store.id}" style="flex: 2; width: 16em;"><li>Employee dashboard</li></a>
                 <a href="/admin/queues?storeid=${store.id}"><li>Queues</li></a>
@@ -62,5 +62,73 @@ exports.renderAdmin = function renderAdmin(request, store) {
             </body>
         </html>
     `;
+    return page;
+}
+
+exports.renderQueueList = function renderQueueList(store, queues) {
+    let page = `
+        <!DOCTYPE html>
+        <html>
+            <head>
+                <title>Queue list for ${store.name}</title>
+                <link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/openlayers/openlayers.github.io@master/en/v6.5.0/css/ol.css" type="text/css">
+                <script src="https://cdn.jsdelivr.net/gh/openlayers/openlayers.github.io@master/en/v6.5.0/build/ol.js"></script>
+                <link rel="stylesheet" href="/static/css/style.css">
+                <style>
+                    .map {
+                        height: 400px;
+                        width: 500px;
+                    }
+                </style>
+            </head>
+            <body>`;
+
+    page += `${renderNavigation(store)}`;
+    page += `
+                <h1>List of queues for ${store.name}</h1>
+                <table>
+                    <thead>
+                        <tr>
+                            <th>id</th>
+                            <th>Latitude</th>
+                            <th>Longitude</th>
+                            <th>size</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        ${queues.map((queue) => `<tr>
+                            <td>${queue.id}</td>
+                            <td>${queue.latitude}</td>
+                            <td>${queue.longitude}</td>
+                            <td>${queue.size}</td>
+                            <td>
+                                <form action="/admin/queues/remove" method="POST">
+                                    <input type="hidden" name="storeid" value="${store.id}">
+                                    <input type="hidden" name="queueid" value="${queue.id}">
+                                    <input type="submit" value="Remove">
+                                </form>
+                            </td>
+                        </tr>`).join("\n")}
+                    </tbody>
+                </table>
+                <h2>add another queue</h2>
+                <form action="/admin/queues/add", method="POST">
+                    <div id="queue-placement-map" class="map"></div>
+                    <label for="size">Queue capacity: </label>
+                    <input type="number" name="size" required><br>
+                    
+                    <input id="latitude-input" type="hidden" name="latitude">
+                    <input id="longitude-input" type="hidden" name="longitude">
+                    <input type="hidden" name="storeid" value="${store.id}">
+                    <input type="submit" value="Add">
+                </form>
+                <script type="text/javascript">
+                    var queues = ${JSON.stringify(queues)};
+                </script>
+                <script type="text/javascript" src="/static/js/queueListScript.js"></script>
+            </body>
+        </html>
+    `;
+
     return page;
 }

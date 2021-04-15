@@ -7,7 +7,7 @@ const {isStringInt, isStringNumber, receiveBody, parseURLEncoded, assertAdminAcc
 const {queryMiddleware, sessionMiddleware, createUserMiddleware} = require("./middleware");
 const {adminNoAccess, invalidParameters} = require("./generic-responses");
 const {dbAll, dbGet, dbRun, dbExec} = require("./db-helpers");
-const {renderAdmin} = require("./render-functions");
+const {renderAdmin, renderQueueList} = require("./render-functions");
 
 
 const port = 8000;
@@ -754,67 +754,7 @@ async function queueList(request, response) {
 
     response.statusCode = 200;
     response.setHeader('Content-Type', 'text/html');
-    response.write(`
-<!DOCTYPE html>
-<html>
-    <head>
-        <title>Queue list for ${store.name}</title>
-        <link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/openlayers/openlayers.github.io@master/en/v6.5.0/css/ol.css" type="text/css">
-        <script src="https://cdn.jsdelivr.net/gh/openlayers/openlayers.github.io@master/en/v6.5.0/build/ol.js"></script>
-        <link rel="stylesheet" href="/static/style.css">
-        <style>
-            .map {
-                height: 400px;
-                width: 500px;
-            }
-        </style>
-    </head>
-    <body>
-        <a href="/admin?storeid=${store.id}">Go back to dashboard</a>
-        <h1>List of queues for ${store.name}</h1>
-        <table>
-            <thead>
-                <tr>
-                    <th>id</th>
-                    <th>Latitude</th>
-                    <th>Longitude</th>
-                    <th>size</th>
-                </tr>
-            </thead>
-            <tbody>
-                ${queues.map((queue) => `<tr>
-                    <td>${queue.id}</td>
-                    <td>${queue.latitude}</td>
-                    <td>${queue.longitude}</td>
-                    <td>${queue.size}</td>
-                    <td>
-                        <form action="/admin/queues/remove" method="POST">
-                            <input type="hidden" name="storeid" value="${store.id}">
-                            <input type="hidden" name="queueid" value="${queue.id}">
-                            <input type="submit" value="Remove">
-                        </form>
-                    </td>
-                </tr>`).join("\n")}
-            </tbody>
-        </table>
-        <h2>add another queue</h2>
-        <form action="/admin/queues/add", method="POST">
-            <div id="queue-placement-map" class="map"></div>
-            <label for="size">Queue capacity: </label>
-            <input type="number" name="size" required><br>
-            
-            <input id="latitude-input" type="hidden" name="latitude">
-            <input id="longitude-input" type="hidden" name="longitude">
-            <input type="hidden" name="storeid" value="${store.id}">
-            <input type="submit" value="Add">
-        </form>
-        <script type="text/javascript">
-            var queues = ${JSON.stringify(queues)};
-        </script>
-        <script type="text/javascript" src="/static/js/queueListScript.js"></script>
-    </body>
-</html>
-`);
+    response.write(renderQueueList(store, queues));
     response.end();
 }
 

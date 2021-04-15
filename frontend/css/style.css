@@ -123,6 +123,7 @@ body {
     transform: rotate(-135deg);
 }
 #hamburger-menu {
+    z-index: 998;
     font-family: sans-serif;
     display: flex;
     box-sizing: border-box;
