@@ -230,3 +230,109 @@ exports.employeeListRemPage = function employeeListRemPage(store, error, htmlTab
 
     return page;
 }
+
+exports.addEmployeePage = function addEmployeePage(store, error) {
+    let page = `
+        <html>
+            <head>
+                <title>Adding new employee </title>
+                <link href="https://maxcdn.bootstrapcdn.com/font-awesome/4.2.0/css/font-awesome.min.css" rel="stylesheet">
+                <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.13.0/css/all.min.css">
+                <link rel="stylesheet" href="/static/css/style.css">
+                <style>
+                    .container {
+                        display: flex;
+                        align-items: center;
+                        position: relative;
+                        margin-bottom: 1em;
+                    }
+                    #togglePassword {
+                        position: absolute;
+                        right: 10px;
+                    }
+                </style>
+            </head>
+            <body>`;
+
+    page += `${renderNavigation(store)}`;
+    page += `
+                ${error ? `<p>${error}</p>` : ""}
+                <h> Adding new employee to the store <h>
+                
+                <form action="/admin/employees/add" method="POST">
+                <label for="username">Username:      </label>
+                <input type="text" name="username" placeholder="username" required><br>
+
+                <label for="name"> Employee name: </label>
+                <input type="text" name="employeeName" placeholder="Employee name" required><br> <br>
+                <div class="container">
+                    <label for="password"> Password:     </label>
+                    <input type="password" name="password" placeholder="password" id="password" onchange='checkPass();' minlength="8" required>
+
+                    <i class="fas fa-eye" id="togglePassword"> </i>
+                </div>
+                
+                <div class="container">
+                    <label for="confirmPassword"> Confirm password: </label>
+                    <input type="password" name="confirmPassword" placeholder="password" id="confirmPassword" onchange='checkPass();' required>
+                    
+                    <i class="fas fa-eye" id="toggleConfirmPassword"> </i>
+                </div>
+                <input type="hidden" value="${store.id}" name="storeid">    
+                <p id="matchingPasswords" style="color:red" hidden> The passwords do not match </p>
+                
+                <label for="superuser"> Is the account an admin account: </label>
+                <div id="wrapper">
+
+                <p>
+                <input type="radio" value="1" name="superuser" checked>Yes</input>
+                </p>
+                <p>
+                <input type="radio" value="0" name="superuser">No</input>
+                </p>
+                </div>
+                <br>
+            
+                <input type="submit" id="submit" value="Create user" disabled>
+            </form>
+            <script>
+            function checkPass() {
+                if (document.getElementById('password').value ==
+                        document.getElementById('confirmPassword').value) {
+                    document.getElementById('submit').disabled = false;
+                    document.getElementById('matchingPasswords').hidden = true;
+                } else {
+                    document.getElementById('submit').disabled = true;
+                    document.getElementById('matchingPasswords').hidden = false;
+                }
+            }
+            
+        // Eye toggle for password
+            const togglePassword = document.querySelector('#togglePassword');
+            const password = document.querySelector('#password');
+
+            togglePassword.addEventListener('click', function (e) {
+                const type = password.getAttribute('type') === 'password' ? 'text' : 'password';
+                password.setAttribute('type', type);
+                this.classList.toggle('fa-eye-slash');
+            });
+            
+
+            // Eye toggle for confirmPassword
+            const toggleConfirmPassword = document.querySelector('#toggleConfirmPassword');
+            const ConfirmPassword = document.querySelector('#confirmPassword');
+
+            toggleConfirmPassword.addEventListener('click', function (e) {
+                const type = confirmPassword.getAttribute('type') === 'password' ? 'text' : 'password';
+                confirmPassword.setAttribute('type', type);
+                this.classList.toggle('fa-eye-slash');
+            });
+            
+            
+            </script>
+            </body>
+        </html>
+    `;
+
+    return page;
+}
