@@ -132,3 +132,27 @@ exports.renderQueueList = function renderQueueList(store, queues) {
 
     return page;
 }
+
+exports.renderPackageForm = function renderPackageForm(store) {
+    let page = `
+        <html>
+            <head>
+                <meta charset="UTF-8">
+                <title>Add package</title>
+                <link rel="stylesheet" href="/static/css/style.css">
+            </head>
+            <body>`;
+    page += `${renderNavigation(store)}`;
+    page += `
+                <h1>Add package</h1>
+                <form action="/package_form_handler?storeid=${store.id}" method="POST">
+                    <input type="text" name="customerName" placeholder="Customer name" required>
+                    <input type="text" name="customerEmail" placeholder="Customer email" required>
+                    <input type="text" name="externalOrderId" placeholder="Order ID" required> 
+                    <input type="submit">
+                </form>
+            </body>
+        </html>
+    `;
+    return page;
+}

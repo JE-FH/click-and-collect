@@ -7,7 +7,7 @@ const {isStringInt, isStringNumber, receiveBody, parseURLEncoded, assertAdminAcc
 const {queryMiddleware, sessionMiddleware, createUserMiddleware} = require("./middleware");
 const {adminNoAccess, invalidParameters} = require("./generic-responses");
 const {dbAll, dbGet, dbRun, dbExec} = require("./db-helpers");
-const {renderAdmin, renderQueueList} = require("./render-functions");
+const {renderAdmin, renderQueueList, renderPackageForm} = require("./render-functions");
 
 
 const port = 8000;
@@ -403,43 +403,21 @@ async function renderMailTemplate(name, store, uid, timestamp) {
     `;
 }
 
-function packageFormGet(request, response) {
+async function packageFormGet(request, response) {
     let wantedStoreId = assertAdminAccess(request, request.query, response);
     if (wantedStoreId == null) {
         return;
     }
 
-    response.setHeader('Content-Type', 'text/html');
-    response.write(renderPackageForm(request.query.storeid));
-    response.end();
+    let store = await dbGet(db, "SELECT * FROM store WHERE id=?", [wantedStoreId]);
+    if (store == undefined) {
+        throw new Error(`Expected store with id ${wantedStoreId} to exist`);
+    }
+
     response.statusCode = 200;
-}
-
-function renderPackageForm(storeid) {
-    return `
-        <html>
-            <head>
-                <meta charset="UTF-8">
-                <title>Add package</title>
-
-                <style>
-                    body {
-                        font-family: sans-serif;
-                    }
-                </style>
-            </head>
-            <body>
-                <a href="/admin?storeid=${storeid}"> Go to admin startpage </a> <br>
-                <h1>Add package</h1>
-                <form action="/package_form_handler?storeid=${storeid}" method="POST">
-                    <input type="text" name="customerName" placeholder="Customer name" required>
-                    <input type="text" name="customerEmail" placeholder="Customer email" required>
-                    <input type="text" name="externalOrderId" placeholder="Order ID" required> 
-                    <input type="submit">
-                </form>
-            </body>
-        </html>
-    `;
+    response.setHeader('Content-Type', 'text/html');
+    response.write(renderPackageForm(store));
+    response.end();
 }
 
 async function staticStyleCss(response) {
