@@ -7,7 +7,7 @@ const {isStringInt, isStringNumber, receiveBody, parseURLEncoded, assertAdminAcc
 const {queryMiddleware, sessionMiddleware, createUserMiddleware} = require("./middleware");
 const {adminNoAccess, invalidParameters} = require("./generic-responses");
 const {dbAll, dbGet, dbRun, dbExec} = require("./db-helpers");
-const {renderAdmin, renderQueueList, renderPackageForm, manageEmployees, employeeListPage} = require("./render-functions");
+const {renderAdmin, renderQueueList, renderPackageForm, manageEmployees, employeeListPage, employeeListRemPage} = require("./render-functions");
 
 
 const port = 8000;
@@ -1184,28 +1184,9 @@ async function removeEmployee(request,response, error){
 
     response.statusCode = 200;
 
-    response.write(`
-    <!DOCTYPE html>
-    <html>
-        <head>
-            <title>Removing an employee </title>
-        </head>
-        <body>
-            ${error ? `<p>${error}</p>` : ""}
-            <a href="/admin?storeid=${wantedStoreId}"> Go to admin startpage </a> <br>
-            <h> Removing employee from the store <h>
-            
-            <form action="/admin/employees/remove" method="POST">
-            
-            <label for="name">Write the username:     </label>
-            <input type="text" placeholder="username" name="username" required><br>     
-            <input type="hidden" value="${wantedStoreId}" name="storeid">          
-            <input type="submit" value="Delete user" onclick="return confirm('Are you sure?')" />
-        </form>
-        <b> Here is a table of the current employee accounts: <br> ${htmlTable} </b>
-        </body>
-    </html>
-    `);
+    let store = await storeIdToStore(wantedStoreId);
+
+    response.write(employeeListRemPage(store, error, htmlTable));
     
     response.end();
 }
