@@ -7,6 +7,7 @@ const {isStringInt, isStringNumber, receiveBody, parseURLEncoded, assertAdminAcc
 const {queryMiddleware, sessionMiddleware, createUserMiddleware} = require("./middleware");
 const {adminNoAccess, invalidParameters} = require("./generic-responses");
 const {dbAll, dbGet, dbRun, dbExec} = require("./db-helpers");
+const {renderAdmin} = require("./render-functions");
 
 
 const port = 8000;
@@ -86,8 +87,9 @@ async function requestHandler(request, response) {
                 case "/admin/package_form":
                     packageFormGet(request, response);
                     break;
-                case "/static/style.css":
-                    staticStyleCss(response);
+                case "/static/css/style.css":
+                    serveFile(response, __dirname + "/../frontend/css/style.css", "text/css");
+                    //staticStyleCss(response);
                     break;
                 case "/store":
                     storeMenu(request, response);
@@ -487,13 +489,20 @@ async function loginGet(request, response, error) {
     <head>
         <link href="https://maxcdn.bootstrapcdn.com/font-awesome/4.2.0/css/font-awesome.min.css" rel="stylesheet">
         <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.13.0/css/all.min.css">
+        <link rel="stylesheet" href="/static/css/style.css">
         <title>login</title>
         <style>
-                    .container i {
-                        margin-left: -30px;
-                        cursor: pointer;
-                    }
-                </style>
+            .container {
+                display: flex;
+                align-items: center;
+                position: relative;
+                margin-bottom: 1em;
+            }
+            #togglePassword {
+                position: absolute;
+                right: 10px;
+            }
+        </style>
     </head>
 
     <body>
@@ -501,8 +510,8 @@ async function loginGet(request, response, error) {
         <form action="/login" method="POST">
             <label for="username">Username: </label>
             <input type="text" name="username" placeholder="username" required><br>
-            <div class="container">
-                    <label for="password"> Password:     </label>
+            <label for="password"> Password:     </label>
+                <div class="container">
                     <input type="password" name="password" placeholder="password" id="password" required>
                     <i class="fas fa-eye" id="togglePassword"> </i>
                 </div>
@@ -724,24 +733,7 @@ async function adminGet(request, response) {
 
     response.statusCode = 200;
     response.setHeader("Content-Type", "text/html");
-    response.write(`
-<!DOCTYPE html>
-<html>
-    <head>
-        <title>Store admin for ${store.name}</title>
-    </head>
-    <body>
-        <h1> Admin menu for ${request.user.name}: </h1>
-        <ul>
-        <li><a href="/store?storeid=${store.id}"> Go to standard employee dashboard</a></li>
-            <li><a href="/admin/queues?storeid=${store.id}">Manage queues</a></li>
-            <li><a href="/admin/settings?storeid=${store.id}">Change settings</a></li>
-            <li><a href="/admin/package_form?storeid=${store.id}">Create package manually</a></li>
-            <li><a href="/admin/employees?storeid=${store.id}">Manage employees</a></li>
-        </ul>
-    </body>
-</html>
-`)
+    response.write(renderAdmin(request, store));
     response.end();
 }
 
