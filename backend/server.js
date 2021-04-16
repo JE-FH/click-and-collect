@@ -44,6 +44,9 @@ async function requestHandler(request, response) {
                 case "/admin/employees/remove":
                     removeEmployeePost(request,response);
                     break;
+                case "/admin/employees/edit":
+                    editEmployeePost(request,response);
+                    break;
                 case "/admin/queues/remove":
                     queueRemove(request, response);
                     break;
@@ -61,15 +64,15 @@ async function requestHandler(request, response) {
         }
         case "GET": {
             switch(request.path) {
-                case "/": // Når man går direkte ind på "hjemmesiden"   
+                case "/":   
                 case "/login":
                     loginGet(request, response);
                     break;
                 case "/admin/employees/add":
                     addEmployee(request, response, "");
                     break;
-                case "/admin/employees/remove":
-                    removeEmployee(request,response, "");
+                case "/admin/employees/edit":
+                    editEmployee(request,response);
                     break;
                 case "/admin/queues":
                     queueList(request, response);
@@ -571,7 +574,8 @@ async function loginPost(request, response) {
         //same same but different
         request.session.userId = user.id;
         request.session.storeId = user.storeId;
-        if (user.superuser) { 
+
+        if (user.superuser == 1) { 
             response.setHeader('Location','/admin?storeid=' + user.storeId.toString());
             
         } else {
@@ -604,7 +608,6 @@ async function storeMenu(request, response){
     let superuser = request.user.superuser;
     /* Print the menu site and the buttons redirecting to their respective endpoints */
     /* TODO - more buttons */
-    
     response.statusCode = 200;
     response.setHeader('Content-Type', 'text/html');
     response.write(`
@@ -617,7 +620,7 @@ async function storeMenu(request, response){
         <body>
             <h1>Menu for ${request.user.name}:</h1>
             <ul>
-                ${superuser ? `<li> <a href="/admin?storeid=${wantedStoreId}"> Back to admin page </a> </li>` : ""}
+                ${superuser == 1 ? `<li> <a href="/admin?storeid=${wantedStoreId}"> Back to admin page </a> </li>` : ""}
                 <li><a href="/store/packages?storeid=${wantedStoreId}">Package overview</a></li>
                 <li><a href="/store/scan?storeid=${wantedStoreId}">Scan package</a></li>
             </ul>
@@ -636,12 +639,7 @@ async function packageList(request,response, error){
     else{
         let packages = await new Promise((resolve, reject) => {
             let sql = `SELECT * FROM package WHERE storeId=${request.user.storeId} ORDER BY id`;
-            let a = [0];
-            i = 0;
-            
-            if(sql == null || sql == undefined){
-                resolve(a);
-            }
+            let rv = [];
 
             db.all(sql, [], (err, rows) => {
                 if (err) {
@@ -649,12 +647,10 @@ async function packageList(request,response, error){
                 }
 
                 rows.forEach((row) => {
-                    b = row;
-                    a[i] = b;
-                    i++;
-
+                    valueToAdd = row;
+                    rv.push(valueToAdd);
                 });
-                resolve (a);
+                resolve (rv);
             });
             
         });
@@ -1191,7 +1187,7 @@ async function addEmployeePost(request, response){
     let postBody = await receiveBody(request);
     
     postParameters = parseURLEncoded(postBody);
-
+    postParameters["superuser"] = Number(postParameters["superuser"]);
     let wantedStoreId = assertAdminAccess(request, postParameters, response);
 
     if (wantedStoreId == null) {
@@ -1238,67 +1234,228 @@ async function addEmployeePost(request, response){
         response.end()
 }
 
-
-async function removeEmployee(request,response, error){
+async function editEmployee(request, response){
     let wantedStoreId = assertAdminAccess(request, request.query, response);
 
     if (wantedStoreId == null) {
         return;  
     }
-    let usernameList = await new Promise((resolve, reject) => {
-        let sql = `SELECT DISTINCT Username username FROM user WHERE storeId=${request.user.storeId} ORDER BY username`;
-        let a = [0];
-        i = 0;
-        
-        db.all(sql, [], (err, rows) => {
-            if (err) {
-                reject(err);
-            }
-            rows.forEach((row) => {
-                b = row.username;
-                a[i] = b;
-                i++;
 
-            });
-            resolve (a);
-        }); 
-    });
-    let htmlTable = "";
-    for (i = 0; i < usernameList.length; i++){
-        htmlTable += `<tr> <th> ${usernameList[i]} </th> </tr> <br>\n`
-    }
+    response.statusCode = 200;
 
     // Måde at vise fejl til brugeren
     request.session.displayError ? error = request.session.lastError : error = "";
     request.session.displayError = false;
 
-    response.statusCode = 200;
-
     response.write(`
     <!DOCTYPE html>
     <html>
         <head>
-            <title>Removing an employee </title>
+            <title> Editing user: ${request.query.username} </title>
+            <link href="https://maxcdn.bootstrapcdn.com/font-awesome/4.2.0/css/font-awesome.min.css" rel="stylesheet">
+            <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.13.0/css/all.min.css">
+            
+            <style>
+                .container i {
+                    margin-left: -30px;
+                    cursor: pointer;
+                }
+            </style>
         </head>
         <body>
             ${error ? `<p>${error}</p>` : ""}
-            <a href="/admin?storeid=${wantedStoreId}"> Go to admin startpage </a> <br>
-            <h> Removing employee from the store <h>
+            <h> Editing user: ${request.query.username} <h>
             
-            <form action="/admin/employees/remove" method="POST">
+            <form action="/admin/employees/edit" method="POST">
+            <label for="username">Username:      </label>
+            <input type="text" name="username" value="${request.query.username}" required><br>
+
+            <label for="name"> Employee name: </label>
+            <input type="text" name="employeeName" value="${request.query.name}" required><br> <br>
+            <div class="container">
+                <label for="password"> Password:     </label>
+                <input type="password" name="password" value="password" id="password" onchange='checkPass();' minlength="8" required>
+
+                <i class="fas fa-eye" id="togglePassword"> </i>
+            </div>
             
-            <label for="name">Write the username:     </label>
-            <input type="text" placeholder="username" name="username" required><br>     
-            <input type="hidden" value="${wantedStoreId}" name="storeid">          
-            <input type="submit" value="Delete user" onclick="return confirm('Are you sure?')" />
+            <div class="container">
+                <label for="confirmPassword"> Confirm password: </label>
+                <input type="password" name="confirmPassword" value="password" id="confirmPassword" onchange='checkPass();' required>
+                
+                <i class="fas fa-eye" id="toggleConfirmPassword"> </i>
+            </div>
+            <input type="hidden" value="${wantedStoreId}" name="storeid"> 
+            <input type="hidden" value="${request.query.id}" name="id">   
+            <p id="matchingPasswords" style="color:red" hidden> The passwords do not match </p>
+            
+            <label for="superuser"> Is the account an admin account: </label>
+            <div id="wrapper">
+
+            <p>
+            <input type="radio" value="1" name="superuser" ${request.query.superuser == 1 ? "checked" :""}>Yes</input>
+            </p>
+            <p>
+            <input type="radio" value="0" name="superuser" ${request.query.superuser == 1 ? "" :"checked"}>No</input>
+            </p>
+            </div>
+            <br>
+        
+            <input type="submit" id="submit" value="Edit user">
         </form>
-        <b> Here is a table of the current employee accounts: <br> ${htmlTable} </b>
+        <script>
+        function checkPass() {
+            if (document.getElementById('password').value ==
+                    document.getElementById('confirmPassword').value) {
+                document.getElementById('submit').disabled = false;
+                document.getElementById('matchingPasswords').hidden = true;
+            } else {
+                document.getElementById('submit').disabled = true;
+                document.getElementById('matchingPasswords').hidden = false;
+            }
+        }
+        
+        // Eye toggle for password
+        const togglePassword = document.querySelector('#togglePassword');
+        const password = document.querySelector('#password');
+
+        togglePassword.addEventListener('click', function (e) {
+            const type = password.getAttribute('type') === 'password' ? 'text' : 'password';
+            password.setAttribute('type', type);
+            this.classList.toggle('fa-eye-slash');
+        });
+        
+
+        // Eye toggle for confirmPassword
+        const toggleConfirmPassword = document.querySelector('#toggleConfirmPassword');
+        const ConfirmPassword = document.querySelector('#confirmPassword');
+
+        toggleConfirmPassword.addEventListener('click', function (e) {
+            const type = confirmPassword.getAttribute('type') === 'password' ? 'text' : 'password';
+            confirmPassword.setAttribute('type', type);
+            this.classList.toggle('fa-eye-slash');
+        });
+        
+        
+        </script>
         </body>
     </html>
     `);
-    
     response.end();
 }
+
+async function editEmployeePost(request, response){
+    let postBody = await receiveBody(request);
+    
+    postParameters = parseURLEncoded(postBody);
+    postParameters["superuser"] = Number(postParameters["superuser"]);
+    let wantedStoreId = assertAdminAccess(request, postParameters, response);
+
+    if (wantedStoreId == null) {
+        return;  
+    }
+
+    /* Find the user if it exists */
+    let usernameUnique = await new Promise((resolve, reject) => {
+        db.serialize(() => {
+            db.get("SELECT id FROM user WHERE username=? AND id!=?", [postParameters["username"],postParameters["id"]], (err, row) => {
+                if (err) {
+                    resolve(null);
+                } else {
+                    if (row == undefined) {
+                        resolve(true);
+                    } else {
+                        request.session.lastError = "Username already exists";                            
+                        resolve(false);
+                    }
+                }
+            })
+        });
+    });
+
+    let lastAdminCheck = await new Promise((resolve, reject) => {
+        db.serialize(() => {
+            db.get("SELECT id FROM user WHERE superuser=1 AND id!=?", [postParameters["id"]], (err, row) => {
+                if (err) {
+                    resolve(null);
+                } else {
+                    if (row == undefined) {
+                        resolve(false);
+                    } else {                        
+                        resolve(true);
+                    }
+                }
+            })
+        });
+    });
+
+    let user = await new Promise((resolve, reject) => {
+        db.serialize(() => {
+            db.get("SELECT * FROM user WHERE id=?", [postParameters["id"]], (err, row) => {
+                if (err) {
+                    resolve(null);
+                } else {
+                    if (row == undefined) {
+                        request.session.lastError = "User you are trying to edit doesn't exist";
+                        request.session.displayError = true;
+                        response.statusCode = 302;
+                        response.setHeader('Location','/admin/employees/add?storeid=' + request.session.storeId);
+                        response.end()
+                        resolve(true);
+                    } else {
+                        resolve([row.id, row.username, row.name,  row.superuser, row.salt]);
+                    }
+                }
+            })
+        });
+    });
+
+    changeInPassword = postParameters["password"] != "password";
+    changeInUsername = postParameters["username"] != user[1];
+    changeInName = postParameters["employeeName"] != user[2];
+    changeInSuperuser = postParameters["superuser"] != user[3];
+    
+    if (!(!(lastAdminCheck) && changeInSuperuser)){
+        if (usernameUnique){    
+
+            if (changeInPassword) {
+                let salt = user[4];
+                let hashed = await new Promise((resolve, reject) => {
+                    crypto.pbkdf2(postParameters["password"], salt, HASHING_ITERATIONS, HASHING_KEYLEN, HASHING_ALGO, (err, derivedKey) => {
+                        if (err) {
+                            reject(err);
+                        }
+                        resolve(derivedKey);
+                    });
+                });
+                
+                db.run(`update user set password=? where id=?`,[hashed,user[0]]);
+                }
+            if (changeInUsername) {
+                db.run(`update user set username=? where id=?`, [postParameters["username"],user[0]]);
+            }
+            if (changeInName) {
+                db.run(`update user set name=? where id=?`,[postParameters["employeeName"],user[0]]);
+            }
+            if (changeInSuperuser) {
+                db.run(`update user set superuser=? where id=?`,[postParameters["superuser"],user[0]]);
+            }
+            if (changeInUsername || changeInName || changeInPassword || changeInSuperuser){
+                request.session.lastError = `The user was edited.`;
+            } else{
+                request.session.lastError = `No changes were made.`;
+            }
+        }
+    } else{
+        request.session.lastError = "You can not remove the last superuser.";
+    }
+    
+        request.session.displayError = true;
+        response.statusCode = 302;
+        response.setHeader('Location','/admin/employees/employee_list?storeid=' + request.session.storeId);
+        response.end()
+}
+
 
 async function removeEmployeePost(request, response){
     let postBody = await receiveBody(request);
@@ -1335,10 +1492,9 @@ async function removeEmployeePost(request, response){
         db.run("DELETE FROM user WHERE username=? AND storeId=?", [postParameters["username"], request.user.storeId]);
     }
     
-
     request.session.displayError = true;
     response.statusCode = 302;
-    response.setHeader('Location','/admin/employees/remove?storeid=' + request.session.storeId);
+    response.setHeader('Location','/admin/employees/employee_list?storeid=' + request.session.storeId);
     response.end()
 }
 
@@ -1356,9 +1512,8 @@ function employeesDashboard(request, response){
             <body>
                 <h1>Manage employees </h1>
                 <ul>
-                    <li><a href="/admin/employees/employee_list?storeid=${request.session.storeId}">View a list of employees</a></li>
-                    <li><a href="/admin/employees/remove?storeid=${request.session.storeId}">Remove employees</a></li>
-                    <li><a href="/admin/employees/add?storeid=${request.session.storeId}">Add employees</a></li>
+                    <li><a href="/admin/employees/employee_list?storeid=${request.session.storeId}">View, edit and remove employee accounts</a></li>
+                    <li><a href="/admin/employees/add?storeid=${request.session.storeId}">Add an employee account</a></li>
                     <li><a href="/admin?storeid=${request.session.storeId}">Back to the homepage</a></li>
                 </ul>
             </body>
@@ -1380,32 +1535,55 @@ async function employeeList(request, response){
     }
         let userList = await new Promise((resolve, reject) => {
             let sql = `SELECT * FROM user WHERE storeId=${request.session.storeId} ORDER BY id`;
-            let a = [0];
-            i = 0;
+            let rv = [];
             
             db.all(sql, [], (err, rows) => {
                 if (err) {
                     reject(err);
                 }
                 rows.forEach((row) => {
-                    b = [ row.id, row.username, row.name,  row.superuser];
-                    a[i] = b;
-                    i++;
+                    valueToAdd = [ row.id, row.username, row.name,  row.superuser];
+                    rv.push(valueToAdd);               
                 });
-                resolve (a);
+                resolve (rv);
             });
         });
-        
+
         let htmlTable = await new Promise((resolve, reject) => {
         let htmlTable = `<table style="width=100%" border="1px">
-        <tr> <th> Id </th> <th>Username</th> <th> Employee name </th> <th> Is the account a superuser </th>  </tr> <br>\n`;
+        <tr> <th> Id </th> <th>Username</th> <th> Employee name </th> <th> Is the account a superuser </th>  <th> Edit user </th> <th> Remove user </th> </tr> <br>\n`;
         for (i = 0; i < userList.length; i++){
             let isSuperuser = userList[i][3] == 1 ? "yes" : "no";
-            htmlTable += `<tr> <td style="font-weight:normal" style="text-align:center" style="font-weight:normal"> ${userList[i][0]} </td> <td style="font-weight:normal" style="text-align:center"> ${userList[i][1]} </td> <td style="font-weight:normal" style="text-align:center"> ${userList[i][2]} </td> <td style="font-weight:normal" style="text-align:center"> ${isSuperuser}  </td>  </tr> <br>\n`;
+            htmlTable += `
+            <tr> <td style="font-weight:normal" style="text-align:center" style="font-weight:normal">
+             ${userList[i][0]} </td> <td style="font-weight:normal" style="text-align:center"> ${userList[i][1]} </td> <td style="font-weight:normal"
+              style="text-align:center"> ${userList[i][2]} </td> <td style="font-weight:normal" style="text-align:center"> ${isSuperuser}  </td>
+              
+              <td> <form action="/admin/employees/edit" method="GET">
+                <input type="hidden" value="${userList[i][0]}" name="id">   
+                <input type="hidden" value="${userList[i][1]}" name="username">
+                <input type="hidden" value="${userList[i][2]}" name="name">
+                <input type="hidden" value="${userList[i][3]}" name="superuser">     
+                
+                <input type="hidden" value="${wantedStoreId}" name="storeid">   
+                <input type="submit" value="Edit">
+              
+              </form> </td> 
+
+              <td> <form action="/admin/employees/remove" method="POST">
+                <input type="hidden" value="${userList[i][1]}" name="username">     
+                <input type="hidden" value="${wantedStoreId}" name="storeid">   
+                <input type="submit" value="Remove">
+              
+              </form> </td> 
+               </tr> <br>\n`;
         }
         htmlTable += `</table>`
         resolve(htmlTable);
         });
+
+        request.session.displayError ? error = request.session.lastError : error = "";
+        request.session.displayError = false;
 
         response.statusCode = 200;
         response.write(`
@@ -1415,6 +1593,7 @@ async function employeeList(request, response){
                 <title>Employee list </title>
             </head>
             <body>
+                ${error ? `<p>${error}</p>` : ""}
                 <a href="/admin?storeid=${request.user.storeId}"> Go to admin startpage </a> <br>
                 <h> Employee list <h> <br>
                 <b> Here is a table of the current employee accounts: <br> ${htmlTable} </b>
