@@ -41,10 +41,8 @@ function renderNavigation(store) {
 function renderEmployeeNav(store) {
     return `
         <nav class="employee-nav">
-            <div>
-                <a href="/store?storeid=${store.id}">Home</a>
-                <a id="scan" href="/store/scan?storeid=${store.id}">Scan</a>
-            </div>
+            <a href="/store?storeid=${store.id}">Home</a>
+            <a id="scan" href="/store/scan?storeid=${store.id}">Scan</a>
         </nav>
     `;
 }
@@ -637,20 +635,28 @@ exports.renderStoreScan = function renderStoreScan(store) {
 
     page += `${renderEmployeeNav(store)}`;
     page += `
+                <div class="main-body">
                 <h1>Scan a package</h1>
                 <p id="loading-placeholder">Trying to open camera...</p>
                 <div id="controls-container" class="hidden">
                     <video id="scanner-content" disablepictureinpicture playsinline></video><br>
-                    <button id="start-scanner-btn">Start scanner</button>
-                    <button id="stop-scanner-btn">Stop scanner</button><br>
+                    <div id="btn-wrap">
+                        <button id="start-scanner-btn">Start scanner</button>
+                        <button id="stop-scanner-btn">Stop scanner</button>
+                    </div>
+                    
                     <h2>Package details</h2>
+                    <p>Validation key is automatically set when a QR code is scanned. Press the lock to manually input package:</p>
                     <form action="/store/package" method="GET">
-                        <label for="validationKey">Validation key, automatically set when a qr code is scanned. Press the lock to manually input package: </label><br>
-                        <input id="validation-key-input" type="text" name="validationKey" disabled="true" value="">
-                        <i class="fas fa-unlock" onclick="toggleValidationInput()"> </i> <br>
+                        <label for="validationKey">Validation key:</label><br>
+                        <div class="input-container">
+                            <input id="validation-key-input" type="text" name="validationKey" disabled="true" value="">
+                            <i id="input-toggle" class="fas fa-unlock" onclick="toggleValidationInput()"> </i> <br>
+                        </div>
                         <input type="hidden" value="${store.id}" name="storeid">
                         <input type="submit" value="Go to package"><br>
                     </form>
+                </div>
                 </div>
 
                 <!-- Burde måske samles i en script -->
