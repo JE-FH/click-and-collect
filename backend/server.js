@@ -744,6 +744,8 @@ async function queueRemove(request, response) {
 
     await dbRun(db, "DELETE FROM queue WHERE id=? and storeId=?", [wantedQueueId, wantedStoreId]);
 
+    await dbRun(db, "DELETE FROM timeslot WHERE queueId=?", [wantedQueueId]);
+
     response.statusCode = 302;
     response.setHeader("Location", "/admin/queues?storeid=" + wantedStoreId.toString());
     response.end();
