@@ -7,7 +7,7 @@ const {isStringInt, isStringNumber, receiveBody, parseURLEncoded, assertAdminAcc
 const {queryMiddleware, sessionMiddleware, createUserMiddleware} = require("./middleware");
 const {adminNoAccess, invalidParameters} = require("./generic-responses");
 const {dbAll, dbGet, dbRun, dbExec} = require("./db-helpers");
-const {renderAdmin, renderQueueList, renderPackageForm, manageEmployees, employeeListPage, employeeListRemPage, addEmployeePage, renderStoreMenu, renderPackageList, renderSettings, renderGetTime} = require("./render-functions");
+const {renderAdmin, renderQueueList, renderPackageForm, manageEmployees, employeeListPage, employeeListRemPage, addEmployeePage, renderStoreMenu, renderPackageList, renderSettings, renderGetTime, renderStoreScan, renderPackageOverview} = require("./render-functions");
 
 
 const port = 8000;
@@ -783,52 +783,12 @@ async function storeScan(request, response) {
     if (wantedStoreId == null) {
         return;
     }
+
+    let store = await storeIdToStore(wantedStoreId);
     
     response.statusCode = 200;
     response.setHeader("Content-Type", "text/html");
-    response.write(`
-    <!DOCTYPE html>
-    <html>
-        <head>
-            <title>scanner</title>
-            <link href="https://maxcdn.bootstrapcdn.com/font-awesome/4.2.0/css/font-awesome.min.css" rel="stylesheet">
-            <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.13.0/css/all.min.css">
-            <style>
-                .hidden {
-                    display: none;
-                }
-            </style>
-        </head>
-        <body>
-            <h1>Scan a package</h1>
-            <a href="/store?storeid=${request.user.storeId}"> Go to employee startpage </a> <br>
-            <p id="loading-placeholder">Trying to open camera...</p>
-            <div id="controls-container" class="hidden">
-                <video id="scanner-content" disablepictureinpicture playsinline></video><br>
-                <button id="start-scanner-btn">Start scanner</button>
-                <button id="stop-scanner-btn">Stop scanner</button><br>
-                <h2>Package details</h2>
-                <form action="/store/package" method="GET">
-                    <label for="validationKey">Validation key, automatically set when a qr code is scanned. Press the lock to manually input package: </label><br>
-                    <input id="validation-key-input" type="text" name="validationKey" disabled="true" value="">
-                    <i class="fas fa-unlock" onclick="toggleValidationInput()"> </i> <br>
-                    <input type="hidden" value="${wantedStoreId}" name="storeid">
-                    <input type="submit" value="Go to package"><br>
-                </form>
-            </div>
-
-            <!-- Burde måske samles i en script -->
-            <script src="/static/js/external/qr-scanner.umd.min.js"></script>
-            <script src="/static/js/qrScannerScript.js"></script>
-            <script>
-                function toggleValidationInput(){
-                    elm = document.getElementById('validation-key-input');
-                    elm.disabled ? elm.disabled = false : elm.disabled = true;
-                }
-            </script>
-        </body>
-    </html>
-    `)
+    response.write(renderStoreScan(store));
     response.end();
 }
 
@@ -848,35 +808,11 @@ async function packageStoreView(request, response) {
         return;
     }
 
+    let store = await storeIdToStore(wantedStoreId);
+
     response.statusCode = 200;
     response.setHeader("Content-Type", "text/html");
-    response.write(`
-    <!DOCTYPE html>
-    <html>
-        <head>
-            <title>Package overview</title>
-        </head>
-        <body>
-            <a href="/store/scan?storeid=${wantedStoreId}">Back to scanner</a>
-            <h1>Package overview</h1>
-            <h2>Details</h2>
-            <p>status: ${package.delivered == 0 ? "NOT DELIVERED" : "DELIVERED"}
-            <p>guid: ${package.guid}</p>
-            <p>bookedTimeId: ${package.bookedTimeId}</p>
-            <p>verificationCode: ${package.verificationCode}</p>
-            <p>customerEmail: ${package.customerEmail}</p>
-            <p>customerName: ${package.customerName}</p>
-            <p>externalOrderId: ${package.externalOrderId}</p>
-            <p>creationDate: ${package.creationDate}</p>
-            <h2>Actions</h2>
-            <form action="/store/package/${package.delivered == 0 ? "confirm" : "undeliver"}" method="POST">
-                <input type="hidden" value="${wantedStoreId}" name="storeid">
-                <input type="hidden" value="${package.id}" name="packageid">
-                <input type="submit" value="${package.delivered == 0 ? "Confirm delivery" : "Mark as not delivered"}">
-            </form>
-        </body>
-    </html>
-    `)
+    response.write(renderPackageOverview(store, package));
     response.end();
 }
 

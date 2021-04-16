@@ -132,6 +132,7 @@ body {
     position: fixed;
     right: -360px;
     height: 100vh;
+    box-shadow: 0 0 0 rgba(0,0,0,0);
     -webkit-transition: .25s ease-in-out;
     -moz-transition: .25s ease-in-out;
     -o-transition: .25s ease-in-out;
@@ -238,4 +239,9 @@ form input[type="radio"] {
 .dash > a:hover {
     transform: scale(1.1);
     box-shadow: 1px 3px 5px rgba(0, 0, 0, 0.12);
+}
+
+/* Store scan */
+button {
+    background-color: red;
 }

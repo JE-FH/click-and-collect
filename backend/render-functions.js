@@ -595,3 +595,89 @@ exports.renderGetTime = function renderGetTime(rowsHTML) {
 
         return page;
 }
+
+exports.renderStoreScan = function renderStoreScan(store) {
+    let page = `
+        <html>
+            <head>
+                <title>scanner</title>
+                <link rel="stylesheet" href="/static/css/style.css">
+                <link href="https://maxcdn.bootstrapcdn.com/font-awesome/4.2.0/css/font-awesome.min.css" rel="stylesheet">
+                <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.13.0/css/all.min.css">
+                <style>
+                    .hidden {
+                        display: none;
+                    }
+                </style>
+            </head>
+            <body>`;
+
+    page += `${renderEmployeeNav(store)}`;
+    page += `
+                <h1>Scan a package</h1>
+                <p id="loading-placeholder">Trying to open camera...</p>
+                <div id="controls-container" class="hidden">
+                    <video id="scanner-content" disablepictureinpicture playsinline></video><br>
+                    <button id="start-scanner-btn">Start scanner</button>
+                    <button id="stop-scanner-btn">Stop scanner</button><br>
+                    <h2>Package details</h2>
+                    <form action="/store/package" method="GET">
+                        <label for="validationKey">Validation key, automatically set when a qr code is scanned. Press the lock to manually input package: </label><br>
+                        <input id="validation-key-input" type="text" name="validationKey" disabled="true" value="">
+                        <i class="fas fa-unlock" onclick="toggleValidationInput()"> </i> <br>
+                        <input type="hidden" value="${store.id}" name="storeid">
+                        <input type="submit" value="Go to package"><br>
+                    </form>
+                </div>
+
+                <!-- Burde måske samles i en script -->
+                <script src="/static/js/external/qr-scanner.umd.min.js"></script>
+                <script src="/static/js/qrScannerScript.js"></script>
+                <script>
+                    function toggleValidationInput(){
+                        elm = document.getElementById('validation-key-input');
+                        elm.disabled ? elm.disabled = false : elm.disabled = true;
+                    }
+                </script>
+            </body>
+        </html>
+    `;
+
+    return page;
+}
+
+exports.renderPackageOverview = function renderPackageOverview(store, package) {
+    let page = `
+        <html>
+            <head>
+                <title>Package overview</title>
+                <link rel="stylesheet" href="/static/css/style.css">
+            </head>
+            <body>`;
+
+    page += `${renderEmployeeNav(store)}`;
+    page += `
+                <div class="main-body">
+                    <h1>Package overview</h1>
+                    <h2>Details</h2>
+                    <p>status: ${package.delivered == 0 ? "NOT DELIVERED" : "DELIVERED"}
+                    <p>guid: ${package.guid}</p>
+                    <p>bookedTimeId: ${package.bookedTimeId}</p>
+                    <p>verificationCode: ${package.verificationCode}</p>
+                    <p>customerEmail: ${package.customerEmail}</p>
+                    <p>customerName: ${package.customerName}</p>
+                    <p>externalOrderId: ${package.externalOrderId}</p>
+                    <p>creationDate: ${package.creationDate}</p>
+                    <h2>Actions</h2>
+                    <form action="/store/package/${package.delivered == 0 ? "confirm" : "undeliver"}" method="POST">
+                        <input type="hidden" value="${store.id}" name="storeid">
+                        <input type="hidden" value="${package.id}" name="packageid">
+                        <input type="submit" value="${package.delivered == 0 ? "Confirm delivery" : "Mark as not delivered"}">
+                    </form>
+                <div class="main-body">
+            </body>
+        </html>
+    `;
+
+    return page;
+}
