@@ -358,7 +358,7 @@ async function addPackage(storeId, customerEmail, customerName, externalOrderId)
     let guid, bookedTimeId, creationDate, verificationCode;
     guid = crypto.randomBytes(8).toString("hex");
     bookedTimeId = null;
-    creationDate = new Date();
+    creationDate = moment();
     verificationCode = generateVerification();
     let existingOrder = await new Promise((resolve, reject) => {
         db.get("SELECT * FROM package WHERE externalOrderId=?", [externalOrderId], (err, row) => {
@@ -374,7 +374,7 @@ async function addPackage(storeId, customerEmail, customerName, externalOrderId)
     }
     let query = 'INSERT INTO package (guid, storeId, bookedTimeId, verificationCode, customerEmail, customerName, externalOrderId, creationDate) VALUES (?, ?, ?, ?, ?, ?, ?, ?)';
 
-    db.run(query, [guid, storeId, bookedTimeId, verificationCode, customerEmail, customerName, externalOrderId, creationDate]);
+    db.run(query, [guid, storeId, bookedTimeId, verificationCode, customerEmail, customerName, externalOrderId, creationDate.format("YYYY-MM-DDTHH:mm:ss")]);
 
     console.log('Package added for: ' + customerName);
 
