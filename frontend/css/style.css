@@ -278,3 +278,10 @@ form input[type="radio"] {
 #input-toggle:active {
     transform: scale(0.9);
 }
+
+/* Manage queues */
+#queue-placement-map.map {
+    border: solid 2px red;
+    position: relative;
+    width: 100%;
+}

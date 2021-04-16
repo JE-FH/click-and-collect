@@ -142,7 +142,7 @@ exports.renderQueueList = function renderQueueList(store, queues) {
                         </tr>`).join("\n")}
                     </tbody>
                 </table>
-                <h2>add another queue</h2>
+                <h2>Add another queue</h2>
                 <form action="/admin/queues/add", method="POST">
                     <div id="queue-placement-map" class="map"></div>
                     <label for="size">Queue capacity: </label>
