@@ -1497,7 +1497,7 @@ async function timeSlotSelector(request, response) {
     let selectedWeekDay = moment().isoWeekYear(selectedYear).isoWeek(selectedWeek);
     let lower = moment(selectedWeekDay).startOf("isoWeek");
     let upper = moment(selectedWeekDay).endOf("isoWeek");
-    console.log(`Selected time range ${lower} - ${upper}`);
+    console.log(`Selected time range ${lower.format("YYYY-MM-DDTHH:mm:ss")} - ${upper.format("YYYY-MM-DDTHH:mm:ss")}`);
     
     /* Collects the data from the database */
     let result = await dbAll(db, `WITH valid_timeslots (id, storeId, startTime, endTime, queueId) as (
@@ -1505,7 +1505,7 @@ async function timeSlotSelector(request, response) {
         from timeSlot t
         left outer join package p on t.id = p.bookedTimeId
         left outer join queue q on t.queueId = q.id
-        where t.startTime >= datetime(?) AND t.startTime <= datetime(?) AND t.storeId=?
+        where t.startTime >= ? AND t.startTime <= ? AND t.storeId=?
         GROUP BY t.id, p.bookedTimeId
         having  q."size" > count(p.id)
         )
@@ -1730,7 +1730,17 @@ async function cancelTimeSlot(request, response) {
 async function sendPickupDocumentation(package, timeSlotDetails) {
     let qrCode = await QRCode.toDataURL(package.verificationCode);
 
-    sendEmail(package.customerEmail, package.customerName ?? package.customerEmail, "Click&Collect pickup documentation", "Hello my friend you have been scam", `
+    let mapLink = `https://www.openstreetmap.org/?mlat=${encodeURIComponent(timeSlotDetails.qlatitude)}&mlon=${encodeURIComponent(timeSlotDetails.qlongitude)}`;
+
+    sendEmail(package.customerEmail, package.customerName ?? package.customerEmail, "Click&Collect pickup documentation", 
+    `Hello ${package.customerName}
+You have selected the following timeslot
+${timeSlotDetails.startTime} - ${timeSlotDetails.endTime}
+You have been put in queue ${timeSlotDetails.qid}
+the queue location can be seen using this link ${mapLink}
+Please use the following code to verify your identity at the pickup point
+${package.verificationCode}
+`, `
         <!DOCTYPE html>
         <html>
             <head>
@@ -1746,7 +1756,7 @@ async function sendPickupDocumentation(package, timeSlotDetails) {
                 <p>You have been put in queue ${timeSlotDetails.qid} </p>
                 <p>
                     the queue location can be seen 
-                    <a href="https://www.google.com/maps/search/${encodeURIComponent(`${timeSlotDetails.qlatitude}, ${timeSlotDetails.qlongitude}`)}">here</a>
+                    <a href="${mapLink}">here</a>
                 </p>
                 <h2>Show the following qr code to the employee when you go to the pickup location</h2>
                 <img src="${qrCode}" style="display: block;max-width: 100vh;height: auto;max-height: 100vh;width: 100%;"/>

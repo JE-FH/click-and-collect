@@ -33,39 +33,45 @@ async function main() {
 	}
 	let stores = await dbAll(db, "select * from store")
 
-	stores.forEach((store) => {
-		let queueAgnosticTimeslots = [];
+	let timeSlots = [];
+
+	await Promise.all(stores.map(async (store) => {
+		let queues = await dbAll(db, "select * from queue where storeId = ?", [store.id]);
+		console.log("huh");
 		let store_open = getTimeParts(store.openingTime);
 		let store_close = getTimeParts(store.closingTime);
 		if (store_open == null || store_close == null) {
 			throw new Error("Store with id " + store.id.toString() + " has ill formated opening/closing time");
 		}
-		console.log(store_open, store_close);
-		for (let current_time = moment(beginningTime); current_time.isBefore(applicable_range_end); current_time.add(1, "hour")) {
-			addIfBetween(queueAgnosticTimeslots, moment(current_time).add(0, "minute"), moment(current_time).add(15, "minute"), store_open, store_close);
-			addIfBetween(queueAgnosticTimeslots, moment(current_time).add(15, "minute"), moment(current_time).add(30, "minute"), store_open, store_close);
-			addIfBetween(queueAgnosticTimeslots, moment(current_time).add(30, "minute"), moment(current_time).add(45, "minute"), store_open, store_close);
-			addIfBetween(queueAgnosticTimeslots, moment(current_time).add(45, "minute"), moment(current_time).add(60, "minute"), store_open, store_close);
 
-		}
-		console.log(queueAgnosticTimeslots);
-	});
-	
+		await Promise.all(queues.map(async (queue) => {
+			let lastTimeSlot = await dbGet(db, "select * from timeSlot where queueId=? order by endTime desc limit 1", [queue.id]);
+			console.log(lastTimeSlot);
+			let earliestTime = getEarliestTime(store.openingTime, store.closingTime, moment(lastTimeSlot?.endTime ?? now));
+			for (let day = Math.abs(earliestTime.diff(now, "days")); day < 7; day++) {
+				console.log(earliestTime);
+				if (earliestTime == null) {
+					earliestTime = moment(lastTimeSlot).add(day, "day").hour(store_open.hour).minute(store_open.minute).second(store_open.second);
+					continue;
+				}
+				const timeSlotLength = 15
+				for (let yep = moment(earliestTime); isBetween(store.openingTime, store.closingTime, yep, moment(yep).add(timeSlotLength, "minute"));) {
+					timeSlots.push([yep.format("YYYY-MM-DDTHH:mm:ss"), yep.add(timeSlotLength, "minute").format("YYYY-MM-DDTHH:mm:ss"), store.id, queue.id]);
+					
+				}
+				earliestTime.add(1, "day").hour(store_open.hour).minute(store_open.minute).second(store_open.second);
+			}
+		}));
+	}));
 
-	
-	/*
-	let queues = await dbAll(db, "select * from queue");
-	let values = queues.map((queue) => {
-		return queueAgnosticTimeslots.map((ts) => {
-			return [ts.start.format("YYYY-MM-DDTHH:mm:ss"), ts.end.format("YYYY-MM-DDTHH:mm:ss"), queue.storeId, queue.id];
-		})
-	}).flat()
+	console.log(timeSlots);
+
 
 	await new Promise((resolve, reject) => {
 		db.serialize(() => {
 			let stmt = db.prepare("INSERT INTO timeSlot (startTime, endTime, storeId, queueId) VALUES (?,?,?,?)");
 			db.parallelize(() => {
-				values.forEach(v => {
+				timeSlots.forEach(v => {
 					stmt.run(v);
 				})
 			})
@@ -74,14 +80,17 @@ async function main() {
 			});
 		})
 	});
-*/
+
 	db.close();
 }
 
-function addIfBetween(target, start, end, storeOpenParts, storeCloseParts) {
-	if (isBetween(storeOpenParts, storeCloseParts, start, end)) {
-		target.push({start: start, end: end});
+function getEarliestTime(openingTime, closingTime, lastTimeSlotEnd) {
+	let lastRoundedUp = roundUpHour(lastTimeSlotEnd);
+	console.log(lastRoundedUp);
+	if (isBetween(openingTime, closingTime, lastRoundedUp, lastRoundedUp)) {
+		return lastRoundedUp;
 	}
+	return null;
 }
 
 function getTimeParts(hhmmss) {
@@ -97,17 +106,14 @@ function getTimeParts(hhmmss) {
 	};
 }
 
-function isBetween(beginTimeParts, endTimeParts, startTimeSlot, endTimeSlot) {
-	let sh = startTimeSlot.get("hour");
-	let sm = startTimeSlot.get("minute");
-	let ss = startTimeSlot.get("second");
-	let eh = endTimeSlot.get("hour");
-	let em = endTimeSlot.get("minute");
-	let es = endTimeSlot.get("second");
-
-	return sh >= beginTimeParts.hour && sm >= beginTimeParts.minute && ss >= beginTimeParts.second &&
-		eh <= endTimeParts.hour && em <= endTimeParts.minute && es <= endTimeParts.second;
-	
+function isBetween(beginhhmmss, endhhmmss, startTimeSlot, endTimeSlot) {
+	let formattedStart = startTimeSlot.format("HH:mm:ss");
+	let formattedEnd = endTimeSlot.format("HH:mm:ss");
+	if (formattedStart >= beginhhmmss && formattedEnd <= endhhmmss) {
+		return true;
+	} else {
+		return false;
+	}
 }
 
 function roundUpHour(m) {
