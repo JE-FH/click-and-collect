@@ -5,7 +5,8 @@ CREATE TABLE IF NOT EXISTS store (
 	openingTime time NOT NULL,
 	closingTime time NOT NULL,
 	pickupDelay time NOT NULL,
-	apiKey varchar NOT NULL
+	apiKey varchar NOT NULL,
+	storeEmail varchar NOT NULL
 );
 
 CREATE UNIQUE INDEX IF NOT EXISTS idx_unique_store_apiKey on store (apiKey);
@@ -63,6 +64,7 @@ CREATE TABLE IF NOT EXISTS package (
 	externalOrderId integer,
 	creationDate timestamp NOT NULL,
 	delivered blob NOT NULL DEFAULT 0,
+	remindersSent NOT NULL DEFAULT 0,
 	FOREIGN KEY (bookedTimeId)
 		REFERENCES queue (id),
 	FOREIGN KEY (storeId)

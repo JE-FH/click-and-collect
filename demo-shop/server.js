@@ -1,6 +1,5 @@
 const http = require('http');
 const fetch = require('node-fetch');
-const { stringify } = require('querystring');
 
 const port = 3000;
 const hostname = '127.0.0.1';
@@ -254,7 +253,7 @@ function formHandler(response) {
 }
 
 function apiJs(customerName, customerEmail, orderId, apiKey) {
-    let qs = `customerName=${customerName}?customerEmail=${customerEmail}?orderId=${orderId}?apiKey=${apiKey}`;
+    let qs = `customerName=${customerName}&customerEmail=${customerEmail}&orderId=${orderId}&apiKey=${apiKey}`;
 
     fetch('http://127.0.0.1:8000/api/add_package', {
         method: 'POST',
