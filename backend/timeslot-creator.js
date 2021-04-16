@@ -37,30 +37,54 @@ async function main() {
 
 	await Promise.all(stores.map(async (store) => {
 		let queues = await dbAll(db, "select * from queue where storeId = ?", [store.id]);
-		console.log("huh");
-		let store_open = getTimeParts(store.openingTime);
-		let store_close = getTimeParts(store.closingTime);
-		if (store_open == null || store_close == null) {
-			throw new Error("Store with id " + store.id.toString() + " has ill formated opening/closing time");
-		}
-
+	
 		await Promise.all(queues.map(async (queue) => {
 			let lastTimeSlot = await dbGet(db, "select * from timeSlot where queueId=? order by endTime desc limit 1", [queue.id]);
-			console.log(lastTimeSlot);
-			let earliestTime = getEarliestTime(store.openingTime, store.closingTime, moment(lastTimeSlot?.endTime ?? now));
-			for (let day = Math.abs(earliestTime.diff(now, "days")); day < 7; day++) {
-				console.log(earliestTime);
-				if (earliestTime == null) {
-					earliestTime = moment(lastTimeSlot).add(day, "day").hour(store_open.hour).minute(store_open.minute).second(store_open.second);
-					continue;
-				}
-				const timeSlotLength = 15
-				for (let yep = moment(earliestTime); isBetween(store.openingTime, store.closingTime, yep, moment(yep).add(timeSlotLength, "minute"));) {
-					timeSlots.push([yep.format("YYYY-MM-DDTHH:mm:ss"), yep.add(timeSlotLength, "minute").format("YYYY-MM-DDTHH:mm:ss"), store.id, queue.id]);
-					
-				}
-				earliestTime.add(1, "day").hour(store_open.hour).minute(store_open.minute).second(store_open.second);
+			let openingTimeObj = JSON.parse(store.openingTime);
+			
+			let minBeginningTime = roundUpHour(moment(lastTimeSlot?.startTime ?? now));
+			let maxEndTime = roundUpHour(moment(now).add(7, "days"));
+
+			/* Check if we already created the necessary time slots */
+			if (minBeginningTime.isAfter(maxEndTime)) {
+				return;
 			}
+			
+			let timeSlotRanges = [];
+			
+			let currentDay = minBeginningTime.format("dddd").toLowerCase();
+			/*Check if we can any time slots for today*/
+			if (openingTimeObj[currentDay].length == 2) {
+				/*The closing time is after beginning time*/
+				if (isAfter(openingTimeObj[currentDay][1], minBeginningTime)) {
+					let closingTimeParts = getTimeParts(openingTimeObj[currentDay][1]);
+					let specificClosingTime = moment(minBeginningTime).hour(closingTimeParts.hour).minute(closingTimeParts.minute).second(closingTimeParts.second);
+					timeSlotRanges.push([minBeginningTime, specificClosingTime]);
+				}
+			}
+			
+			for (let currentTime = moment(minBeginningTime).add(1, "day"); currentTime.isBefore(maxEndTime); currentTime.add(1, "day")) {
+				let dayName = currentTime.format("dddd").toLowerCase();
+				if (openingTimeObj[dayName].length == 2) {
+					let openParts = getTimeParts(openingTimeObj[dayName][0]);
+					let closeParts = getTimeParts(openingTimeObj[dayName][1]);
+
+					let specificOpen = moment(currentTime).hour(openParts.hour).minute(openParts.minute).second(openParts.second);
+					let specificClose = moment(currentTime).hour(closeParts.hour).minute(closeParts.minute).second(closeParts.second);
+
+					timeSlotRanges.push([specificOpen, specificClose]);
+				}
+			}
+
+			console.log(timeSlotRanges);
+			const TIMESLOT_LENGTH = 15; //minutes
+			timeSlotRanges.forEach(range => {
+				for (let currentTime = moment(range[0]); moment(currentTime).add(TIMESLOT_LENGTH, "minutes").isSameOrBefore(range[1]);) {
+					let end = moment(currentTime).add(TIMESLOT_LENGTH, "minute");
+					timeSlots.push([currentTime.format("YYYY-MM-DDTHH:mm:ss"), end.format("YYYY-MM-DDTHH:mm:ss"), store.id, queue.id])
+					currentTime.add(TIMESLOT_LENGTH, "minute");
+				}
+			})
 		}));
 	}));
 
@@ -115,6 +139,16 @@ function isBetween(beginhhmmss, endhhmmss, startTimeSlot, endTimeSlot) {
 		return false;
 	}
 }
+
+function isAfter(hhmmss, endTimeSlot) {
+	let formattedEnd = endTimeSlot.format("HH:mm:ss");
+	if (hhmmss > formattedEnd) {
+		return true;
+	} else {
+		return false;
+	}
+}
+
 
 function roundUpHour(m) {
 	let roundUp = m.minute() || m.second() || m.millisecond() ? m.add(1, 'hour').startOf('hour') : m.startOf('hour');
