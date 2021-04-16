@@ -1,8 +1,9 @@
 function renderNavigation(store) {
     return `
         <nav class="navigation">
-            <a href="/admin?storeid=${store.id}"><h1 style="padding-left: 0.5em;">Admin</h1></a>
+            <a href="/admin?storeid=${store.id}" id="home">Admin</a>
             <ul>
+                <a href="/admin?storeid=${store.id}" style="flex: 2; width: 16em;"><li>Admin dashboard</li></a>
                 <a href="/store?storeid=${store.id}" style="flex: 2; width: 16em;"><li>Employee dashboard</li></a>
                 <a href="/admin/queues?storeid=${store.id}"><li>Queues</li></a>
                 <a href="/admin/settings?storeid=${store.id}"><li>Settings</li></a>
@@ -17,6 +18,7 @@ function renderNavigation(store) {
         </nav> 
 
         <div id="hamburger-menu">
+            <a href="/admin?storeid=${store.id}">Admin dashboard</a>
             <a href="/store?storeid=${store.id}">Employee dashboard</a>
             <a href="/admin/queues?storeid=${store.id}">Queues</a>
             <a href="/admin/settings?storeid=${store.id}">Settings</a>
@@ -45,6 +47,27 @@ function renderEmployeeNav(store) {
             </div>
         </nav>
     `;
+}
+
+exports.render404 = function render404(userId) {
+    let page = `
+        <html>
+            <head>
+                <title>404 page not found</title>
+                <link rel="stylesheet" href="/static/css/style.css">
+            </head>
+            <body>
+                <div class="main-body">
+                    <b> Webpage can not be found. <br></b>
+                    <a href="/login">Go to login page </a> <br>
+                    <a href="/store?storeid=${userId}"> Go to employee dashboard</a> <br>
+                    <a href="/admin?storeid=${userId}"> Go to admin dashboard</a> <br>
+                </div>
+            </body>
+        </html>
+    `;
+
+    return page;
 }
 
 exports.renderAdmin = function renderAdmin(request, store) {

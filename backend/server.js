@@ -7,7 +7,7 @@ const {isStringInt, isStringNumber, receiveBody, parseURLEncoded, assertAdminAcc
 const {queryMiddleware, sessionMiddleware, createUserMiddleware} = require("./middleware");
 const {adminNoAccess, invalidParameters} = require("./generic-responses");
 const {dbAll, dbGet, dbRun, dbExec} = require("./db-helpers");
-const {renderAdmin, renderQueueList, renderPackageForm, manageEmployees, employeeListPage, employeeListRemPage, addEmployeePage, renderStoreMenu, renderPackageList, renderSettings, renderGetTime, renderStoreScan, renderPackageOverview} = require("./render-functions");
+const {renderAdmin, renderQueueList, renderPackageForm, manageEmployees, employeeListPage, employeeListRemPage, addEmployeePage, renderStoreMenu, renderPackageList, renderSettings, renderGetTime, renderStoreScan, renderPackageOverview, render404} = require("./render-functions");
 
 
 const port = 8000;
@@ -459,21 +459,7 @@ function defaultResponse(request, response) {
     
     console.log(userId);
 
-    response.write(`
-    <!DOCTYPE html>
-    <html>
-        <head>
-            <title>404 page not found</title>
-        </head>
-        <body>
-            <b> Webpage can not be found. <br></b>
-            <a href="/login">Go to login page </a> <br>
-            <a href="/store?storeid=${userId}"> Go to employee dashboard</a> <br>
-            <a href="/admin?storeid=${userId}"> Go to admin dashboard</a> <br>
-
-        </body>
-    </html>
-    `);
+    response.write(render404(userId));
     response.end();
    
 }
