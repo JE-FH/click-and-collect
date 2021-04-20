@@ -209,10 +209,10 @@ exports.manageEmployees = function manageEmployees(store, request) {
                 <div class="main-body">
                     <h1>Manage employees </h1>
                     <ul class="dash">
-                        <a href="/admin/employees/employee_list?storeid=${request.session.storeId}"><li>View a list of employees</li></a>
-                        <a href="/admin/employees/remove?storeid=${request.session.storeId}"><li>Remove employees</li></a>
-                        <a href="/admin/employees/add?storeid=${request.session.storeId}"><li>Add employees</li></a>
-                    </ul>
+                        <li><a href="/admin/employees/employee_list?storeid=${request.session.storeId}">View, edit and remove employee accounts</a></li>
+                        <li><a href="/admin/employees/add?storeid=${request.session.storeId}">Add an employee account</a></li>
+                        <li><a href="/admin?storeid=${request.session.storeId}">Back to the homepage</a></li>
+                    </ul>   
                 </div>
             </body>
         </html>
@@ -221,7 +221,7 @@ exports.manageEmployees = function manageEmployees(store, request) {
     return page;
 }
 
-exports.employeeListPage = function employeeListPage(store, htmlTable) {
+exports.employeeListPage = function employeeListPage(store, htmlTable, error) {
     let page = `
         <html>
             <head>
@@ -233,7 +233,8 @@ exports.employeeListPage = function employeeListPage(store, htmlTable) {
     page += `${renderNavigation(store)}`;
     page += `
             <div class="main-body">
-                <h> Employee list <h> <br>
+                <h1>Employee list</h1>
+                ${error ? `<p>${error}</p>` : ""}
                 <b> Here is a table of the current employee accounts: <br> ${htmlTable} </b>
             </div>
             </body>
