@@ -1241,6 +1241,15 @@ async function editEmployee(request, response){
         return;  
     }
 
+    if (postParameters["id"] == undefined){
+        request.session.lastError = "You have to select a user to edit.";
+        request.session.displayError = true;
+        response.statusCode = 302;
+        response.setHeader('Location','/admin/employees/employee_list?storeid=' + request.session.storeId);
+        response.end();
+        return;
+    }
+
     response.statusCode = 200;
 
     // Måde at vise fejl til brugeren
@@ -1354,7 +1363,7 @@ async function editEmployeePost(request, response){
     if (wantedStoreId == null) {
         return;  
     }
-
+    
     /* Find the user if it exists */
     let usernameUnique = await new Promise((resolve, reject) => {
         db.serialize(() => {
@@ -1399,9 +1408,9 @@ async function editEmployeePost(request, response){
                         request.session.lastError = "User you are trying to edit doesn't exist";
                         request.session.displayError = true;
                         response.statusCode = 302;
-                        response.setHeader('Location','/admin/employees/add?storeid=' + request.session.storeId);
-                        response.end()
-                        resolve(true);
+                        response.setHeader('Location','/admin/employees/employee_list?storeid=' + request.session.storeId);
+                        response.end();
+                        return;
                     } else {
                         resolve([row.id, row.username, row.name,  row.superuser, row.salt]);
                     }
@@ -1409,7 +1418,7 @@ async function editEmployeePost(request, response){
             })
         });
     });
-
+    console.log(user);
     changeInPassword = postParameters["password"] != "password";
     changeInUsername = postParameters["username"] != user[1];
     changeInName = postParameters["employeeName"] != user[2];
