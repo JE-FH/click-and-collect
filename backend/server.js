@@ -1241,7 +1241,7 @@ async function editEmployee(request, response){
         return;  
     }
 
-    if (postParameters["id"] == undefined){
+    if (request.query.id == undefined){
         request.session.lastError = "You have to select a user to edit.";
         request.session.displayError = true;
         response.statusCode = 302;
@@ -1363,7 +1363,12 @@ async function editEmployeePost(request, response){
     if (wantedStoreId == null) {
         return;  
     }
-    
+    console.log(postParameters);
+    if (typeof(postParameters["password"]) != "string" || typeof(postParameters["username"]) != "string"
+      || typeof(postParameters["name"]) != "string" || typeof(postParameters["id"]) != "number" || typeof(postParameters["superuser"]) != "number")
+      {
+          console.log("hej");
+      }
     /* Find the user if it exists */
     let usernameUnique = await new Promise((resolve, reject) => {
         db.serialize(() => {
@@ -1381,7 +1386,7 @@ async function editEmployeePost(request, response){
             })
         });
     });
-
+    // Giver true hvis den bruger der bliver edited er den sidste superuser
     let lastAdminCheck = await new Promise((resolve, reject) => {
         db.serialize(() => {
             db.get("SELECT id FROM user WHERE superuser=1 AND id!=?", [postParameters["id"]], (err, row) => {
@@ -1389,9 +1394,9 @@ async function editEmployeePost(request, response){
                     resolve(null);
                 } else {
                     if (row == undefined) {
-                        resolve(false);
-                    } else {                        
                         resolve(true);
+                    } else {                        
+                        resolve(false);
                     }
                 }
             })
@@ -1424,7 +1429,7 @@ async function editEmployeePost(request, response){
     changeInName = postParameters["employeeName"] != user[2];
     changeInSuperuser = postParameters["superuser"] != user[3];
     
-    if (!(!(lastAdminCheck) && changeInSuperuser)){
+    if (!(lastAdminCheck && changeInSuperuser)){
         if (usernameUnique){    
 
             if (changeInPassword) {
