@@ -690,15 +690,14 @@ exports.renderPackageOverview = function renderPackageOverview(store, package) {
     page += `
                 <div class="main-body">
                     <h1>Package details</h1>
-                    <h2>Details</h2>
                     <p>status: ${package.delivered == 0 ? "NOT DELIVERED" : "DELIVERED"}
                     <p>guid: ${package.guid}</p>
                     <p>bookedTimeId: ${package.bookedTimeId}</p>
-                    <p>verificationCode: ${package.verificationCode}</p>
+                    <p>verification code: ${package.verificationCode}</p>
                     <p>customerEmail: ${package.customerEmail}</p>
                     <p>customerName: ${package.customerName}</p>
                     <p>externalOrderId: ${package.externalOrderId}</p>
-                    <p>creationDate: ${new Date(package.creationDate).toLocaleString()}</p>
+                    <p>creationDate: ${package.creationDate}</p>
                     <h2>Actions</h2>
                     <form action="/store/package/${package.delivered == 0 ? "confirm" : "undeliver"}" method="POST">
                         <input type="hidden" value="${store.id}" name="storeid">
