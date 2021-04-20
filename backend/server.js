@@ -1636,7 +1636,7 @@ async function timeBookedPage(request, response, package) {
             </head>
             <body>
                 <h1>Hey ${package.customerName == null ? "" : package.customerName}</h1>
-                <p>You already selected a timeslot for this package, here is the information about your pacakge</p>
+                <p>You have selected a timeslot for this package, here is your package information:</p>
                 <p>booked time period: ${bookedTimeSlot.startTime} - ${bookedTimeSlot.endTime}</p>
                 <p>verificationCode: ${package.verificationCode}</p>
                 <h2>Actions</h2>
