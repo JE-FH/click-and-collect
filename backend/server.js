@@ -56,6 +56,9 @@ async function requestHandler(request, response) {
                 case "/admin/queues/add":
                     queueAdd(request, response);
                     break;
+                case "/admin/settings":
+                    settingsPost(request, response);
+                    break;
             }
             break;
         }
@@ -115,6 +118,9 @@ async function requestHandler(request, response) {
                     break;
                 case "/static/js/external/qr-scanner-worker.min.js":
                     serveFile(response, __dirname + "/../frontend/js/external/qr-scanner-worker.min.js", "text/javascript");
+                    break;
+                case "/static/js/settingsScript.js":
+                    serveFile(response, __dirname + "/../frontend/js/settingsScript.js", "text/javascript");
                     break;
                 case "/admin/settings":
                     openingTime(request, response);
@@ -1658,6 +1664,7 @@ function format_date_as_time(date) {
     return `${date.getHours().toString().padStart(2, "0")}:${date.getMinutes().toString().padStart(2, "0")}`;
 }
 
+const DAYS_OF_WEEK = ["monday", "tuesday", "wednesday", "thursday", "friday", "saturday", "sunday"];
 
 async function openingTime(request, response) {
     let wantedStoreId = assertAdminAccess(request, request.query, response);
@@ -1670,8 +1677,10 @@ async function openingTime(request, response) {
         throw new Error(`Expected store with id ${wantedStoreId} to exist`);
     }
     
-    let openTime = store.openTime.split(":").slice(0, 1).join(":");
-    let closeTime = store.closeTime.split(":").slice(0, 1).join(":");
+
+    let parsedOpeningTime = JSON.parse(store.openingTime);
+
+    let hasError = request.session.settingsError == null;
 
     response.statusCode = 200;
     response.setHeader('Content-Type', 'text/html');
@@ -1680,29 +1689,125 @@ async function openingTime(request, response) {
 <html>
     <head>
         <title>Opening time for ${store.name}</title>
-        <link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/openlayers/openlayers.github.io@master/en/v6.5.0/css/ol.css" type="text/css">
-        <script src="https://cdn.jsdelivr.net/gh/openlayers/openlayers.github.io@master/en/v6.5.0/build/ol.js"></script>
-        <link rel="stylesheet" href="/static/style.css">
         <style>
-            .map {
-                height: 400px;
-                width: 500px;
+            .hidden {
+                display: none;
             }
         </style>
     </head>
     <body>
         <a href="/admin?storeid=${store.id}">Go back to dashboard</a>
         <h1>Opening time for ${store.name}</h1>
-        <form method="POST" action="/admin/settings/setOpen">
-            <input type="hidden" value="${wantedStoreId}" name="storeId">
-            <input type="time" min="00:00" max="${closeTime}" name="openTime">
+        <p id="error-message" class="${hasError ? "" : "hidden"}">${hasError ? "" : request.session.settingsError}</p>
+        <form method="POST" id="settings-form">
+            <table>
+                <thead>
+                    <tr>
+                        <th>Day</th>
+                        <th>Open time</th>
+                        <th>Closing time</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    ${DAYS_OF_WEEK.map((day) => {
+                        if (parsedOpeningTime[day].length == 0) {
+                            parsedOpeningTime[day] = ["00:00:00", "00:00:00"];
+                        }
+                        return `<tr>
+                            <td>${day}</td>
+                            <td><input name="${day}-open" type="time" value="${parsedOpeningTime[day][0]}" step="1"></td>
+                            <td><input name="${day}-close" type="time" value="${parsedOpeningTime[day][1]}" step="1"></td>
+                        </tr>`;
+                    }).join("\n")}
+                </tbody>
+            </table>
+            <label for="delete-timeslots">Delete existing timeslots outside of open times: </label>
+            <input type="checkbox" name="delete-timeslots"><br>
+            <input type="submit" value="Set new opentime">
         </form>
-        <form method="POST" action="/admin/settings/setClose">
-            <input type="hidden" value="${wantedStoreId}" name="storeId">
-            <input type="time" min="${openTime}" max="23:59" name="closeTime">
-        </form>
+        <script src="/static/js/settingsScript.js"></script>
     </body>
 </html>`);
+    request.session.settingsError = null;
+    response.end();
 }
+
+async function settingsPost(request, response) {
+    let postBody = parseURLEncoded(await receiveBody(request));
+
+    let wantedStoreId = assertAdminAccess(request, request.query, response);
+    if (wantedStoreId == null) {
+        return;
+    }
+
+    for (day of DAYS_OF_WEEK) {
+        let openTime = postBody[`${day}-open`];
+        let closeTime = postBody[`${day}-close`];
+        if (!isValidTime(openTime) || !isValidTime(closeTime)) {
+            console.log(openTime, closeTime);
+            request.session.settingsError = `time range for ${day} was invalid`;
+            response.statusCode = 302
+            response.setHeader("Location", "/admin/settings?storeid=" + wantedStoreId.toString());
+            response.end();
+            return;
+        }
+/*We compare the strings and it returns which character was largest at the mismatch, for the hh:mm:ss format this also show which time is first*/
+        if (openTime > closeTime) {
+            request.session.settingsError = `time range for ${day} was invalid, closing time has to be after or equal to the opening time`;
+            response.statusCode = 302
+            response.setHeader("Location", "/admin/settings?storeid=" + wantedStoreId.toString());
+            response.end();
+            return;
+        }
+    }
+
+    let store = await dbGet(db, "SELECT * FROM store WHERE id=?", [wantedStoreId]);
+    if (store == undefined) {
+        throw new Error(`Expected store with id ${wantedStoreId} to exist`);
+    }
+
+    let newOpeningTime = {};
+    for (day of DAYS_OF_WEEK) {
+        let open = postBody[`${day}-open`];
+        let close = postBody[`${day}-close`];
+
+        if (open == close) {
+            newOpeningTime[day] = [];
+        } else {
+            newOpeningTime[day] = [open, close];
+        }
+    }
+
+    console.log(newOpeningTime);
+
+    await dbRun(db, "UPDATE store SET openingTime=? WHERE id=?",[JSON.stringify(newOpeningTime), wantedStoreId]);
+
+    request.session.settingsError = "New opening time was successfully set";
+}
+
+function isValidTime(str) {
+    if (typeof(str) != "string") {
+        return false;
+    }
+    let match = str.match(/^([0-9]){2}:([0-9]){2}:([0-9]){2}$/);
+    if (match == null) {
+        return false;
+    }
+
+    if (!isStringInt(match[1]) || !isStringInt(match[2]) || !isStringInt(match[3])) {
+        return false;
+    }
+
+    let match1 = Number(match[1]);
+    let match2 = Number(match[2]);
+    let match3 = Number(match[3]);
+
+    if (match1 >= 24 || match1 < 0 || match2 >= 60 || match2 < 0 || match3 >= 60 || match3 < 0) {
+        return false;
+    }
+
+    return true;
+}
+
 
 main();
