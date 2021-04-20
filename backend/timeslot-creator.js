@@ -76,6 +76,7 @@ async function main() {
 				}
 			}
 
+			console.log(timeSlotRanges);
 			const TIMESLOT_LENGTH = 15; //minutes
 			timeSlotRanges.forEach(range => {
 				for (let currentTime = moment(range[0]); moment(currentTime).add(TIMESLOT_LENGTH, "minutes").isSameOrBefore(range[1]);) {
@@ -86,6 +87,9 @@ async function main() {
 			})
 		}));
 	}));
+
+	console.log(timeSlots);
+
 
 	await new Promise((resolve, reject) => {
 		db.serialize(() => {
