@@ -161,3 +161,7 @@ exports.sendEmail = async function sendMail(recipientMail, recipientName, subjec
 
     console.log(`Fake mail was sent, preview can be seen here: ${nodemailer.getTestMessageUrl(info)}`);
 }
+
+exports.sanitizeFullName = function sanitizeFullName(name) {
+    return name.replaceAll('+', ' ');
+}

@@ -12,6 +12,14 @@ body {
     justify-content: center;
 }
 
+.success-message {
+    color: green;
+    padding: 0.5em;
+    border: solid 2px green;
+    display: block;
+    margin: 1em 0;
+}
+
 /* Navigation */
 .navigation {
     z-index: 999;
@@ -211,6 +219,7 @@ form {
 }
 form input {
     box-sizing: border-box;
+    font-size: 16px;
     width: 100%;
     display: block;
     padding: 5px;
@@ -219,10 +228,18 @@ form input {
     border-radius: 2px;
 }
 form label {
+    margin-top: 1em;
     line-height: 2;
+    display: block;
 }
-form input[type="radio"] {
-    border: solid 2px red;
+form input[type=radio] {
+    display: inline-block;
+    width: 26px;
+    background-color: black;
+    margin: 1em auto;
+}
+form input[type=submit] {
+    margin-top: 1em;
 }
 /* Admin Dashboard */
 .dash {

@@ -340,6 +340,7 @@ async function packageFormHandler(request, response) {
     let body = await receiveBody(request);
     body = parseURLEncoded(body);
     addPackage(request.user.storeId, body.customerEmail, body.customerName, body.externalOrderId);
+    request.session.statusMsg = "Package successfully added";
     response.statusCode = 302;
     response.setHeader('Location', request.headers['referer']);
     response.end();
@@ -436,7 +437,8 @@ async function packageFormGet(request, response) {
 
     response.statusCode = 200;
     response.setHeader('Content-Type', 'text/html');
-    response.write(renderPackageForm(store));
+    response.write(renderPackageForm(store, request));
+    request.session.statusMsg = false;
     response.end();
 }
 

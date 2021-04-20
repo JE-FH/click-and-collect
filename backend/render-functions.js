@@ -165,7 +165,7 @@ exports.renderQueueList = function renderQueueList(store, queues) {
     return page;
 }
 
-exports.renderPackageForm = function renderPackageForm(store) {
+exports.renderPackageForm = function renderPackageForm(store, request) {
     let page = `
         <html>
             <head>
@@ -179,11 +179,15 @@ exports.renderPackageForm = function renderPackageForm(store) {
                 <div class="main-body">
                     <h1>Add package</h1>
                     <form action="/package_form_handler?storeid=${store.id}" method="POST">
+                        <label for="customerName">Customer name:</label>
                         <input type="text" name="customerName" placeholder="Customer name" required>
+                        <label for="customerEmail">Customer email:</label>
                         <input type="text" name="customerEmail" placeholder="Customer email" required>
+                        <label for="externalOrderId">Order ID:</label>
                         <input type="text" name="externalOrderId" placeholder="Order ID" required> 
                         <input type="submit">
                     </form>
+                    ${request.session.statusMsg ? `<p class="success-message">${request.session.statusMsg}</p>` : ''}
                 </div>
             </body>
         </html>
@@ -208,7 +212,6 @@ exports.manageEmployees = function manageEmployees(store, request) {
                         <a href="/admin/employees/employee_list?storeid=${request.session.storeId}"><li>View a list of employees</li></a>
                         <a href="/admin/employees/remove?storeid=${request.session.storeId}"><li>Remove employees</li></a>
                         <a href="/admin/employees/add?storeid=${request.session.storeId}"><li>Add employees</li></a>
-                        <a href="/admin?storeid=${request.session.storeId}"><li>Back to dashboard</li></a>
                     </ul>
                 </div>
             </body>
@@ -286,7 +289,7 @@ exports.addEmployeePage = function addEmployeePage(store, error) {
                         position: relative;
                         margin-bottom: 1em;
                     }
-                    #togglePassword {
+                    #togglePassword, #toggleConfirmPassword {
                         position: absolute;
                         right: 10px;
                     }
@@ -297,35 +300,36 @@ exports.addEmployeePage = function addEmployeePage(store, error) {
     page += `${renderNavigation(store)}`;
     page += `
                 <div class="main-body">
-                    ${error ? `<p>${error}</p>` : ""}
-                    <h> Adding new employee to the store <h>
-                
+                    <h1>Add new employee</h1>
                     <form action="/admin/employees/add" method="POST">
-                        <label for="username">Username:      </label>
-                        <input type="text" name="username" placeholder="username" required><br>
+                        <label for="username">Username:</label>
+                        <input type="text" name="username" placeholder="username" required>
 
-                        <label for="name"> Employee name: </label>
-                        <input type="text" name="employeeName" placeholder="Employee name" required><br> <br>
-                        <label for="password"> Password:     </label>
+                        <label for="name">Employee name:</label>
+                        <input type="text" name="employeeName" placeholder="Employee name" required>
+
+                        <label for="password"> Password:</label>
                         <div class="container">
                             <input type="password" name="password" placeholder="password" id="password" onchange='checkPass();' minlength="8" required>
-                            <i class="fas fa-eye" id="togglePassword"> </i>
+                            <i class="fas fa-eye" id="togglePassword"></i>
                         </div>
-                        
-                        <label for="confirmPassword"> Confirm password: </label>
+
+                        <label for="confirmPassword"> Confirm password:</label>
                         <div class="container">
                             <input type="password" name="confirmPassword" placeholder="password" id="confirmPassword" onchange='checkPass();' required>
-                            <i class="fas fa-eye" id="toggleConfirmPassword"> </i>
+                            <i class="fas fa-eye" id="toggleConfirmPassword"></i>
                         </div>
+
                         <input type="hidden" value="${store.id}" name="storeid">    
-                        <p id="matchingPasswords" style="color:red" hidden> The passwords do not match </p>
+                        <p id="matchingPasswords" style="color:red" hidden>The passwords do not match</p>
                         
-                        <label for="superuser"> Is the account an admin account: </label>
+                        <label for="superuser"> Is the account an admin account:</label>
                         <input type="radio" value="1" name="superuser" checked>Yes</input>
                         <input type="radio" value="0" name="superuser">No</input>
                     
                         <input type="submit" id="submit" value="Create user" disabled>
                     </form>
+                    ${error ? `<p class="success-message">${error}</p>` : ""}
                 </div>
             <script>
             function checkPass() {
