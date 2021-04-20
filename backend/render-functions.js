@@ -244,37 +244,6 @@ exports.employeeListPage = function employeeListPage(store, htmlTable, error) {
     return page;
 }
 
-exports.employeeListRemPage = function employeeListRemPage(store, error, htmlTable) {
-    let page = `
-        <html>
-            <head>
-                <title>Removing an employee </title>
-                <link rel="stylesheet" href="/static/css/style.css">
-            </head>
-            <body>`;
-    
-    page += `${renderNavigation(store)}`;
-    page += `
-            <div class="main-body">
-                ${error ? `<p>${error}</p>` : ""}
-                <h> Removing employee from the store <h>
-                
-                <form action="/admin/employees/remove" method="POST">
-                
-                <label for="name">Write the username:     </label>
-                <input type="text" placeholder="username" name="username" required><br>     
-                <input type="hidden" value="${store.id}" name="storeid">          
-                <input type="submit" value="Delete user" onclick="return confirm('Are you sure?')" />
-            </form>
-            <b> Here is a table of the current employee accounts: <br> ${htmlTable} </b>
-            </div>
-            </body>
-        </html>
-    `;
-
-    return page;
-}
-
 exports.addEmployeePage = function addEmployeePage(store, error) {
     let page = `
         <html>

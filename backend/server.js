@@ -7,7 +7,7 @@ const {isStringInt, isStringNumber, receiveBody, parseURLEncoded, assertAdminAcc
 const {queryMiddleware, sessionMiddleware, createUserMiddleware} = require("./middleware");
 const {adminNoAccess, invalidParameters, invalidCustomerParameters} = require("./generic-responses");
 const {dbAll, dbGet, dbRun, dbExec} = require("./db-helpers");
-const {renderAdmin, renderQueueList, renderPackageForm, manageEmployees, employeeListPage, employeeListRemPage, addEmployeePage, renderStoreMenu, renderPackageList, renderSettings, renderGetTime, renderStoreScan, renderPackageOverview, render404} = require("./render-functions");
+const {renderAdmin, renderQueueList, renderPackageForm, manageEmployees, employeeListPage, addEmployeePage, renderStoreMenu, renderPackageList, renderSettings, renderGetTime, renderStoreScan, renderPackageOverview, render404} = require("./render-functions");
 const QRCode = require("qrcode");
 
 
@@ -389,7 +389,7 @@ async function addPackage(storeId, customerEmail, customerName, externalOrderId)
 
     let store = await storeIdToStore(storeId);
 
-    await sendEmail(customerEmail, customerName, `${store.name}: Choose a pickup time slot`, `Link: ${HOST}/package?guid=${guid}`, await renderMailTemplate(customerName, store, guid, creationDate));
+    await sendEmail(sanitizeEmailAddress(customerEmail), sanitizeFullName(customerName), `${store.name}: Choose a pickup time slot`, `Link: ${HOST}/package?guid=${guid}`, await renderMailTemplate(sanitizeFullName(customerName), store, guid, creationDate));
 }
 
 function generateVerification() {
