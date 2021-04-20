@@ -61,3 +61,20 @@ exports.invalidParameters = function invalidParameters(response, errorMessage, r
     `);
     response.end();
 };
+
+exports.invalidCustomerParameters = function invalidParameters(response, errorMessage){
+    response.statusCode = 400;
+    response.write(`
+    <!DOCTYPE html>
+    <html>
+        <head>
+            <title>Package can not be found</title>
+        </head>
+
+        <body>
+            ${errorMessage}
+        </body>
+    </html>
+    `);
+    response.end();
+};

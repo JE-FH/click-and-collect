@@ -17,8 +17,8 @@ async function main() {
     console.log("Database correctly configured");
 	let now = moment();
 
-	let applicable_range_start = roundUpHour(moment(now));
-	let applicable_range_end = moment(applicable_range_start).add(7, "day");
+	let applicableRangeStart = roundUpHour(moment(now));
+	let applicableRangeEnd = moment(applicableRangeStart).add(7, "day");
 
 	let lastTimeslot = await dbGet(db, "select * from timeSlot ORDER BY endTime DESC LIMIT 1;");
 	
@@ -28,7 +28,7 @@ async function main() {
 		beginningTime = roundUpHour(moment(now));
 	}
 
-	if (beginningTime.isSameOrAfter(applicable_range_end)) {
+	if (beginningTime.isSameOrAfter(applicableRangeEnd)) {
 		console.log("Cant add anything");
 	}
 	let stores = await dbAll(db, "select * from store")
@@ -78,10 +78,10 @@ async function main() {
 
 			const TIMESLOT_LENGTH = 15; //minutes
 			timeSlotRanges.forEach(range => {
-				for (let currentTime = moment(range[0]); moment(currentTime).add(TIMESLOT_LENGTH, "minutes").isSameOrBefore(range[1]);) {
+				for (let currentTime = moment(range[0]); moment(currentTime).add(TIMESLOT_LENGTH, "minutes").isSameOrBefore(range[1]); currentTime.add(TIMESLOT_LENGTH, "minute")) {
 					let end = moment(currentTime).add(TIMESLOT_LENGTH, "minute");
 					timeSlots.push([currentTime.format("YYYY-MM-DDTHH:mm:ss"), end.format("YYYY-MM-DDTHH:mm:ss"), store.id, queue.id])
-					currentTime.add(TIMESLOT_LENGTH, "minute");
+					
 				}
 			})
 		}));

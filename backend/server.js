@@ -3,9 +3,9 @@ const sqlite3 = require("sqlite3");
 const fs = require("fs/promises");
 const crypto = require("crypto");
 const moment = require("moment");
-const {isStringInt, isStringNumber, receiveBody, parseURLEncoded, assertAdminAccess, assertEmployeeAccess, setupEmail, sendEmail} = require("./helpers");
+const {isStringInt, isStringNumber, receiveBody, parseURLEncoded, assertAdminAccess, assertEmployeeAccess, setupEmail, sendEmail, fromISOToDate, fromISOToHHMM } = require("./helpers");
 const {queryMiddleware, sessionMiddleware, createUserMiddleware} = require("./middleware");
-const {adminNoAccess, invalidParameters} = require("./generic-responses");
+const {adminNoAccess, invalidParameters, invalidCustomerParameters} = require("./generic-responses");
 const {dbAll, dbGet, dbRun, dbExec} = require("./db-helpers");
 const QRCode = require("qrcode");
 
@@ -681,7 +681,6 @@ async function packageList(request,response, error){
                                 <th>Order id</th>
                                 <th>Time of order</th>
                             </tr>`
-        //if (packages.length == 1 && (packages[0] == undefined || packages[0].id == undefined)){
         if (packages.length == 1 && packages[0].id == undefined){
         }
         else{
@@ -1443,13 +1442,13 @@ async function employeeList(request, response){
 
 async function timeSlotSelector(request, response) {
     if (typeof(request.query.guid) != "string") {
-        invalidParameters(response, "The link was invalid, if you believe this is a mistake, contact the store you ordered your item at");
+        invalidCustomerParameters(response, "The link is invalid, if you believe this is a mistake contact the store you ordered your item at.");
         return;
     }
 
     let targetPackage = await dbGet(db, "SELECT * FROM package WHERE guid=?", [request.query.guid]);
     if (targetPackage == null) {
-        invalidParameters(response, "The link was invalid, if you believe this is a mistake, contact the store you ordered your item at");
+        invalidCustomerParameters(response, "Your package could not be found, if you believe this is a mistake contact the store you ordered your item at.");
         return;
     }
 
@@ -1626,7 +1625,6 @@ async function timeBookedPage(request, response, package) {
     if (package.bookedTimeId != null) {
         bookedTimeSlot = await dbGet(db, "SELECT * FROM timeSlot where id=?", [package.bookedTimeId]);
     }
-
     response.statusCode = 200;
     response.setHeader('Content-Type', 'text/html');
     response.write(`<!DOCTYPE html>
@@ -1637,11 +1635,11 @@ async function timeBookedPage(request, response, package) {
             <body>
                 <h1>Hey ${package.customerName == null ? "" : package.customerName}</h1>
                 <p>You have selected a timeslot for this package, here is your package information:</p>
-                <p>booked time period: ${bookedTimeSlot.startTime} - ${bookedTimeSlot.endTime}</p>
-                <p>verificationCode: ${package.verificationCode}</p>
+                <p>Booked time period: ${fromISOToDate(bookedTimeSlot.startTime)} from ${fromISOToHHMM(bookedTimeSlot.startTime)} to ${fromISOToHHMM(bookedTimeSlot.endTime)} </p>
+                <p>Your booking is in queue number ${bookedTimeSlot.queueId}
                 <h2>Actions</h2>
                 ${package.delivered == 0 ? `
-                <p>If you cant pickup the package at the booked time, you can cancel the booked time and book a new time which fits better</p> 
+                <p>If you can not come at the booked time, you can cancel and book a new time:</p> 
                 <form action="/package/cancel" method="POST">
                     <input type="hidden" value="${package.guid}" name="guid">
                     <input type="submit" value="Cancel the booked time">
@@ -1649,7 +1647,6 @@ async function timeBookedPage(request, response, package) {
             </body>
         </html>
     `);
-
     response.end();
 }
 
