@@ -1479,12 +1479,12 @@ async function timeSlotSelector(request, response) {
             if (proposedDate.isAfter(upperBound) || proposedDate.isBefore(lowerBound) || parsedWeek == 0) {
                 if (proposedDate.isAfter(upperBound)) {
                     response.statusCode = 302;
-                    response.setHeader("Location", `/package?week=1&year=${selectedYear+1}`);
+                    response.setHeader("Location", `/package?guid=${request.query.guid}&week=1&year=${selectedYear+1}`);
                     response.end();
                     return;
                 } else {
                     response.statusCode = 302;
-                    response.setHeader("Location", `/package?week=${moment().isoWeekYear(selectedYear).isoWeeksInYear()}&year=${selectedYear-1}`);
+                    response.setHeader("Location", `/package?guid=${request.query.guid}&week=${moment().isoWeekYear(selectedYear).isoWeeksInYear()}&year=${selectedYear-1}`);
                     response.end();
                     return;
                 }
