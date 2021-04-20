@@ -162,6 +162,12 @@ exports.sendEmail = async function sendMail(recipientMail, recipientName, subjec
     console.log(`Fake mail was sent, preview can be seen here: ${nodemailer.getTestMessageUrl(info)}`);
 }
 
+/* Replaces + in strings with a space */
 exports.sanitizeFullName = function sanitizeFullName(name) {
     return name.replaceAll('+', ' ');
+}
+
+/* Replaces the hex code for @ with an actual @ */
+exports.sanitizeEmailAddress = function sanitizeEmailAddress(email) {
+    return email.replaceAll('%40', '@');
 }

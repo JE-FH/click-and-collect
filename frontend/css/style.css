@@ -10,6 +10,7 @@ body {
     max-width: 370px;
     margin: 0 auto;
     justify-content: center;
+    margin-bottom: 2em;
 }
 
 .success-message {
@@ -228,7 +229,6 @@ form input {
     border-radius: 2px;
 }
 form label {
-    margin-top: 1em;
     line-height: 2;
     display: block;
 }
