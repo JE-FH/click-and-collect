@@ -161,3 +161,13 @@ exports.sendEmail = async function sendMail(recipientMail, recipientName, subjec
 
     console.log(`Fake mail was sent, preview can be seen here: ${nodemailer.getTestMessageUrl(info)}`);
 }
+
+exports.fromISOToDate = function fromISOToEuFormat(time){
+    let split = time.split(/[-:T]/);
+    return split[2] + "-" + split[1];
+}
+
+exports.fromISOToHHMM = function fromISOToEuFormat(time){
+    let split = time.split(/[-:T]/);
+    return split[3] + ":" + split[4];
+}
