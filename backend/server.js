@@ -1363,11 +1363,15 @@ async function editEmployeePost(request, response){
     if (wantedStoreId == null) {
         return;  
     }
-    console.log(postParameters);
     if (typeof(postParameters["password"]) != "string" || typeof(postParameters["username"]) != "string"
-      || typeof(postParameters["name"]) != "string" || typeof(postParameters["id"]) != "number" || typeof(postParameters["superuser"]) != "number")
+      || typeof(postParameters["employeeName"]) != "string" || typeof(postParameters["id"]) != "string" || typeof(postParameters["superuser"]) != "number")
       {
-          console.log("hej");
+        request.session.lastError = "Some input data was invalid";
+        request.session.displayError = true;
+        response.statusCode = 302;
+        response.setHeader('Location','/admin/employees/employee_list?storeid=' + request.session.storeId);
+        response.end();
+        return;
       }
     /* Find the user if it exists */
     let usernameUnique = await new Promise((resolve, reject) => {
@@ -1417,57 +1421,59 @@ async function editEmployeePost(request, response){
                         response.end();
                         return;
                     } else {
-                        resolve([row.id, row.username, row.name,  row.superuser, row.salt]);
+                        resolve(row);
                     }
                 }
             })
         });
     });
-    console.log(user);
     changeInPassword = postParameters["password"] != "password";
-    changeInUsername = postParameters["username"] != user[1];
-    changeInName = postParameters["employeeName"] != user[2];
-    changeInSuperuser = postParameters["superuser"] != user[3];
-    
-    if (!(lastAdminCheck && changeInSuperuser)){
-        if (usernameUnique){    
+    changeInUsername = postParameters["username"].trim() != user.username.trim();
+    changeInName = postParameters["name"] != user.employeeName;
+    changeInSuperuser = postParameters["superuser"] != user.superuser;
 
-            if (changeInPassword) {
-                let salt = user[4];
-                let hashed = await new Promise((resolve, reject) => {
-                    crypto.pbkdf2(postParameters["password"], salt, HASHING_ITERATIONS, HASHING_KEYLEN, HASHING_ALGO, (err, derivedKey) => {
-                        if (err) {
-                            reject(err);
-                        }
-                        resolve(derivedKey);
-                    });
-                });
-                
-                db.run(`update user set password=? where id=?`,[hashed,user[0]]);
-                }
-            if (changeInUsername) {
-                db.run(`update user set username=? where id=?`, [postParameters["username"],user[0]]);
-            }
-            if (changeInName) {
-                db.run(`update user set name=? where id=?`,[postParameters["employeeName"],user[0]]);
-            }
-            if (changeInSuperuser) {
-                db.run(`update user set superuser=? where id=?`,[postParameters["superuser"],user[0]]);
-            }
-            if (changeInUsername || changeInName || changeInPassword || changeInSuperuser){
-                request.session.lastError = `The user was edited.`;
-            } else{
-                request.session.lastError = `No changes were made.`;
-            }
-        }
-    } else{
-        request.session.lastError = "You can not remove the last superuser.";
-    }
+    if (changeInSuperuser || changeInUsername || changeInName || changeInPassword){
+        if (!(lastAdminCheck && changeInSuperuser)){
+            if (usernameUnique){    
     
-        request.session.displayError = true;
-        response.statusCode = 302;
-        response.setHeader('Location','/admin/employees/employee_list?storeid=' + request.session.storeId);
-        response.end()
+                if (changeInPassword) {
+                    let hashed = await new Promise((resolve, reject) => {
+                        crypto.pbkdf2(postParameters["password"], user.salt, HASHING_ITERATIONS, HASHING_KEYLEN, HASHING_ALGO, (err, derivedKey) => {
+                            if (err) {
+                                reject(err);
+                            }
+                            resolve(derivedKey);
+                        });
+                    });
+                    
+                    db.run(`update user set password=? where id=?`,[hashed.toString(HASHING_HASH_ENCODING),user.id]);
+                    }
+                if (changeInUsername) {
+                    db.run(`update user set username=? where id=?`, [postParameters["username"],user.id]);
+                }
+                if (changeInName) {
+                    db.run(`update user set name=? where id=?`,[postParameters["employeeName"],user.id]);
+                }
+                if (changeInSuperuser) {
+                    db.run(`update user set superuser=? where id=?`,[postParameters["superuser"],user.id]);
+                }
+                if (changeInUsername || changeInName || changeInPassword || changeInSuperuser){
+                    request.session.lastError = `The user was edited.`;
+                } else{
+                    request.session.lastError = `No changes were made.`;
+                }
+            }
+        } else{
+            request.session.lastError = "You can not remove the last superuser.";
+        }
+    }
+    else{
+        request.session.lastError = "Nothing was changed.";
+    }
+    request.session.displayError = true;
+    response.statusCode = 302;
+    response.setHeader('Location','/admin/employees/employee_list?storeid=' + request.session.storeId);
+    response.end()
 }
 
 
