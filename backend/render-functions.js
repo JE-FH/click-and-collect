@@ -685,7 +685,7 @@ exports.renderPackageOverview = function renderPackageOverview(store, package) {
     page += `${renderEmployeeNav(store)}`;
     page += `
                 <div class="main-body">
-                    <h1>Package overview</h1>
+                    <h1>Package details</h1>
                     <h2>Details</h2>
                     <p>status: ${package.delivered == 0 ? "NOT DELIVERED" : "DELIVERED"}
                     <p>guid: ${package.guid}</p>
@@ -694,13 +694,18 @@ exports.renderPackageOverview = function renderPackageOverview(store, package) {
                     <p>customerEmail: ${package.customerEmail}</p>
                     <p>customerName: ${package.customerName}</p>
                     <p>externalOrderId: ${package.externalOrderId}</p>
-                    <p>creationDate: ${package.creationDate}</p>
+                    <p>creationDate: ${new Date(package.creationDate).toLocaleString()}</p>
                     <h2>Actions</h2>
                     <form action="/store/package/${package.delivered == 0 ? "confirm" : "undeliver"}" method="POST">
                         <input type="hidden" value="${store.id}" name="storeid">
                         <input type="hidden" value="${package.id}" name="packageid">
                         <input type="submit" value="${package.delivered == 0 ? "Confirm delivery" : "Mark as not delivered"}">
                     </form>
+                    <h2>Links:</h2>
+                    <div class="link-wrap">
+                        <a href="/store/packages?storeid=${store.id}" class="knap">Package overview</a>
+                        <a href="/store/scan?storeid=${store.id}" class="knap">Scan package</a>
+                    </div>
                 <div class="main-body">
             </body>
         </html>

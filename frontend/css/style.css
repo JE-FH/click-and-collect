@@ -279,14 +279,14 @@ form input[type="radio"] {
     transform: scale(0.9);
 }
 
-/* Store package overview */
+/* Package overview */
 .package {
     border: solid 6px #d8d8d8;
     padding: 1em;
     margin: 1em 0;
 }
 
-.package > a {
+.knap {
     text-decoration: none;
     display: block;
     text-align: center;
@@ -294,10 +294,17 @@ form input[type="radio"] {
     color: #ECF0F1;
     border-radius: 2em;
     padding: 0.5em;
+    min-width: 155px;
+    margin: auto;
 }
 
-.package > a:hover {
+.knap:hover {
     background-color: #444;
+}
+
+/* Package details */
+.link-wrap {
+    display: flex;
 }
 
 /* Manage queues */

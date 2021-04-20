@@ -636,7 +636,8 @@ async function packageList(request,response, error){
             
         });
 
-        let packageTable = `<div class="packages">`;
+        let packageTable = `<div class="packages">
+                                <p>Number of packages: ${packages.length}</p>`;
                             
         for (i = 0; i < packages.length; i++){
             packageTable += `
@@ -646,8 +647,8 @@ async function packageList(request,response, error){
                                 <p>${packages[i].customerName}</p>
                                 <p>${packages[i].customerEmail}</p>
                                 <h3>Creation date:</h3>
-                                <p>${new Date(packages[i].creationDate)}</p>
-                                <a href="/store/package?validationKey=${packages[i].verificationCode}&storeid=${packages[i].storeId}">Actions</a>
+                                <p>${new Date(packages[i].creationDate).toLocaleString()}</p>
+                                <a href="/store/package?validationKey=${packages[i].verificationCode}&storeid=${packages[i].storeId}" class="knap">Actions</a>
                             </div>
             `;
         }
