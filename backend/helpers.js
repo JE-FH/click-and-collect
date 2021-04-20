@@ -171,3 +171,13 @@ exports.sanitizeFullName = function sanitizeFullName(name) {
 exports.sanitizeEmailAddress = function sanitizeEmailAddress(email) {
     return email.replaceAll('%40', '@');
 }
+
+exports.fromISOToDate = function fromISOToEuFormat(time){
+    let split = time.split(/[-:T]/);
+    return split[2] + "-" + split[1];
+}
+
+exports.fromISOToHHMM = function fromISOToEuFormat(time){
+    let split = time.split(/[-:T]/);
+    return split[3] + ":" + split[4];
+}
