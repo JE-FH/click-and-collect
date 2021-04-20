@@ -1973,8 +1973,8 @@ ${package.verificationCode}
 function format_date_as_time(date) {
     return `${date.getHours().toString().padStart(2, "0")}:${date.getMinutes().toString().padStart(2, "0")}`;
 }
-
-const DAYS_OF_WEEK = ["monday", "tuesday", "wednesday", "thursday", "friday", "saturday", "sunday"];
+/*The ordering is important*/
+const DAYS_OF_WEEK = ["sunday", "monday", "tuesday", "wednesday", "thursday", "friday", "saturday"];
 
 async function openingTime(request, response) {
     let wantedStoreId = assertAdminAccess(request, request.query, response);
@@ -1986,7 +1986,6 @@ async function openingTime(request, response) {
     if (store == undefined) {
         throw new Error(`Expected store with id ${wantedStoreId} to exist`);
     }
-    
 
     let parsedOpeningTime = JSON.parse(store.openingTime);
 
@@ -2041,6 +2040,11 @@ async function openingTime(request, response) {
     request.session.settingsError = null;
     response.end();
 }
+//Mangler at tjekke hvornår de begynder
+const CRAZY_QUERY = query = `SELECT id, strftime("%w", startTime) as week_day, time(startTime) as sTime, time(endTime) as eTime FROM timeSlot WHERE 
+(${DAYS_OF_WEEK.map((day, i) => {
+    return `(week_day == "${i}" AND (sTime < ? OR eTime > ?))`;
+}).join(" OR\n")})`;
 
 async function settingsPost(request, response) {
     let postBody = parseURLEncoded(await receiveBody(request));
@@ -2088,11 +2092,28 @@ async function settingsPost(request, response) {
         }
     }
 
-    console.log(newOpeningTime);
-
     await dbRun(db, "UPDATE store SET openingTime=? WHERE id=?",[JSON.stringify(newOpeningTime), wantedStoreId]);
 
+    if (postBody["delete-timeslots"] == "on") {
+        /*Bruger ikke nogen bruger bestemte variabler så det her er okay*/
+        let yep = await dbAll(db, CRAZY_QUERY, DAYS_OF_WEEK.map((day) => {
+            if (newOpeningTime[day].length == 0) {
+                return ["24:00:00", "00:00:00"];
+            }
+            return newOpeningTime[day]
+        }).flat());
+        
+        let ids = yep.map((v) => v.id);
+        if (ids.length > 0) {
+            let yepyep = await dbAll(db, `SELECT * FROM package WHERE bookedTimeId in (?${",?".repeat(ids.length - 1)})`, ids);
+            console.log(yepyep);    
+        }
+    }
+
     request.session.settingsError = "New opening time was successfully set";
+    response.statusCode = 302
+    response.setHeader("Location", "/admin/settings?storeid=" + wantedStoreId.toString());
+    response.end();
 }
 
 function isValidTime(str) {
