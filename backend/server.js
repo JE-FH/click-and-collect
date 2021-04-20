@@ -635,7 +635,7 @@ async function packageList(request,response, error){
     }
     else{
         let packages = await new Promise((resolve, reject) => {
-            let sql = `SELECT * FROM package WHERE storeId=${request.user.storeId} ORDER BY id`;
+            let sql = ``;
             let a = [0];
             i = 0;
             
@@ -643,7 +643,7 @@ async function packageList(request,response, error){
                 resolve(a);
             }
 
-            db.all(sql, [], (err, rows) => {
+            db.all("SELECT * FROM package WHERE storeId=? ORDER BY id", [wantedStoreId], (err, rows) => {
                 if (err) {
                     reject(err);
                 }
