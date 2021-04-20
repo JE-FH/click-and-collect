@@ -668,7 +668,6 @@ async function packageList(request,response, error){
                                 <th>Order id</th>
                                 <th>Time of order</th>
                             </tr>`
-        //if (packages.length == 1 && (packages[0] == undefined || packages[0].id == undefined)){
         if (packages.length == 1 && packages[0].id == undefined){
         }
         else{
