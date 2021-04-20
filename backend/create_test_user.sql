@@ -1,9 +1,23 @@
-INSERT INTO store (id, name, openingTime, closingTime, pickupDelay, apiKey, storeEmail) VALUES
-	(4563, "dkfaoef", "00:00:00", "00:00:00", "00:00:00", "ksokg", "dkfaoef@mail.com");
+INSERT INTO store (id, name, openingTime, pickupDelay, apiKey, storeEmail) VALUES
+	(4563, "dkfaoef", 
+'{"monday": ["08:00:00", "17:00:00"],' || 
+'"tuesday": ["08:00:00", "17:00:00"],' ||
+'"wednesday": ["08:00:00", "17:00:00"],' ||
+'"thursday": ["08:00:00", "17:00:00"],' ||
+'"friday": ["08:00:00", "17:00:00"],' ||
+'"saturday": ["10:00:00", "12:30:00"],' ||
+'"sunday": []}', 
+"00:00:00", "ksokg", "dkfaoef@mail.com");
 
 --demo web shop
-INSERT INTO store (id, name, openingTime, closingTime, pickupDelay, apiKey, storeEmail) VALUES
-	(2, "Demo shop", "00:00:00", "00:00:00", "00:00:00", "demo-shop-94835577175941", "demo-shop@mail.com");
+INSERT INTO store (id, name, openingTime, pickupDelay, apiKey, storeEmail) VALUES
+	(2, "Demo shop", '{"monday": ["08:00:00", "17:00:00"],' || 
+'"tuesday": ["08:00:00", "17:00:00"],' ||
+'"wednesday": ["08:00:00", "17:00:00"],' ||
+'"thursday": ["08:00:00", "17:00:00"],' ||
+'"friday": ["08:00:00", "17:00:00"],' ||
+'"saturday": ["08:00:00", "17:00:00"],' ||
+'"sunday": ["08:00:00", "17:00:00"]}', "00:00:00", "demo-shop-94835577175941", "demo-shop@mail.com");
 
 --password is "password"
 INSERT INTO user (username, password, salt, name, superuser, storeId) VALUES
