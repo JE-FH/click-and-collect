@@ -116,6 +116,9 @@ async function requestHandler(request, response) {
                 case "/static/js/external/qr-scanner-worker.min.js":
                     serveFile(response, __dirname + "/../frontend/js/external/qr-scanner-worker.min.js", "text/javascript");
                     break;
+                case "/admin/settings":
+                    openingTime(request, response);
+                    break;
                 default:
                     defaultResponse(request, response);
                     break;
@@ -1655,5 +1658,51 @@ function format_date_as_time(date) {
     return `${date.getHours().toString().padStart(2, "0")}:${date.getMinutes().toString().padStart(2, "0")}`;
 }
 
+
+async function openingTime(request, response) {
+    let wantedStoreId = assertAdminAccess(request, request.query, response);
+    if (wantedStoreId == null) {
+        return;
+    }
+
+    let store = await dbGet(db, "SELECT * FROM store WHERE id=?", [wantedStoreId]);
+    if (store == undefined) {
+        throw new Error(`Expected store with id ${wantedStoreId} to exist`);
+    }
+    
+    let openTime = store.openTime.split(":").slice(0, 1).join(":");
+    let closeTime = store.closeTime.split(":").slice(0, 1).join(":");
+
+    response.statusCode = 200;
+    response.setHeader('Content-Type', 'text/html');
+    response.write(`
+<!DOCTYPE html>
+<html>
+    <head>
+        <title>Opening time for ${store.name}</title>
+        <link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/openlayers/openlayers.github.io@master/en/v6.5.0/css/ol.css" type="text/css">
+        <script src="https://cdn.jsdelivr.net/gh/openlayers/openlayers.github.io@master/en/v6.5.0/build/ol.js"></script>
+        <link rel="stylesheet" href="/static/style.css">
+        <style>
+            .map {
+                height: 400px;
+                width: 500px;
+            }
+        </style>
+    </head>
+    <body>
+        <a href="/admin?storeid=${store.id}">Go back to dashboard</a>
+        <h1>Opening time for ${store.name}</h1>
+        <form method="POST" action="/admin/settings/setOpen">
+            <input type="hidden" value="${wantedStoreId}" name="storeId">
+            <input type="time" min="00:00" max="${closeTime}" name="openTime">
+        </form>
+        <form method="POST" action="/admin/settings/setClose">
+            <input type="hidden" value="${wantedStoreId}" name="storeId">
+            <input type="time" min="${openTime}" max="23:59" name="closeTime">
+        </form>
+    </body>
+</html>`);
+}
 
 main();
