@@ -7,7 +7,7 @@ const {isStringInt, isStringNumber, receiveBody, parseURLEncoded, assertAdminAcc
 const {queryMiddleware, sessionMiddleware, createUserMiddleware} = require("./middleware");
 const {adminNoAccess, invalidParameters, invalidCustomerParameters} = require("./generic-responses");
 const {dbAll, dbGet, dbRun, dbExec} = require("./db-helpers");
-const {renderAdmin, renderQueueList, renderPackageForm, manageEmployees, employeeListPage, addEmployeePage, renderStoreMenu, renderPackageList, renderSettings, renderGetTime, renderStoreScan, renderPackageOverview, render404} = require("./render-functions");
+const {renderAdmin, renderQueueList, renderPackageForm, manageEmployees, employeeListPage, addEmployeePage, renderStoreMenu, renderPackageList, renderSettings, renderGetTime, renderStoreScan, renderPackageOverview, render404, renderLogin} = require("./render-functions");
 const QRCode = require("qrcode");
 
 
@@ -485,58 +485,7 @@ function defaultResponse(request, response) {
 async function loginGet(request, response, error) {
     response.statusCode = error == null ? 200 : 401;
     response.setHeader('Content-Type', 'text/html');
-    response.write(`
-<!DOCTYPE html>
-<html>
-    <head>
-        <link href="https://maxcdn.bootstrapcdn.com/font-awesome/4.2.0/css/font-awesome.min.css" rel="stylesheet">
-        <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.13.0/css/all.min.css">
-        <link rel="stylesheet" href="/static/css/style.css">
-        <title>login</title>
-        <style>
-            .container {
-                display: flex;
-                align-items: center;
-                position: relative;
-                margin-bottom: 1em;
-            }
-            #togglePassword {
-                position: absolute;
-                right: 10px;
-            }
-        </style>
-    </head>
-
-    <body>
-        ${error ? `<p>${error}</p>` : ""}
-        <form action="/login" method="POST">
-            <label for="username">Username: </label>
-            <input type="text" name="username" placeholder="username" required><br>
-            <label for="password"> Password:     </label>
-                <div class="container">
-                    <input type="password" name="password" placeholder="password" id="password" required>
-                    <i class="fas fa-eye" id="togglePassword"> </i>
-                </div>
-            <input type="submit" value="login">
-        </form>
-
-        <script>
-            // Eye toggle for password
-            const togglePassword = document.querySelector('#togglePassword');
-            const password = document.querySelector('#password');
-
-            togglePassword.addEventListener('click', function (e) {
-                const type = password.getAttribute('type') === 'password' ? 'text' : 'password';
-                password.setAttribute('type', type);
-                this.classList.toggle('fa-eye-slash');
-            });
-    
-        </script>
-
-    </body>
-    
-</html>
-`);
+    response.write(renderLogin(error));
     response.end();
 }
 

@@ -686,3 +686,59 @@ exports.renderPackageOverview = function renderPackageOverview(store, package) {
 
     return page;
 }
+
+exports.renderLogin = function renderLogin(error) {
+    let page = `
+        <html>
+            <head>
+                <link href="https://maxcdn.bootstrapcdn.com/font-awesome/4.2.0/css/font-awesome.min.css" rel="stylesheet">
+                <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.13.0/css/all.min.css">
+                <link rel="stylesheet" href="/static/css/style.css">
+                <title>login</title>
+                <style>
+                    .container {
+                        display: flex;
+                        align-items: center;
+                        position: relative;
+                        margin-bottom: 1em;
+                    }
+                    #togglePassword {
+                        position: absolute;
+                        right: 10px;
+                    }
+                </style>
+            </head>
+
+            <body>
+                ${error ? `<p>${error}</p>` : ""}
+                <form action="/login" method="POST">
+                    <label for="username">Username: </label>
+                    <input type="text" name="username" placeholder="username" required><br>
+                    <label for="password"> Password:     </label>
+                        <div class="container">
+                            <input type="password" name="password" placeholder="password" id="password" required>
+                            <i class="fas fa-eye" id="togglePassword"> </i>
+                        </div>
+                    <input type="submit" value="login">
+                </form>
+
+                <script>
+                    // Eye toggle for password
+                    const togglePassword = document.querySelector('#togglePassword');
+                    const password = document.querySelector('#password');
+
+                    togglePassword.addEventListener('click', function (e) {
+                        const type = password.getAttribute('type') === 'password' ? 'text' : 'password';
+                        password.setAttribute('type', type);
+                        this.classList.toggle('fa-eye-slash');
+                    });
+            
+                </script>
+
+            </body>
+            
+        </html>
+    `
+
+    return page;
+}
