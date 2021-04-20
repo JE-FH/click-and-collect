@@ -175,3 +175,67 @@ exports.fromISOToHHMM = function fromISOToEuFormat(time){
     let split = time.split(/[-:T]/);
     return split[3] + ":" + split[4];
 }
+
+exports.deleteTimeslotsWithId = async function deleteQueuesWithId(db, host, id){
+    let timeSlots = await new Promise((resolve, reject) => {
+        db.all("SELECT * FROM timeSlot WHERE queueId IS ?", [id], (err, rows) => {
+            if(err) {
+                reject(err);
+            } else {
+                resolve(rows);
+            }
+        }) 
+    })
+    
+    for await (let timeSlot of timeSlots){
+        let packages = await new Promise((resolve, reject) => { 
+            db.all("SELECT * FROM package WHERE bookedTimeId IS ?", [timeSlot.id], (err, rows) => {
+                if(err) {
+                    reject(null);
+                } else {                     
+                    resolve(rows);
+                }
+            }) 
+        })
+        for await (let package of packages){
+            plainText = 
+            `Hello ${package.customerName}
+            Your scheduled delivery at the following time:
+            ${exports.fromISOToDate(timeSlot.startTime)} from ${exports.fromISOToHHMM(timeSlot.startTime)} to ${exports.fromISOToHHMM(timeSlot.endTime)}
+            In queue ${timeSlot.queueId} has been cancelled.
+            You will have to schedule a new pickup time using the following link:
+            ${host}/package?guid=${package.guid}.
+            `
+            htmlText =  
+                `
+                <!DOCTYPE html>
+                <html>
+                    <head>
+                        <title>Cancelled pickup</title>
+                        <meta http–equiv=“Content-Type” content=“text/html; charset=UTF-8” />
+                        <meta http–equiv=“X-UA-Compatible” content=“IE=edge” />
+                        <meta name=“viewport” content=“width=device-width, initial-scale=1.0 “ />
+                    </head>
+                    <body>
+                        <h1>Hello ${package.customerName ?? ""}</h1>
+                        <p>Your order in the following time slot:</p>
+                        <p>${exports.fromISOToDate(timeSlot.startTime)} from ${exports.fromISOToHHMM(timeSlot.startTime)} to ${exports.fromISOToHHMM(timeSlot.endTime)}</p>
+                        <p>In queue ${timeSlot.queueId} has been cancelled. </p>
+                        <p> You will have to schedule a new pickup time using this link:
+                        <a href="${host}/package?guid=${package.guid}"> Schedule new pickup time </a>  </p>
+                    </body>
+                </html>
+            `
+        exports.sendEmail(package.customerEmail, package.customerName, "Your pickup has been cancelled",plainText, htmlText);
+        }
+    }
+    await new Promise((resolve, reject) => {
+        db.run("DELETE FROM timeslot WHERE queueId=?", [id], (err) => {
+            if (err) {
+                reject(err);
+            } else {
+                resolve();
+            }
+        });
+     });
+}
