@@ -2,8 +2,7 @@
 CREATE TABLE IF NOT EXISTS store (
 	id integer PRIMARY KEY AUTOINCREMENT NOT NULL,
 	name varchar NOT NULL,
-	openingTime time NOT NULL,
-	closingTime time NOT NULL,
+	openingTime text NOT NULL,
 	pickupDelay time NOT NULL,
 	apiKey varchar NOT NULL,
 	storeEmail varchar NOT NULL
