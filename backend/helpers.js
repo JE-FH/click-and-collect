@@ -157,10 +157,14 @@ exports.sendEmail = async function sendMail(recipientMail, recipientName, subjec
         message["html"] = htmlContent;
     }
 
-    let info = await mailTransporter.sendMail(message);
+    try{
+        let info = await mailTransporter.sendMail(message);
+        console.log(`Fake mail was sent, preview can be seen here: ${nodemailer.getTestMessageUrl(info)}`);
+    } catch(err){
+        console.log(`The mail could not get sent. We get the following error: ${err}`)
+    }
 
-    console.log(`Fake mail was sent, preview can be seen here: ${nodemailer.getTestMessageUrl(info)}`);
-}
+    }
 
 exports.fromISOToDate = function fromISOToEuFormat(time){
     let split = time.split(/[-:T]/);
