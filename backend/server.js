@@ -615,7 +615,7 @@ async function packageList(request,response, error){
     else{
         let packages = await new Promise((resolve, reject) => {
             let sql = `SELECT * FROM package WHERE storeId=${request.user.storeId} ORDER BY id`;
-            let a = [0];
+            let a = [];
             i = 0;
             
             if(sql == null || sql == undefined){
@@ -633,7 +633,7 @@ async function packageList(request,response, error){
                     i++;
 
                 });
-                resolve (a);
+                resolve(a);
             });
             
         });
@@ -650,6 +650,8 @@ async function packageList(request,response, error){
                                 <p>${packages[i].customerEmail}</p>
                                 <h3>Creation date:</h3>
                                 <p>${new Date(packages[i].creationDate).toLocaleString()}</p>
+                                <h3>Status:</h3>
+                                <p>${packages[i].delivered ? "DELIVERED" : "NOT DELIVERED"}</p>
                                 <a href="/store/package?validationKey=${packages[i].verificationCode}&storeid=${packages[i].storeId}" class="knap">Actions</a>
                             </div>
             `;

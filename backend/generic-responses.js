@@ -12,7 +12,8 @@ exports.adminNoAccess = function adminNoAccess(request, response){
             <div class="main-body" style="margin-top: 2em;">
                 You need to be logged in as store admin to access this site or you dont have access to the requested store.
                 <br>
-                <a href="/login"> Go to login site</a>
+                <br>
+                <a class="knap" href="/login"> Go to login site</a>
             </div>
         </body>
     </html>
@@ -34,7 +35,8 @@ exports.employeeNoAccess = function employeeNoAccess(request, response){
             <div class="main-body" style="margin-top: 2em;">
                 You need to be logged in as to access this site or you dont have access to the requested store.
                 <br>
-                <a href="/login"> Go to login page</a>
+                <br>
+                <a class="knap" href="/login"> Go to login page</a>
             </div>
         </body>
     </html>
