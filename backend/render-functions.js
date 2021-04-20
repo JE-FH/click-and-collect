@@ -408,12 +408,10 @@ exports.renderPackageList = function renderPackageList(store, packageTable) {
 
     page += `${renderEmployeeNav(store)}`;
     page += `
-                <h> Package overview <h>
-                </form>
-                <br>
-                <b> List of current packages: </b>
-                <br> 
-                ${packageTable} 
+                <div class="main-body">
+                    <h1>Package Overview</h1>
+                    ${packageTable}
+                </div>
             </body>
         </html>
     `;

@@ -635,34 +635,24 @@ async function packageList(request,response, error){
             });
             
         });
-        let packageTable = `<table>
-                            <tr>
-                                <th>Package ID</th>
-                                <th>Customer's name</th>
-                                <th>Customer's e-mail address</th>
-                                <th>Booked time</th>
-                                <th>Verification code</th>
-                                <th>Order id</th>
-                                <th>Time of order</th>
-                            </tr>`
-        if (packages.length == 1 && packages[0].id == undefined){
 
-        }
-        else{
+        let packageTable = `<div class="packages">`;
+                            
         for (i = 0; i < packages.length; i++){
             packageTable += `
-                            <tr>
-                                <td>${packages[i].id}</td>
-                                <td>${packages[i].customerName}</td>
-                                <td>${packages[i].customerEmail}</td>
-                                <td>${packages[i].bookedTimeId}</td>
-                                <td>${packages[i].verificationCode}</td>
-                                <td>${packages[i].externalOrderId}</td>
-                                <td>${packages[i].creationDate}</td>
-                            </tr>
-            `
-        }}
-        packageTable += `</table>`
+                            <div class="package">
+                                <h2>${packages[i].externalOrderId}</h2>
+                                <h3>Customer info:</h3>
+                                <p>${packages[i].customerName}</p>
+                                <p>${packages[i].customerEmail}</p>
+                                <h3>Creation date:</h3>
+                                <p>${new Date(packages[i].creationDate)}</p>
+                                <a href="/store/package?validationKey=${packages[i].verificationCode}&storeid=${packages[i].storeId}">Actions</a>
+                            </div>
+            `;
+        }
+
+        packageTable += `</div>`
 
         let store = await storeIdToStore(request.user.storeId);
 
@@ -671,7 +661,7 @@ async function packageList(request,response, error){
         response.write(renderPackageList(store, packageTable));
         
         response.end();
-        }
+    }
 }
 
 async function adminGet(request, response) {
