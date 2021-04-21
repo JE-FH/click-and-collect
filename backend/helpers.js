@@ -176,9 +176,9 @@ exports.fromISOToHHMM = function fromISOToEuFormat(time){
     return split[3] + ":" + split[4];
 }
 
-exports.deleteTimeslotsWithId = async function deleteQueuesWithId(db, host, id){
+exports.deleteTimeslotsWithId = async function deleteQueuesWithId(db, host, id, storeId){
     let timeSlots = await new Promise((resolve, reject) => {
-        db.all("SELECT * FROM timeSlot WHERE queueId IS ?", [id], (err, rows) => {
+        db.all("SELECT * FROM timeSlot WHERE queueId IS ? AND storeId IS ?", [id,storeId], (err, rows) => {
             if(err) {
                 reject(err);
             } else {
@@ -189,7 +189,7 @@ exports.deleteTimeslotsWithId = async function deleteQueuesWithId(db, host, id){
     
     for await (let timeSlot of timeSlots){
         let packages = await new Promise((resolve, reject) => { 
-            db.all("SELECT * FROM package WHERE bookedTimeId IS ?", [timeSlot.id], (err, rows) => {
+            db.all("SELECT * FROM package WHERE bookedTimeId IS ? AND storeId IS ?", [timeSlot.id, storeId], (err, rows) => {
                 if(err) {
                     reject(null);
                 } else {                     
