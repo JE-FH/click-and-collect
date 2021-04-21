@@ -17,9 +17,9 @@ exports.RequestHandler = function(defaultHandler, errorHandler) {
 
 exports.RequestHandler.prototype.callHandler = async function (handler, request, response) {
     if (handler.length == 1) {
-        await handler(response);
+        return await handler(response);
     } else {
-        await handler(request, response);
+        return await handler(request, response);
     }
 }
 
@@ -31,14 +31,18 @@ exports.RequestHandler.prototype.callHandler = async function (handler, request,
 exports.RequestHandler.prototype.handleRequest = async function (request, response) {
     let pathPart = request.url.split("?")[0];
 
-    let endpointName = this.getEndpointName(request.method, pathPart);
-
-    let handler = this.endpoints.get(endpointName);
-
     try {
         for (let middleware of this.middleware) {
-            await this.callHandler(middleware, request, response);
+            let res = await this.callHandler(middleware, request, response);
+            if (res) {
+                console.log("stopped at " + middleware.toString())
+                return;
+            }
         }
+
+        let endpointName = this.getEndpointName(request.method, pathPart);
+
+        let handler = this.endpoints.get(endpointName);
 
         if (handler == null) {
             if (this.defaultHandler != null) {
@@ -77,7 +81,7 @@ exports.RequestHandler.prototype.addEndpoint = function(method, path, handler) {
 
 /**
  * Adds middleware at the end of the middleware chain
- * @param {function(http.IncomingMessage, http.ServerResponse) | function(http.ServerResponse)} middlewareFunction 
+ * @param {function(http.IncomingMessage, http.ServerResponse): (boolean | void) | function(http.ServerResponse): (boolean | void)} middlewareFunction 
  */
 exports.RequestHandler.prototype.addMiddleware = function (middlewareFunction) {
     this.middleware.push(middlewareFunction);
