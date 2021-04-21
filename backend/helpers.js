@@ -171,3 +171,7 @@ exports.fromISOToHHMM = function fromISOToEuFormat(time){
     let split = time.split(/[-:T]/);
     return split[3] + ":" + split[4];
 }
+
+exports.toISODateTimeString = function(moment_time) {
+    return moment_time.format("YYYY-MM-DDTHH:mm:ss");
+}

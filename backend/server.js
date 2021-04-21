@@ -3,7 +3,7 @@ const sqlite3 = require("sqlite3");
 const fs = require("fs/promises");
 const crypto = require("crypto");
 const moment = require("moment");
-const {isStringInt, isStringNumber, receiveBody, parseURLEncoded, assertAdminAccess, assertEmployeeAccess, setupEmail, sendEmail, fromISOToDate, fromISOToHHMM } = require("./helpers");
+const {toISODateTimeString, isStringInt, isStringNumber, receiveBody, parseURLEncoded, assertAdminAccess, assertEmployeeAccess, setupEmail, sendEmail, fromISOToDate, fromISOToHHMM } = require("./helpers");
 const {queryMiddleware, sessionMiddleware, createUserMiddleware} = require("./middleware");
 const {adminNoAccess, invalidParameters, invalidCustomerParameters} = require("./generic-responses");
 const {dbAll, dbGet, dbRun, dbExec} = require("./db-helpers");
@@ -1069,7 +1069,7 @@ async function main() {
     userMiddleware = createUserMiddleware(db);
 
     await setupEmail();
-
+    
     /* Sends reminders to customers who hasn't booked a time slot. Checks every 10 minutes. */
     setInterval(async () => {
         await sendReminders();
@@ -1671,6 +1671,7 @@ async function timeSlotSelector(request, response) {
         let parsedYear = Number(request.query.year);                                     //Just some limits that should avoid some edge cases
         if (!Number.isNaN(parsedYear) && Number.isInteger(parsedYear) && parsedYear >= now.year() - 5 && parsedYear < now.year() + 5) {
             selectedYear = parsedYear;
+            startingPoint = startingPoint.year(selectedYear);
         }
     }
 
@@ -1678,8 +1679,8 @@ async function timeSlotSelector(request, response) {
         let parsedWeek = Number(request.query.week);
         if (!Number.isNaN(parsedWeek) && Number.isInteger(parsedWeek) && parsedWeek >= 0) {
             let lowerBound = moment(startingPoint).startOf("year").startOf("isoWeek");
-            let upperBound = moment(startingPoint).endOf("year").endOf("isoWeek"); 
-            let proposedDate = moment(startingPoint).isoWeek(parsedWeek);
+            let upperBound = moment(startingPoint).endOf("year").endOf("isoWeek");
+            let proposedDate = moment(startingPoint).year(selectedYear).isoWeek(parsedWeek);
             if (proposedDate.isAfter(upperBound) || proposedDate.isBefore(lowerBound) || parsedWeek == 0) {
                 if (proposedDate.isAfter(upperBound)) {
                     response.statusCode = 302;
@@ -1688,7 +1689,7 @@ async function timeSlotSelector(request, response) {
                     return;
                 } else {
                     response.statusCode = 302;
-                    response.setHeader("Location", `/package?guid=${request.query.guid}&week=${moment().isoWeekYear(selectedYear).isoWeeksInYear()}&year=${selectedYear-1}`);
+                    response.setHeader("Location", `/package?guid=${request.query.guid}&week=${moment().isoWeekYear(selectedYear-1).isoWeeksInYear()}&year=${selectedYear-1}`);
                     response.end();
                     return;
                 }
@@ -1701,7 +1702,6 @@ async function timeSlotSelector(request, response) {
     let selectedWeekDay = moment().isoWeekYear(selectedYear).isoWeek(selectedWeek);
     let lower = moment(selectedWeekDay).startOf("isoWeek");
     let upper = moment(selectedWeekDay).endOf("isoWeek");
-    console.log(`Selected time range ${lower.format("YYYY-MM-DDTHH:mm:ss")} - ${upper.format("YYYY-MM-DDTHH:mm:ss")}`);
     
     /* Collects the data from the database */
     let result = await dbAll(db, `WITH valid_timeslots (id, storeId, startTime, endTime, queueId) as (
@@ -2041,7 +2041,7 @@ async function openingTime(request, response) {
     response.end();
 }
 //Mangler at tjekke hvornår de begynder
-const CRAZY_QUERY = query = `SELECT id, strftime("%w", startTime) as week_day, time(startTime) as sTime, time(endTime) as eTime FROM timeSlot WHERE 
+const CRAZY_QUERY = query = `SELECT id, strftime("%w", startTime) as week_day, time(startTime) as sTime, time(endTime) as eTime FROM timeSlot WHERE startTime > ? AND
 (${DAYS_OF_WEEK.map((day, i) => {
     return `(week_day == "${i}" AND (sTime < ? OR eTime > ?))`;
 }).join(" OR\n")})`;
@@ -2058,7 +2058,6 @@ async function settingsPost(request, response) {
         let openTime = postBody[`${day}-open`];
         let closeTime = postBody[`${day}-close`];
         if (!isValidTime(openTime) || !isValidTime(closeTime)) {
-            console.log(openTime, closeTime);
             request.session.settingsError = `time range for ${day} was invalid`;
             response.statusCode = 302
             response.setHeader("Location", "/admin/settings?storeid=" + wantedStoreId.toString());
@@ -2092,21 +2091,23 @@ async function settingsPost(request, response) {
         }
     }
 
+    let now = moment();
+
     await dbRun(db, "UPDATE store SET openingTime=? WHERE id=?",[JSON.stringify(newOpeningTime), wantedStoreId]);
 
     if (postBody["delete-timeslots"] == "on") {
         /*Bruger ikke nogen bruger bestemte variabler så det her er okay*/
-        let yep = await dbAll(db, CRAZY_QUERY, DAYS_OF_WEEK.map((day) => {
+        let yep = await dbAll(db, CRAZY_QUERY, [toISODateTimeString(now)].concat(DAYS_OF_WEEK.map((day) => {
             if (newOpeningTime[day].length == 0) {
                 return ["24:00:00", "00:00:00"];
             }
             return newOpeningTime[day]
-        }).flat());
-        
+        }).flat()));
+
+        if (yep.length > 0) {
         let ids = yep.map((v) => v.id);
-        if (ids.length > 0) {
-            let yepyep = await dbAll(db, `SELECT * FROM package WHERE bookedTimeId in (?${",?".repeat(ids.length - 1)})`, ids);
-            console.log(yepyep);    
+        await dbRun(db, `UPDATE package SET bookedTimeId=null WHERE bookedTimeId in (?${",?".repeat(ids.length - 1)})`, ids);
+        await dbRun(db, `DELETE FROM timeSlot WHERE id in (?${",?".repeat(ids.length - 1)})`, ids);
         }
     }
 
