@@ -1,3 +1,5 @@
+//const capitalizeFirstLetter = require("./helpers");
+
 function renderNavigation(store) {
     return `
         <nav class="navigation">
@@ -380,6 +382,10 @@ exports.renderPackageList = function renderPackageList(store, packageTable) {
     return page;
 }
 
+function capitalizeFirstLetter(str) {
+    return str[0].toUpperCase()+str.slice(1);
+}
+
 exports.renderSettings = function renderSettings(store, request, DAYS_OF_WEEK, parsedOpeningTime, hasError) {
     let page = `
         <html>
@@ -403,7 +409,7 @@ exports.renderSettings = function renderSettings(store, request, DAYS_OF_WEEK, p
                         <table>
                             <thead>
                                 <tr>
-                                    <th>Day</th>
+                                    <th style="text-align: left">Day</th>
                                     <th>Open time</th>
                                     <th>Closing time</th>
                                 </tr>
@@ -414,7 +420,7 @@ exports.renderSettings = function renderSettings(store, request, DAYS_OF_WEEK, p
                                         parsedOpeningTime[day] = ["00:00:00", "00:00:00"];
                                     }
                                     return `<tr>
-                                        <td>${day}</td>
+                                        <td>${capitalizeFirstLetter(day)}</td>
                                         <td><input name="${day}-open" type="time" value="${parsedOpeningTime[day][0]}" step="1"></td>
                                         <td><input name="${day}-close" type="time" value="${parsedOpeningTime[day][1]}" step="1"></td>
                                     </tr>`;

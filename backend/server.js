@@ -662,6 +662,7 @@ async function queueList(request, response) {
     }
 
     let queues = await dbAll(db, "SELECT * FROM queue WHERE storeId=?", [store.id]);
+    console.log(queues)
 
     request.session.storeName = store.name;
 

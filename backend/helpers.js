@@ -189,3 +189,8 @@ exports.fromISOToHHMM = function fromISOToEuFormat(time){
 exports.toISODateTimeString = function(moment_time) {
     return moment_time.format("YYYY-MM-DDTHH:mm:ss");
 }
+
+/* Returns the string given as argument but with capitalized first letter */
+exports.capitalizeFirstLetter = function capitalizeFirstLetter(str) {
+    return str[0].toUpperCase()+str.slice(1);
+}

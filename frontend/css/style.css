@@ -337,7 +337,13 @@ form input[type=submit] {
 
 /* Manage queues */
 #queue-placement-map.map {
-    border: solid 2px red;
     position: relative;
     width: 100%;
+}
+
+/* Settings */
+#settings-form table {
+    box-sizing: border-box;
+    width: 100%;
+    border-collapse: collapse;
 }
