@@ -7,7 +7,7 @@ const {toISODateTimeString, isStringInt, isStringNumber, receiveBody, parseURLEn
 const {queryMiddleware, sessionMiddleware, createUserMiddleware} = require("./middleware");
 const {adminNoAccess, invalidParameters, invalidCustomerParameters} = require("./generic-responses");
 const {dbAll, dbGet, dbRun, dbExec} = require("./db-helpers");
-const {renderAdmin, renderQueueList, renderPackageForm, manageEmployees, employeeListPage, addEmployeePage, renderStoreMenu, renderPackageList, renderSettings, renderGetTime, renderStoreScan, renderPackageOverview, render404, renderLogin, renderEditEmployee} = require("./render-functions");
+const {renderAdmin, renderQueueList, renderPackageForm, manageEmployees, employeeListPage, addEmployeePage, renderStoreMenu, renderPackageList, renderSettings, renderStoreScan, renderPackageOverview, render404, renderLogin, renderEditEmployee} = require("./render-functions");
 const QRCode = require("qrcode");
 
 
