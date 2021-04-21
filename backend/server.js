@@ -1936,11 +1936,11 @@ async function sendPickupDocumentation(package, timeSlotDetails) {
 
     sendEmail(package.customerEmail, package.customerName ?? package.customerEmail, "Click&Collect pickup documentation", 
     `Hello ${package.customerName}
-You have selected the following timeslot
-${timeSlotDetails.startTime} - ${timeSlotDetails.endTime}
-You have been put in queue ${timeSlotDetails.qid}
-the queue location can be seen using this link ${mapLink}
-Please use the following code to verify your identity at the pickup point
+You have selected the following timeslot:
+${fromISOToDate(timeSlotDetails.startTime)} from ${fromISOToHHMM(timeSlotDetails.startTime)} to ${fromISOToHHMM(timeSlotDetails.endTime)}
+You have been put in queue ${timeSlotDetails.qid}.
+The queue location can be seen using this link ${mapLink}.
+Please use the following code to verify your identity at the pickup point:
 ${package.verificationCode}
 `, `
         <!DOCTYPE html>
@@ -1953,16 +1953,16 @@ ${package.verificationCode}
             </head>
             <body>
                 <h1>Hello ${package.customerName ?? ""}</h1>
-                <p>You have selected the following time slot</p>
-                <p>${timeSlotDetails.startTime} - ${timeSlotDetails.endTime}</p>
+                <p>You have selected the following time slot:</p>
+                <p>${fromISOToDate(timeSlotDetails.startTime)} from ${fromISOToHHMM(timeSlotDetails.startTime)} to ${fromISOToHHMM(timeSlotDetails.endTime)}</p>
                 <p>You have been put in queue ${timeSlotDetails.qid} </p>
                 <p>
-                    the queue location can be seen 
+                    The queue location can be seen 
                     <a href="${mapLink}">here</a>
                 </p>
                 <h2>Show the following qr code to the employee when you go to the pickup location</h2>
                 <img src="${qrCode}" style="display: block;max-width: 100vh;height: auto;max-height: 100vh;width: 100%;"/>
-                <p>If the image is not visible you can try to enable image displaying in your email client or use the following code instead of the qr code at the pickup</p>
+                <p>If the image is not visible you can try to enable image displaying in your email client or use the following code instead of the qr code at the pickup location:</p>
                 <code>${package.verificationCode}</code>
             </body>
         </html>
