@@ -352,29 +352,9 @@ function errorResponse(request, response, err) {
     console.log("Unhandled error occurred");
     console.log(err);
     
-    let userId = null;
-    if (request.user != null){
-        userId = request.user.storeId;
-    }
-    
     response.statusCode = 500;
     response.setHeader('Content-Type', 'text/html');
-    response.write(`
-    <!DOCTYPE html>
-    <html>
-        <head>
-            <title>500 server error</title>
-        </head>
-        <body>
-            <b>A server error occurred while serving your request<br></b>
-            <a href="/login">Go to login page </a> <br>
-            ${userId != null ? `
-            <a href="/store?storeid=${userId}"> Go to employee dashboard</a> <br>
-            <a href="/admin?storeid=${userId}"> Go to admin dashboard</a> <br>
-            ` : ""}
-        </body>
-    </html>
-    `);
+    response.write(render500(request));
     response.end();
 }
 
