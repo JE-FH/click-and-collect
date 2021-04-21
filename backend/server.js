@@ -1162,46 +1162,13 @@ async function employeeList(request, response){
             });
         });
 
-        let htmlTable = await new Promise((resolve, reject) => {
-        let htmlTable = `<table style="width=100%" border="1px">
-        <tr> <th> Id </th> <th>Username</th> <th> Employee name </th> <th> Is the account a superuser </th>  <th> Edit user </th> <th> Remove user </th> </tr> <br>\n`;
-        for (i = 0; i < userList.length; i++){
-            let isSuperuser = userList[i][3] == 1 ? "yes" : "no";
-            htmlTable += `
-            <tr> <td style="font-weight:normal" style="text-align:center" style="font-weight:normal">
-             ${userList[i][0]} </td> <td style="font-weight:normal" style="text-align:center"> ${userList[i][1]} </td> <td style="font-weight:normal"
-              style="text-align:center"> ${userList[i][2]} </td> <td style="font-weight:normal" style="text-align:center"> ${isSuperuser}  </td>
-              
-              <td> <form action="/admin/employees/edit" method="GET">
-                <input type="hidden" value="${userList[i][0]}" name="id">   
-                <input type="hidden" value="${userList[i][1]}" name="username">
-                <input type="hidden" value="${userList[i][2]}" name="name">
-                <input type="hidden" value="${userList[i][3]}" name="superuser">     
-                
-                <input type="hidden" value="${wantedStoreId}" name="storeid">   
-                <input type="submit" value="Edit">
-              
-              </form> </td> 
-
-              <td> <form action="/admin/employees/remove" method="POST">
-                <input type="hidden" value="${userList[i][1]}" name="username">     
-                <input type="hidden" value="${wantedStoreId}" name="storeid">   
-                <input type="submit" value="Remove">
-              
-              </form> </td> 
-               </tr> <br>\n`;
-        }
-        htmlTable += `</table>`
-        resolve(htmlTable);
-        });
-
         let store = await storeIdToStore(wantedStoreId);
 
         request.session.displayError ? error = request.session.lastError : error = "";
         request.session.displayError = false;
 
         response.statusCode = 200;
-        response.write(employeeListPage(store, htmlTable, error));
+        response.write(employeeListPage(store, userList, error));
         
         response.end();
 }

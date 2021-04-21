@@ -351,3 +351,23 @@ form input[type=submit] {
     width: 100%;
     border-collapse: collapse;
 }
+
+/* Manage employees */
+.employee-list {
+    padding: 1em 0;
+}
+.employee-list > div {
+    padding: 1em;
+    border: solid 6px #d8d8d8;
+}
+.employee-list > div > div {
+    display: flex;
+}
+.employee-list > div > div > form {
+    flex: 1;
+    margin: 0 1em;
+}
+.employee-list > div > div > form > input {
+    flex: 1;
+    margin: 0;
+}

@@ -220,7 +220,41 @@ exports.manageEmployees = function manageEmployees(store, request) {
     return page;
 }
 
-exports.employeeListPage = function employeeListPage(store, htmlTable, error) {
+/* Helper function for employeeListPage */
+function renderListOfEmployees(list, storeId) {
+    let html = '';
+
+    list.forEach(employee => {
+        html += `
+            <div>
+                <h2>${employee[2]}</h2>
+                <p>Username: ${employee[1]}</p>
+                <p>Superuser: ${employee[3] ? "&#x2714" : "&#x274C"}</p>
+                <div>
+                    <form action="/admin/employees/edit" method="GET">
+                        <input type="hidden" value="${employee[0]}" name="id">   
+                        <input type="hidden" value="${employee[1]}" name="username">
+                        <input type="hidden" value="${employee[2]}" name="name">
+                        <input type="hidden" value="${employee[3]}" name="superuser">     
+                        
+                        <input type="hidden" value="${storeId}" name="storeid">   
+                        <input type="submit" value="Edit">
+                    </form>
+
+                    <form action="/admin/employees/remove" method="POST">
+                        <input type="hidden" value="${employee[1]}" name="username">     
+                        <input type="hidden" value="${storeId}" name="storeid">   
+                        <input type="submit" value="Remove">
+                    </form>
+                </div>
+            </div>
+        `
+    });
+
+    return html;
+}
+
+exports.employeeListPage = function employeeListPage(store, employeeList, error) {
     let page = `
         <html>
             <head>
@@ -234,7 +268,9 @@ exports.employeeListPage = function employeeListPage(store, htmlTable, error) {
             <div class="main-body">
                 <h1>Employee list</h1>
                 ${error ? `<p>${error}</p>` : ""}
-                ${htmlTable}
+                <div class="employee-list">
+                    ${renderListOfEmployees(employeeList, store.id)}
+                </div>
                 <a href="/admin/employees?storeid=${store.id}" class="knap">Back</a>
             </div>
             </body>
