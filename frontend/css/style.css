@@ -359,6 +359,7 @@ form input[type=submit] {
 .employee-list > div {
     padding: 1em;
     border: solid 6px #d8d8d8;
+    margin: 1em 0;
 }
 .employee-list > div > div {
     display: flex;

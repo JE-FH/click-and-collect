@@ -229,7 +229,7 @@ function renderListOfEmployees(list, storeId) {
             <div>
                 <h2>${employee[2]}</h2>
                 <p>Username: ${employee[1]}</p>
-                <p>Superuser: ${employee[3] ? "&#x2714" : "&#x274C"}</p>
+                <p>Superuser: ${employee[3] == 1 ? "YES" : "NO"}</p>
                 <div>
                     <form action="/admin/employees/edit" method="GET">
                         <input type="hidden" value="${employee[0]}" name="id">   
