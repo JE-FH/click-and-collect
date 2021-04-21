@@ -45,9 +45,7 @@ exports.RequestHandler.prototype.handleRequest = async function (request, respon
         let handler = this.endpoints.get(endpointName);
 
         if (handler == null) {
-            if (this.defaultHandler != null) {
-                await this.callHandler(this.defaultHandler, request, response);
-            }
+            await this.callHandler(this.defaultHandler, request, response);
         } else {
             await this.callHandler(handler, request, response);
         }

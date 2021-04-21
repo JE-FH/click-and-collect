@@ -1028,7 +1028,6 @@ async function main() {
     requestHandler.addEndpoint("POST", "/package/cancel", cancelTimeSlot);
 
     const server = http.createServer((request, response) => requestHandler.handleRequest(request, response));
-    console.log(requestHandler.endpoints);
 
     /* Starts the server */
     server.listen(port, hostname, () => {
