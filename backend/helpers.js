@@ -161,7 +161,7 @@ exports.sendEmail = async function sendMail(recipientMail, recipientName, subjec
         let info = await mailTransporter.sendMail(message);
         console.log(`Fake mail was sent, preview can be seen here: ${nodemailer.getTestMessageUrl(info)}`);
     } catch(err){
-        console.log(`The mail could not get sent. We get the following error: ${err}`)
+        console.log(`The mail could not be sent. We get the following error: ${err}`)
     }
 
     }
