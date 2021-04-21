@@ -32,6 +32,7 @@ CREATE TABLE IF NOT EXISTS queue (
 	longitude float NOT NULL,
 	size integer NOT NULL,
 	storeId integer NOT NULL,
+	queueName varchar NOT NULL,
 	FOREIGN KEY (storeId)
 		REFERENCES store (id)
 );
