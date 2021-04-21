@@ -750,6 +750,8 @@ async function main() {
     requestHandler.addEndpoint("GET", "/store/package", packageStoreView);
     requestHandler.addEndpoint("GET", "/package", timeSlotSelector);
     requestHandler.addEndpoint("GET", "/store/scan", storeScan);
+    requestHandler.addEndpoint("GET", "/admin/settings", openingTime);
+
     requestHandler.addEndpoint("GET", "/static/style.css", (response) => 
         serveFile(response, __dirname + "/../frontend/css/style.css", "text/javascript")
     );
@@ -784,6 +786,7 @@ async function main() {
     requestHandler.addEndpoint("POST", "/admin/queues/add", queueAdd);
     requestHandler.addEndpoint("POST", "/package/select_time", selectTimeSlot);
     requestHandler.addEndpoint("POST", "/package/cancel", cancelTimeSlot);
+    requestHandler.addEndpoint("POST", "/admin/settings", settingsPost);
 
     const server = http.createServer((request, response) => requestHandler.handleRequest(request, response));
 
