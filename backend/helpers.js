@@ -175,7 +175,7 @@ exports.fromISOToDate = function fromISOToEuFormat(time){
 
 exports.fromISOToHHMM = function fromISOToEuFormat(time){
     let date = moment(time);
-    return `${date.format("HH:mm")}`;
+    return date.format("HH:mm");
 }
 
 exports.notifyTimeslotDeletion = async function notifyTimeslotDeletion(db, package, timeSlot, host) {
