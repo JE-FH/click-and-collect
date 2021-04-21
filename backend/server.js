@@ -3,7 +3,7 @@ const sqlite3 = require("sqlite3");
 const fs = require("fs/promises");
 const crypto = require("crypto");
 const moment = require("moment");
-const {isStringInt, isStringNumber, receiveBody, parseURLEncoded, assertAdminAccess, assertEmployeeAccess, setupEmail, sendEmail, fromISOToDate, fromISOToHHMM, deleteTimeslotsWithId } = require("./helpers");
+const {isStringInt, isStringNumber, receiveBody, parseURLEncoded, assertAdminAccess, assertEmployeeAccess, setupEmail, sendEmail, fromISOToDate, fromISOToHHMM, deleteTimeslotsWithId, formatMomentAsISO } = require("./helpers");
 const {queryMiddleware, sessionMiddleware, createUserMiddleware} = require("./middleware");
 const {adminNoAccess, invalidParameters, invalidCustomerParameters} = require("./generic-responses");
 const {dbAll, dbGet, dbRun, dbExec} = require("./db-helpers");
@@ -15,8 +15,8 @@ const hostname = '127.0.0.1';
 const HOST = "http://127.0.0.1:8000";
 
 let db;
-let userMiddleware;
 
+/*
 async function requestHandler(request, response) {
     console.log("Received " + request.method + " " + request.url);
     
@@ -142,6 +142,91 @@ async function requestHandler(request, response) {
             defaultResponse(request, response);
             break;
     }
+}
+*/
+const RequestHandler = function(defaultHandler, errorHandler) {
+    this.endpoints = new Map();
+    this.middleware = [];
+    this.defaultHandler = defaultHandler;
+    this.errorHandler = errorHandler;
+}
+
+/**
+ * Gets the name of the endpoint in the endpoint map
+ * @param {string} method 
+ * @param {string} path 
+ * @returns 
+ */
+RequestHandler.prototype.getEndpointName = function (method, path) {
+    return `${method.toUpperCase()}:${path}`;
+}
+
+RequestHandler.prototype.callHandler = async function (handler, request, response) {
+    if (handler.length == 1) {
+        await handler(response);
+    } else {
+        await handler(request, response);
+    }
+}
+
+/**
+ * Handles a http request
+ * @param {http.IncomingMessage} request 
+ * @param {http.ServerResponse} response 
+ */
+RequestHandler.prototype.handleRequest = async function (request, response) {
+    let pathPart = request.url.split("?")[0];
+
+    let endpointName = this.getEndpointName(request.method, pathPart);
+
+    let handler = this.endpoints.get(endpointName);
+
+    try {
+        for (let middleware of this.middleware) {
+            await this.callHandler(middleware, request, response);
+        }
+
+        if (handler == null) {
+            if (this.defaultHandler != null) {
+                await this.callHandler(this.defaultHandler, request, response);
+            }
+        } else {
+            await this.callHandler(handler, request, response);
+        }
+    } catch (e) {
+        if (this.errorHandler == null) {
+            console.error("No errorHandler so rethrowing");
+            throw e;
+        } else {
+            if (handler.errorHandler == 2) {
+                await this.errorHandler(response, e);
+            } else {
+                await this.errorHandler(request, response, e);
+            }
+        }
+    }
+}
+
+/**
+ * Adds an endpoint to the request handler
+ * @param {"GET" | "POST"} method 
+ * @param {string} path 
+ * @param {function(http.IncomingMessage, http.ServerResponse) | function(http.ServerResponse)} handler
+ */
+RequestHandler.prototype.addEndpoint = function(method, path, handler) {
+    let endpointName = this.getEndpointName(method, path);
+    if (this.endpoints.has(endpointName)) {
+        throw new Error(`Handler for the endpoint ${path} for ${method} has already been added`);
+    }
+    this.endpoints.set(endpointName, handler);
+}
+
+/**
+ * Adds middleware at the end of the middleware chain
+ * @param {function(http.IncomingMessage, http.ServerResponse) | function(http.ServerResponse)} middlewareFunction 
+ */
+RequestHandler.prototype.addMiddleware = function (middlewareFunction) {
+    this.middleware.push(middlewareFunction);
 }
 
 async function sendReminders() {
@@ -466,15 +551,13 @@ async function staticStyleCss(response) {
 
 /* Request handler for any endpoint that isn't explicitally handled */
 function defaultResponse(request, response) {
-    response.statusCode = 404;
-    response.setHeader('Content-Type', 'text/html');
     let userId = null;
     if (request.user != null){
         userId = request.user.storeId;
     }
-    
-    console.log(userId);
 
+    response.statusCode = 404;
+    response.setHeader('Content-Type', 'text/html');
     response.write(`
     <!DOCTYPE html>
     <html>
@@ -484,14 +567,46 @@ function defaultResponse(request, response) {
         <body>
             <b> Webpage can not be found. <br></b>
             <a href="/login">Go to login page </a> <br>
+            ${userId != null ? `
             <a href="/store?storeid=${userId}"> Go to employee dashboard</a> <br>
             <a href="/admin?storeid=${userId}"> Go to admin dashboard</a> <br>
+            ` : ""}
 
         </body>
     </html>
     `);
     response.end();
-   
+}
+
+/* Request handler for when a server error occurs*/
+function errorResponse(request, response, err) {
+    console.log("Unhandled error occurred");
+    console.log(err);
+    
+    let userId = null;
+    if (request.user != null){
+        userId = request.user.storeId;
+    }
+    
+    response.statusCode = 500;
+    response.setHeader('Content-Type', 'text/html');
+    response.write(`
+    <!DOCTYPE html>
+    <html>
+        <head>
+            <title>500 server error</title>
+        </head>
+        <body>
+            <b>A server error occurred while serving your request<br></b>
+            <a href="/login">Go to login page </a> <br>
+            ${userId != null ? `
+            <a href="/store?storeid=${userId}"> Go to employee dashboard</a> <br>
+            <a href="/admin?storeid=${userId}"> Go to admin dashboard</a> <br>
+            ` : ""}
+        </body>
+    </html>
+    `);
+    response.end();
 }
 
 async function loginGet(request, response, error) {
@@ -595,13 +710,9 @@ async function loginPost(request, response) {
             response.setHeader('Location','/store?storeid=' + user.storeId.toString());
         }
         response.end();
-
-        //TODO: set session state when we have session middleware or something like that
-        return;
     } else {
         /* Wrong password */
         loginGet(request, response, "Wrong password");
-        return;
     }
 
 }
@@ -1049,7 +1160,7 @@ async function packageStoreUnconfirm(request, response) {
 }
 
 async function main() {
-    const server = http.createServer(requestHandler);
+    
 
     db = new sqlite3.Database(__dirname + "/../databasen.sqlite3");
 
@@ -1062,14 +1173,73 @@ async function main() {
 
     console.log("Database correctly configured");
 
-    userMiddleware = createUserMiddleware(db);
-
     await setupEmail();
 
     /* Sends reminders to customers who hasn't booked a time slot. Checks every 10 minutes. */
     setInterval(async () => {
         await sendReminders();
     }, 600000);
+
+    let requestHandler = new RequestHandler(defaultResponse, errorResponse);
+
+    /* Logging middleware */
+    requestHandler.addMiddleware((request, _) => console.log(`${moment().format("YYYY-MM-DD HH:mm:ss")}\t${request.method}\t${request.url}`));
+
+    requestHandler.addMiddleware(sessionMiddleware);
+    requestHandler.addMiddleware(createUserMiddleware(db));
+    requestHandler.addMiddleware(queryMiddleware);
+
+    requestHandler.addEndpoint("GET", "/", loginGet);
+    requestHandler.addEndpoint("GET", "/login", loginGet);
+    requestHandler.addEndpoint("GET", "/admin/employees/add", (req, res) => addEmployee(req, res, ""));
+    requestHandler.addEndpoint("GET", "/admin/employees/edit", editEmployee);
+    requestHandler.addEndpoint("GET", "/admin/queues", queueList);
+    requestHandler.addEndpoint("GET", "/admin", adminGet);
+    requestHandler.addEndpoint("GET", "/admin/employees", employeesDashboard);
+    requestHandler.addEndpoint("GET", "/admin/employees/employee_list", employeeList);
+    requestHandler.addEndpoint("GET", "/admin/package_form", packageFormGet);
+    requestHandler.addEndpoint("GET", "/store", storeMenu);
+    requestHandler.addEndpoint("GET", "/store/packages", (req, res) => packageList(request, response, ""));
+    requestHandler.addEndpoint("GET", "/store/package", packageStoreView);
+    requestHandler.addEndpoint("GET", "/package", timeSlotSelector);
+    requestHandler.addEndpoint("GET", "/store/scan", storeScan);
+    requestHandler.addEndpoint("GET", "/static/style.css", (response) => 
+        serveFile(response, __dirname + "/../frontend/css/style.css", "text/javascript")
+    );
+    requestHandler.addEndpoint("GET", "/static/js/queueListScript.js", (response) => 
+        serveFile(response, __dirname + "/../frontend/js/queueListScript.js", "text/javascript")
+    );
+    requestHandler.addEndpoint("GET", "/static/js/qrScannerScript.js", (response) => 
+        serveFile(response, __dirname + "/../frontend/js/qrScannerScript.js", "text/javascript")
+    );
+    requestHandler.addEndpoint("GET", "/static/js/external/qr-scanner.umd.min.js", (response) => 
+        serveFile(response, __dirname + "/../frontend/js/external/qr-scanner.umd.min.js", "text/javascript")
+    );
+    requestHandler.addEndpoint("GET", "/static/js/external/qr-scanner-worker.min.js", (response) => 
+        serveFile(response, __dirname + "/../frontend/js/external/qr-scanner-worker.min.js", "text/javascript")
+    );
+    requestHandler.addEndpoint("GET", "/static/css/timeSlotSelection.css", (response) => 
+        serveFile(response, __dirname + "/../frontend/css/timeSlotSelection.css", "text/css")
+    );
+    requestHandler.addEndpoint("GET", "/static/js/timeSlotSelection.js", (response) => 
+        serveFile(response, __dirname + "/../frontend/js/timeSlotSelection.js", "text/javascript")
+    );
+
+    requestHandler.addEndpoint("POST", "/login", loginPost);
+    requestHandler.addEndpoint("POST", "/api/add_package", apiPost);
+    requestHandler.addEndpoint("POST", "/package_form_handler", packageFormHandler);
+    requestHandler.addEndpoint("POST", "/admin/employees/add", addEmployeePost);
+    requestHandler.addEndpoint("POST", "/admin/employees/remove", removeEmployeePost);
+    requestHandler.addEndpoint("POST", "/admin/employees/edit", editEmployeePost);
+    requestHandler.addEndpoint("POST", "/admin/queues/remove", queueRemove);
+    requestHandler.addEndpoint("POST", "/store/package/confirm", packageStoreConfirm);
+    requestHandler.addEndpoint("POST", "/store/package/undeliver", packageStoreUnconfirm);
+    requestHandler.addEndpoint("POST", "/admin/queues/add", queueAdd);
+    requestHandler.addEndpoint("POST", "/package/select_time", selectTimeSlot);
+    requestHandler.addEndpoint("POST", "/package/cancel", cancelTimeSlot);
+
+    const server = http.createServer((request, response) => requestHandler.handleRequest(request, response));
+    
 
     /* Starts the server */
     server.listen(port, hostname, () => {

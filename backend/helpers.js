@@ -168,6 +168,10 @@ exports.sendEmail = async function sendMail(recipientMail, recipientName, subjec
 
 }
 
+exports.formatMomentAsISO = function fomratMomentAsISO(m) {
+    return m.format("YYYY-MM-DDTHH:mm:ss");
+}
+
 exports.fromISOToDate = function fromISOToEuFormat(time){
     let date = moment(time);
     return date.format("D. MMMM YYYY");
