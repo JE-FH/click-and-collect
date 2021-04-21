@@ -145,8 +145,10 @@ exports.renderQueueList = function renderQueueList(store, queues) {
                     <h2>Add queue</h2>
                     <form action="/admin/queues/add", method="POST">
                         <div id="queue-placement-map" class="map"></div>
+                        <label for="queueName">Name:</label>
+                        <input type="text" id="queueName-input" name="queueName">
                         <label for="size">Queue capacity: </label>
-                        <input type="number" name="size" required><br>
+                        <input type="number" name="size" required>
                         
                         <input id="latitude-input" type="hidden" name="latitude">
                         <input id="longitude-input" type="hidden" name="longitude">
