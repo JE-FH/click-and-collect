@@ -92,7 +92,7 @@ async function requestHandler(request, response) {
                     adminGet(request, response);
                     break;
                 case "/admin/settings":
-                    settingsGet(request, response);
+                    openingTime(request, response);
                     break;
                 case "/admin/employees":
                     employeesDashboard(request, response);
@@ -1555,50 +1555,7 @@ async function openingTime(request, response) {
 
     response.statusCode = 200;
     response.setHeader('Content-Type', 'text/html');
-    response.write(`
-<!DOCTYPE html>
-<html>
-    <head>
-        <title>Opening time for ${store.name}</title>
-        <style>
-            .hidden {
-                display: none;
-            }
-        </style>
-    </head>
-    <body>
-        <a href="/admin?storeid=${store.id}">Go back to dashboard</a>
-        <h1>Opening time for ${store.name}</h1>
-        <p id="error-message" class="${hasError ? "" : "hidden"}">${hasError ? "" : request.session.settingsError}</p>
-        <form method="POST" id="settings-form">
-            <table>
-                <thead>
-                    <tr>
-                        <th>Day</th>
-                        <th>Open time</th>
-                        <th>Closing time</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    ${DAYS_OF_WEEK.map((day) => {
-                        if (parsedOpeningTime[day].length == 0) {
-                            parsedOpeningTime[day] = ["00:00:00", "00:00:00"];
-                        }
-                        return `<tr>
-                            <td>${day}</td>
-                            <td><input name="${day}-open" type="time" value="${parsedOpeningTime[day][0]}" step="1"></td>
-                            <td><input name="${day}-close" type="time" value="${parsedOpeningTime[day][1]}" step="1"></td>
-                        </tr>`;
-                    }).join("\n")}
-                </tbody>
-            </table>
-            <label for="delete-timeslots">Delete existing timeslots outside of open times: </label>
-            <input type="checkbox" name="delete-timeslots"><br>
-            <input type="submit" value="Set new opentime">
-        </form>
-        <script src="/static/js/settingsScript.js"></script>
-    </body>
-</html>`);
+    response.write(renderSettings(store, request, DAYS_OF_WEEK, parsedOpeningTime, hasError));
     request.session.settingsError = null;
     response.end();
 }

@@ -380,24 +380,56 @@ exports.renderPackageList = function renderPackageList(store, packageTable) {
     return page;
 }
 
-exports.renderSettings = function renderSettings(store) {
+exports.renderSettings = function renderSettings(store, request, DAYS_OF_WEEK, parsedOpeningTime, hasError) {
     let page = `
         <html>
             <head>
-                <title>Store settings</title>
+                <title>Opening time for ${store.name}</title>
                 <link rel="stylesheet" href="/static/css/style.css">
+                <style>
+                    .hidden {
+                        display: none;
+                    }
+                </style>
             </head>
             <body>`;
-
-    page += `${renderNavigation(store)}`;
-    page += `
-            <div class="main-body">
-                <h1>Settings</h1>
-
-            </div>
+    
+            page += `${renderNavigation(store)}`;
+            page += `
+                <div class="main-body">
+                    <h1>Settings for ${store.name}</h1>
+                    <p id="error-message" class="${hasError ? "" : "hidden"}">${hasError ? "" : request.session.settingsError}</p>
+                    <form method="POST" id="settings-form">
+                        <table>
+                            <thead>
+                                <tr>
+                                    <th>Day</th>
+                                    <th>Open time</th>
+                                    <th>Closing time</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                ${DAYS_OF_WEEK.map((day) => {
+                                    if (parsedOpeningTime[day].length == 0) {
+                                        parsedOpeningTime[day] = ["00:00:00", "00:00:00"];
+                                    }
+                                    return `<tr>
+                                        <td>${day}</td>
+                                        <td><input name="${day}-open" type="time" value="${parsedOpeningTime[day][0]}" step="1"></td>
+                                        <td><input name="${day}-close" type="time" value="${parsedOpeningTime[day][1]}" step="1"></td>
+                                    </tr>`;
+                                }).join("\n")}
+                            </tbody>
+                        </table>
+                        <label for="delete-timeslots">Delete existing timeslots outside of open times: </label>
+                        <input type="checkbox" name="delete-timeslots"><br>
+                        <input type="submit" value="Set new opentime">
+                    </form>
+                </div>
+                <script src="/static/js/settingsScript.js"></script>
             </body>
         </html>
-    `
+    `;
 
     return page;
 }
