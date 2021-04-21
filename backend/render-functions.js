@@ -98,6 +98,26 @@ exports.renderAdmin = function renderAdmin(request, store) {
     return page;
 }
 
+/* Helper function for renderQueueList */
+function renderQueues(queues) {
+    let html = '';
+    queues.forEach(queue => {
+    html += `<div>
+                <h3>Latitude/longitude</h3>
+                <p>Lat: ${queue.latitude}</p>
+                <p>Lon: ${queue.longitude}</p>
+                <h3>Size:</h3>
+                <p>${queue.size}</p>
+                <form action="/admin/queues/remove" method="POST">
+                    <input type="hidden" name="storeid" value="${queue.storeId}">
+                    <input type="hidden" name="queueid" value="${queue.id}">
+                    <input type="submit" value="Remove">
+                </form>
+            </div>` 
+    });
+    return html;
+}
+
 exports.renderQueueList = function renderQueueList(store, queues) {
     let page = `
         <html>
@@ -119,32 +139,10 @@ exports.renderQueueList = function renderQueueList(store, queues) {
     page += `
                 <div class="main-body">
                     <h1>Queues for ${store.name}</h1>
-                    <table>
-                        <thead>
-                            <tr>
-                                <th>id</th>
-                                <th>Latitude</th>
-                                <th>Longitude</th>
-                                <th>size</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            ${queues.map((queue) => `<tr>
-                                <td>${queue.id}</td>
-                                <td>${queue.latitude}</td>
-                                <td>${queue.longitude}</td>
-                                <td>${queue.size}</td>
-                                <td>
-                                    <form action="/admin/queues/remove" method="POST">
-                                        <input type="hidden" name="storeid" value="${store.id}">
-                                        <input type="hidden" name="queueid" value="${queue.id}">
-                                        <input type="submit" value="Remove">
-                                    </form>
-                                </td>
-                            </tr>`).join("\n")}
-                        </tbody>
-                    </table>
-                    <h2>Add another queue</h2>
+                    <div class="queue-list">
+                        ${renderQueues(queues)}
+                    </div>
+                    <h2>Add queue</h2>
                     <form action="/admin/queues/add", method="POST">
                         <div id="queue-placement-map" class="map"></div>
                         <label for="size">Queue capacity: </label>

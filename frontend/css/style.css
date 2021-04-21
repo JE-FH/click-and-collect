@@ -336,6 +336,10 @@ form input[type=submit] {
 }
 
 /* Manage queues */
+.queue-list > div {
+    border: solid 6px #d8d8d8;
+    padding: 1em;
+}
 #queue-placement-map.map {
     position: relative;
     width: 100%;
