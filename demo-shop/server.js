@@ -180,14 +180,9 @@ function renderValidation() {
                 </style>
 
                 <script>
-                    fetch('/success', {
-                        method: 'GET',
-                        mode: 'no-cors'
-                    })
-                    .then(setTimeout(() => {
+                    setTimeout(() => {
                         window.location.href = '/success';
-                    }, 3000))
-                    .catch(err => console.log(err));
+                    }, 3000)
                 </script>
             </head>
             <body>
