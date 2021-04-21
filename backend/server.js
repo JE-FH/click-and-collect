@@ -3,10 +3,11 @@ const sqlite3 = require("sqlite3");
 const fs = require("fs/promises");
 const crypto = require("crypto");
 const moment = require("moment");
-const {isStringInt, isStringNumber, receiveBody, parseURLEncoded, assertAdminAccess, assertEmployeeAccess, setupEmail, sendEmail, fromISOToDate, fromISOToHHMM, deleteTimeslotsWithId } = require("./helpers");
+const {toISODateTimeString, isStringInt, isStringNumber, receiveBody, parseURLEncoded, assertAdminAccess, assertEmployeeAccess, setupEmail, sendEmail, sanitizeFullName, sanitizeEmailAddress, fromISOToDate, fromISOToHHMM, deleteTimeslotsWithId} = require("./helpers");
 const {queryMiddleware, sessionMiddleware, createUserMiddleware} = require("./middleware");
 const {adminNoAccess, invalidParameters, invalidCustomerParameters} = require("./generic-responses");
 const {dbAll, dbGet, dbRun, dbExec} = require("./db-helpers");
+const {renderAdmin, renderQueueList, renderPackageForm, manageEmployees, employeeListPage, addEmployeePage, renderStoreMenu, renderPackageList, renderSettings, renderStoreScan, renderPackageOverview, render404, renderLogin, renderEditEmployee} = require("./render-functions");
 const QRCode = require("qrcode");
 
 
@@ -60,6 +61,9 @@ async function requestHandler(request, response) {
                 case "/admin/queues/add":
                     queueAdd(request, response);
                     break;
+                case "/admin/settings":
+                    settingsPost(request, response);
+                    break;
                 case "/package/select_time":
                     selectTimeSlot(request, response);
                     break;
@@ -87,6 +91,9 @@ async function requestHandler(request, response) {
                 case "/admin":
                     adminGet(request, response);
                     break;
+                case "/admin/settings":
+                    openingTime(request, response);
+                    break;
                 case "/admin/employees":
                     employeesDashboard(request, response);
                     break;
@@ -96,8 +103,9 @@ async function requestHandler(request, response) {
                 case "/admin/package_form":
                     packageFormGet(request, response);
                     break;
-                case "/static/style.css":
-                    staticStyleCss(response);
+                case "/static/css/style.css":
+                    serveFile(response, __dirname + "/../frontend/css/style.css", "text/css");
+                    //staticStyleCss(response);
                     break;
                 case "/store":
                     storeMenu(request, response);
@@ -125,6 +133,12 @@ async function requestHandler(request, response) {
                     break;
                 case "/static/js/external/qr-scanner-worker.min.js":
                     serveFile(response, __dirname + "/../frontend/js/external/qr-scanner-worker.min.js", "text/javascript");
+                    break;
+                case "/static/js/settingsScript.js":
+                    serveFile(response, __dirname + "/../frontend/js/settingsScript.js", "text/javascript");
+                    break;
+                case "/admin/settings":
+                    openingTime(request, response);
                     break;
                 case "/static/css/timeSlotSelection.css":
                     serveFile(response, __dirname + "/../frontend/css/timeSlotSelection.css", "text/css");
@@ -350,7 +364,8 @@ async function packageFormHandler(request, response) {
 
     let body = await receiveBody(request);
     body = parseURLEncoded(body);
-    addPackage(4563, body.customerEmail, body.customerName, body.externalOrderId);
+    addPackage(request.user.storeId, body.customerEmail, body.customerName, body.externalOrderId);
+    request.session.statusMsg = "Package successfully added";
     response.statusCode = 302;
     response.setHeader('Location', request.headers['referer']);
     response.end();
@@ -377,13 +392,13 @@ async function addPackage(storeId, customerEmail, customerName, externalOrderId)
     }
     let query = 'INSERT INTO package (guid, storeId, bookedTimeId, verificationCode, customerEmail, customerName, externalOrderId, creationDate) VALUES (?, ?, ?, ?, ?, ?, ?, ?)';
 
-    db.run(query, [guid, storeId, bookedTimeId, verificationCode, customerEmail, customerName, externalOrderId, creationDate.format("YYYY-MM-DDTHH:mm:ss")]);
+    db.run(query, [guid, storeId, bookedTimeId, verificationCode, sanitizeEmailAddress(customerEmail), sanitizeFullName(customerName), externalOrderId, creationDate.format("YYYY-MM-DDTHH:mm:ss")]);
 
     console.log('Package added for: ' + customerName);
 
     let store = await storeIdToStore(storeId);
 
-    await sendEmail(customerEmail, customerName, `${store.name}: Choose a pickup time slot`, `Link: ${HOST}/package?guid=${guid}`, await renderMailTemplate(customerName, store, guid, creationDate));
+    await sendEmail(sanitizeEmailAddress(customerEmail), sanitizeFullName(customerName), `${store.name}: Choose a pickup time slot`, `Link: ${HOST}/package?guid=${guid}`, await renderMailTemplate(sanitizeFullName(customerName), store, guid, creationDate));
 }
 
 function generateVerification() {
@@ -417,43 +432,39 @@ async function renderMailTemplate(name, store, uid, timestamp) {
     `;
 }
 
-function packageFormGet(request, response) {
+async function settingsGet(request, response) {
     let wantedStoreId = assertAdminAccess(request, request.query, response);
     if (wantedStoreId == null) {
         return;
     }
 
-    response.setHeader('Content-Type', 'text/html');
-    response.write(renderPackageForm(request.query.storeid));
-    response.end();
+    let store = await storeIdToStore(wantedStoreId);
+    if (store == undefined) {
+        throw new Error(`Expected store with id ${wantedStoreId} to exist`);
+    }
+
     response.statusCode = 200;
+    response.setHeader('Content-Type', 'text/html');
+    response.write(renderSettings(store));
+    response.end();
 }
 
-function renderPackageForm(storeid) {
-    return `
-        <html>
-            <head>
-                <meta charset="UTF-8">
-                <title>Add package</title>
+async function packageFormGet(request, response) {
+    let wantedStoreId = assertAdminAccess(request, request.query, response);
+    if (wantedStoreId == null) {
+        return;
+    }
 
-                <style>
-                    body {
-                        font-family: sans-serif;
-                    }
-                </style>
-            </head>
-            <body>
-                <a href="/admin?storeid=${storeid}"> Go to admin startpage </a> <br>
-                <h1>Add package</h1>
-                <form action="/package_form_handler?storeid=${storeid}" method="POST">
-                    <input type="text" name="customerName" placeholder="Customer name" required>
-                    <input type="text" name="customerEmail" placeholder="Customer email" required>
-                    <input type="text" name="externalOrderId" placeholder="Order ID" required> 
-                    <input type="submit">
-                </form>
-            </body>
-        </html>
-    `;
+    let store = await storeIdToStore(wantedStoreId);
+    if (store == undefined) {
+        throw new Error(`Expected store with id ${wantedStoreId} to exist`);
+    }
+
+    response.statusCode = 200;
+    response.setHeader('Content-Type', 'text/html');
+    response.write(renderPackageForm(store, request));
+    request.session.statusMsg = false;
+    response.end();
 }
 
 async function staticStyleCss(response) {
@@ -475,21 +486,7 @@ function defaultResponse(request, response) {
     
     console.log(userId);
 
-    response.write(`
-    <!DOCTYPE html>
-    <html>
-        <head>
-            <title>404 page not found</title>
-        </head>
-        <body>
-            <b> Webpage can not be found. <br></b>
-            <a href="/login">Go to login page </a> <br>
-            <a href="/store?storeid=${userId}"> Go to employee dashboard</a> <br>
-            <a href="/admin?storeid=${userId}"> Go to admin dashboard</a> <br>
-
-        </body>
-    </html>
-    `);
+    response.write(render404(userId));
     response.end();
    
 }
@@ -497,51 +494,7 @@ function defaultResponse(request, response) {
 async function loginGet(request, response, error) {
     response.statusCode = error == null ? 200 : 401;
     response.setHeader('Content-Type', 'text/html');
-    response.write(`
-<!DOCTYPE html>
-<html>
-    <head>
-        <link href="https://maxcdn.bootstrapcdn.com/font-awesome/4.2.0/css/font-awesome.min.css" rel="stylesheet">
-        <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.13.0/css/all.min.css">
-        <title>login</title>
-        <style>
-                    .container i {
-                        margin-left: -30px;
-                        cursor: pointer;
-                    }
-                </style>
-    </head>
-
-    <body>
-        ${error ? `<p>${error}</p>` : ""}
-        <form action="/login" method="POST">
-            <label for="username">Username: </label>
-            <input type="text" name="username" placeholder="username" required><br>
-            <div class="container">
-                    <label for="password"> Password:     </label>
-                    <input type="password" name="password" placeholder="password" id="password" required>
-                    <i class="fas fa-eye" id="togglePassword"> </i>
-                </div>
-            <input type="submit" value="login">
-        </form>
-
-        <script>
-            // Eye toggle for password
-            const togglePassword = document.querySelector('#togglePassword');
-            const password = document.querySelector('#password');
-
-            togglePassword.addEventListener('click', function (e) {
-                const type = password.getAttribute('type') === 'password' ? 'text' : 'password';
-                password.setAttribute('type', type);
-                this.classList.toggle('fa-eye-slash');
-            });
-    
-        </script>
-
-    </body>
-    
-</html>
-`);
+    response.write(renderLogin(error));
     response.end();
 }
 
@@ -623,23 +576,7 @@ async function storeMenu(request, response){
     /* TODO - more buttons */
     response.statusCode = 200;
     response.setHeader('Content-Type', 'text/html');
-    response.write(`
-    <!DOCTYPE html>
-    <html>
-        <head>
-            <title>Store menu for ${store.name}</title>
-        </head>
-    
-        <body>
-            <h1>Menu for ${request.user.name}:</h1>
-            <ul>
-                ${superuser == 1 ? `<li> <a href="/admin?storeid=${wantedStoreId}"> Back to admin page </a> </li>` : ""}
-                <li><a href="/store/packages?storeid=${wantedStoreId}">Package overview</a></li>
-                <li><a href="/store/scan?storeid=${wantedStoreId}">Scan package</a></li>
-            </ul>
-        </body>
-    </html>
-    `)
+    response.write(renderStoreMenu(store, request));
     response.end();
 }
 
@@ -664,56 +601,36 @@ async function packageList(request,response, error){
             });
             
         });
-        let packageTable = `<table>
-                            <tr>
-                                <th>Package ID</th>
-                                <th>Customer's name</th>
-                                <th>Customer's e-mail address</th>
-                                <th>Booked time</th>
-                                <th>Verification code</th>
-                                <th>Order id</th>
-                                <th>Time of order</th>
-                            </tr>`
-        if (packages.length == 1 && packages[0].id == undefined){
-        }
-        else{
+
+        let packageTable = `<div class="packages">
+                                <p>Number of packages: ${packages.length}</p>`;
+                            
         for (i = 0; i < packages.length; i++){
             packageTable += `
-                            <tr>
-                                <td>${packages[i].id}</td>
-                                <td>${packages[i].customerName}</td>
-                                <td>${packages[i].customerEmail}</td>
-                                <td>${packages[i].bookedTimeId}</td>
-                                <td>${packages[i].verificationCode}</td>
-                                <td>${packages[i].externalOrderId}</td>
-                                <td>${packages[i].creationDate}</td>
-                            </tr>
-            `
-        }}
-        packageTable += `</table>`
+                            <div class="package">
+                                <h2>${packages[i].externalOrderId}</h2>
+                                <h3>Customer info:</h3>
+                                <p>${packages[i].customerName}</p>
+                                <p>${packages[i].customerEmail}</p>
+                                <h3>Creation date:</h3>
+                                <p>${packages[i].creationDate}</p>
+                                <h3>Status:</h3>
+                                <p style="color: ${packages[i].delivered ? "green" : "red"}">${packages[i].delivered ? "DELIVERED" : "NOT DELIVERED"}</p>
+                                <a href="/store/package?validationKey=${packages[i].verificationCode}&storeid=${packages[i].storeId}" class="knap">Actions</a>
+                            </div>
+            `;
+        }
+
+        packageTable += `</div>`
+
+        let store = await storeIdToStore(request.user.storeId);
 
         response.statusCode = 200;
 
-        response.write(`
-        <!DOCTYPE html>
-        <html>
-            <head>
-                <title>Package overview</title>
-            </head>
-            <body>
-                <a href="/store?storeid=${wantedStoreId}"> Return to store menu </a> <br>
-                <h> Package overview <h>
-            </form>
-            <br>
-            <b> List of current packages: </b>
-            <br> 
-            ${packageTable} 
-            </body>
-        </html>
-        `);
+        response.write(renderPackageList(store, packageTable));
         
         response.end();
-        }
+    }
 }
 
 async function adminGet(request, response) {
@@ -729,24 +646,7 @@ async function adminGet(request, response) {
 
     response.statusCode = 200;
     response.setHeader("Content-Type", "text/html");
-    response.write(`
-<!DOCTYPE html>
-<html>
-    <head>
-        <title>Store admin for ${store.name}</title>
-    </head>
-    <body>
-        <h1> Admin menu for ${request.user.name}: </h1>
-        <ul>
-        <li><a href="/store?storeid=${store.id}"> Go to standard employee dashboard</a></li>
-            <li><a href="/admin/queues?storeid=${store.id}">Manage queues</a></li>
-            <li><a href="/admin/settings?storeid=${store.id}">Change settings</a></li>
-            <li><a href="/admin/package_form?storeid=${store.id}">Create package manually</a></li>
-            <li><a href="/admin/employees?storeid=${store.id}">Manage employees</a></li>
-        </ul>
-    </body>
-</html>
-`)
+    response.write(renderAdmin(request, store));
     response.end();
 }
 
@@ -767,70 +667,7 @@ async function queueList(request, response) {
 
     response.statusCode = 200;
     response.setHeader('Content-Type', 'text/html');
-    response.write(`
-<!DOCTYPE html>
-<html>
-    <head>
-        <title>Queue list for ${store.name}</title>
-        <link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/openlayers/openlayers.github.io@master/en/v6.5.0/css/ol.css" type="text/css">
-        <script src="https://cdn.jsdelivr.net/gh/openlayers/openlayers.github.io@master/en/v6.5.0/build/ol.js"></script>
-        <link rel="stylesheet" href="/static/style.css">
-        <style>
-            .map {
-                height: 400px;
-                width: 500px;
-            }
-        </style>
-    </head>
-    <body>
-        <a href="/admin?storeid=${store.id}">Go back to dashboard</a>
-        <h1>List of queues for ${store.name}</h1>
-        <table>
-            <thead>
-                <tr>
-                    <th>id</th>
-                    <th>Latitude</th>
-                    <th>Longitude</th>
-                    <th>size</th>
-                    <th> Name </th>
-                </tr>
-            </thead>
-            <tbody>
-                ${queues.map((queue) => `<tr>
-                    <td>${queue.id}</td>
-                    <td>${queue.latitude}</td>
-                    <td>${queue.longitude}</td>
-                    <td>${queue.size}</td>
-                    <td>${queue.queueName}</td>
-                    <td>
-                        <form action="/admin/queues/remove" method="POST">
-                            <input type="hidden" name="storeid" value="${store.id}">
-                            <input type="hidden" name="queueid" value="${queue.id}">
-                            <input type="submit" value="Remove">
-                        </form>
-                    </td>
-                </tr>`).join("\n")}
-            </tbody>
-        </table>
-        <h2>add another queue</h2>
-        <form action="/admin/queues/add", method="POST">
-            <div id="queue-placement-map" class="map"></div>
-            <label for="size">Queue capacity: </label>
-            <input type="number" name="size" required><br>
-            <label for="queueName"> Queue name: </label>
-            <input type="text" name="queueName" required> <br>
-            <input id="latitude-input" type="hidden" name="latitude">
-            <input id="longitude-input" type="hidden" name="longitude">
-            <input type="hidden" name="storeid" value="${store.id}">
-            <input type="submit" value="Add">
-        </form>
-        <script type="text/javascript">
-            var queues = ${JSON.stringify(queues)};
-        </script>
-        <script type="text/javascript" src="/static/js/queueListScript.js"></script>
-    </body>
-</html>
-`);
+    response.write(renderQueueList(store, queues));
     response.end();
 }
 
@@ -895,52 +732,12 @@ async function storeScan(request, response) {
     if (wantedStoreId == null) {
         return;
     }
+
+    let store = await storeIdToStore(wantedStoreId);
     
     response.statusCode = 200;
     response.setHeader("Content-Type", "text/html");
-    response.write(`
-    <!DOCTYPE html>
-    <html>
-        <head>
-            <title>scanner</title>
-            <link href="https://maxcdn.bootstrapcdn.com/font-awesome/4.2.0/css/font-awesome.min.css" rel="stylesheet">
-            <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.13.0/css/all.min.css">
-            <style>
-                .hidden {
-                    display: none;
-                }
-            </style>
-        </head>
-        <body>
-            <h1>Scan a package</h1>
-            <a href="/store?storeid=${request.user.storeId}"> Go to employee startpage </a> <br>
-            <p id="loading-placeholder">Trying to open camera...</p>
-            <div id="controls-container" class="hidden">
-                <video id="scanner-content" disablepictureinpicture playsinline></video><br>
-                <button id="start-scanner-btn">Start scanner</button>
-                <button id="stop-scanner-btn">Stop scanner</button><br>
-                <h2>Package details</h2>
-                <form action="/store/package" method="GET">
-                    <label for="validationKey">Validation key, automatically set when a qr code is scanned. Press the lock to manually input package: </label><br>
-                    <input id="validation-key-input" type="text" name="validationKey" disabled="true" value="">
-                    <i class="fas fa-unlock" onclick="toggleValidationInput()"> </i> <br>
-                    <input type="hidden" value="${wantedStoreId}" name="storeid">
-                    <input type="submit" value="Go to package"><br>
-                </form>
-            </div>
-
-            <!-- Burde måske samles i en script -->
-            <script src="/static/js/external/qr-scanner.umd.min.js"></script>
-            <script src="/static/js/qrScannerScript.js"></script>
-            <script>
-                function toggleValidationInput(){
-                    elm = document.getElementById('validation-key-input');
-                    elm.disabled ? elm.disabled = false : elm.disabled = true;
-                }
-            </script>
-        </body>
-    </html>
-    `)
+    response.write(renderStoreScan(store));
     response.end();
 }
 
@@ -960,35 +757,11 @@ async function packageStoreView(request, response) {
         return;
     }
 
+    let store = await storeIdToStore(wantedStoreId);
+
     response.statusCode = 200;
     response.setHeader("Content-Type", "text/html");
-    response.write(`
-    <!DOCTYPE html>
-    <html>
-        <head>
-            <title>Package overview</title>
-        </head>
-        <body>
-            <a href="/store/scan?storeid=${wantedStoreId}">Back to scanner</a>
-            <h1>Package overview</h1>
-            <h2>Details</h2>
-            <p>status: ${package.delivered == 0 ? "NOT DELIVERED" : "DELIVERED"}
-            <p>guid: ${package.guid}</p>
-            <p>bookedTimeId: ${package.bookedTimeId}</p>
-            <p>verification code: ${package.verificationCode}</p>
-            <p>customerEmail: ${package.customerEmail}</p>
-            <p>customerName: ${package.customerName}</p>
-            <p>externalOrderId: ${package.externalOrderId}</p>
-            <p>creationDate: ${package.creationDate}</p>
-            <h2>Actions</h2>
-            <form action="/store/package/${package.delivered == 0 ? "confirm" : "undeliver"}" method="POST">
-                <input type="hidden" value="${wantedStoreId}" name="storeid">
-                <input type="hidden" value="${package.id}" name="packageid">
-                <input type="submit" value="${package.delivered == 0 ? "Confirm delivery" : "Mark as not delivered"}">
-            </form>
-        </body>
-    </html>
-    `)
+    response.write(renderPackageOverview(store, package));
     response.end();
 }
 
@@ -1065,7 +838,7 @@ async function main() {
     userMiddleware = createUserMiddleware(db);
 
     await setupEmail();
-
+    
     /* Sends reminders to customers who hasn't booked a time slot. Checks every 10 minutes. */
     setInterval(async () => {
         await sendReminders();
@@ -1088,7 +861,7 @@ async function main() {
     });
 }
 
-function addEmployee(request, response){
+async function addEmployee(request, response){
     let wantedStoreId = assertAdminAccess(request, request.query, response);
 
     if (wantedStoreId == null) {
@@ -1101,100 +874,8 @@ function addEmployee(request, response){
         request.session.displayError ? error = request.session.lastError : error = "";
         request.session.displayError = false;
 
-        response.write(`
-        <!DOCTYPE html>
-        <html>
-            <head>
-                <title>Adding new employee </title>
-                <link href="https://maxcdn.bootstrapcdn.com/font-awesome/4.2.0/css/font-awesome.min.css" rel="stylesheet">
-                <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.13.0/css/all.min.css">
-                
-                <style>
-                    .container i {
-                        margin-left: -30px;
-                        cursor: pointer;
-                    }
-                </style>
-            </head>
-            <body>
-                ${error ? `<p>${error}</p>` : ""}
-                <a href="/admin?storeid=${request.user.storeId}"> Go to admin startpage </a> <br>
-                <h> Adding new employee to the store <h>
-                
-                <form action="/admin/employees/add" method="POST">
-                <label for="username">Username:      </label>
-                <input type="text" name="username" placeholder="username" required><br>
-
-                <label for="name"> Employee name: </label>
-                <input type="text" name="employeeName" placeholder="Employee name" required><br> <br>
-                <div class="container">
-                    <label for="password"> Password:     </label>
-                    <input type="password" name="password" placeholder="password" id="password" onchange='checkPass();' minlength="8" required>
-
-                    <i class="fas fa-eye" id="togglePassword"> </i>
-                </div>
-                
-                <div class="container">
-                    <label for="confirmPassword"> Confirm password: </label>
-                    <input type="password" name="confirmPassword" placeholder="password" id="confirmPassword" onchange='checkPass();' required>
-                    
-                    <i class="fas fa-eye" id="toggleConfirmPassword"> </i>
-                </div>
-                <input type="hidden" value="${wantedStoreId}" name="storeid">    
-                <p id="matchingPasswords" style="color:red" hidden> The passwords do not match </p>
-                
-                <label for="superuser"> Is the account an admin account: </label>
-                <div id="wrapper">
-    
-                <p>
-                <input type="radio" value="1" name="superuser" checked>Yes</input>
-                </p>
-                <p>
-                <input type="radio" value="0" name="superuser">No</input>
-                </p>
-                </div>
-                <br>
-            
-                <input type="submit" id="submit" value="Create user" disabled>
-            </form>
-            <script>
-            function checkPass() {
-                if (document.getElementById('password').value ==
-                        document.getElementById('confirmPassword').value) {
-                    document.getElementById('submit').disabled = false;
-                    document.getElementById('matchingPasswords').hidden = true;
-                } else {
-                    document.getElementById('submit').disabled = true;
-                    document.getElementById('matchingPasswords').hidden = false;
-                }
-            }
-            
-           // Eye toggle for password
-            const togglePassword = document.querySelector('#togglePassword');
-            const password = document.querySelector('#password');
-
-            togglePassword.addEventListener('click', function (e) {
-                const type = password.getAttribute('type') === 'password' ? 'text' : 'password';
-                password.setAttribute('type', type);
-                this.classList.toggle('fa-eye-slash');
-            });
-            
-
-            // Eye toggle for confirmPassword
-            const toggleConfirmPassword = document.querySelector('#toggleConfirmPassword');
-            const ConfirmPassword = document.querySelector('#confirmPassword');
-
-            toggleConfirmPassword.addEventListener('click', function (e) {
-                const type = confirmPassword.getAttribute('type') === 'password' ? 'text' : 'password';
-                confirmPassword.setAttribute('type', type);
-                this.classList.toggle('fa-eye-slash');
-            });
-            
-            
-            </script>
-            </body>
-        </html>
-        `);
+        let store = await storeIdToStore(wantedStoreId);
+        response.write(addEmployeePage(store, error));
         response.end();
 }
     
@@ -1266,106 +947,15 @@ async function editEmployee(request, response){
         return;
     }
 
+    let store = await storeIdToStore(wantedStoreId);
+
     response.statusCode = 200;
 
     // Måde at vise fejl til brugeren
     request.session.displayError ? error = request.session.lastError : error = "";
     request.session.displayError = false;
 
-    response.write(`
-    <!DOCTYPE html>
-    <html>
-        <head>
-            <title> Editing user: ${request.query.username} </title>
-            <link href="https://maxcdn.bootstrapcdn.com/font-awesome/4.2.0/css/font-awesome.min.css" rel="stylesheet">
-            <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.13.0/css/all.min.css">
-            
-            <style>
-                .container i {
-                    margin-left: -30px;
-                    cursor: pointer;
-                }
-            </style>
-        </head>
-        <body>
-            ${error ? `<p>${error}</p>` : ""}
-            <h> Editing user: ${request.query.username} <h>
-            
-            <form action="/admin/employees/edit" method="POST">
-            <label for="username">Username:      </label>
-            <input type="text" name="username" value="${request.query.username}" required><br>
-
-            <label for="name"> Employee name: </label>
-            <input type="text" name="employeeName" value="${request.query.name}" required><br> <br>
-            <div class="container">
-                <label for="password"> Password:     </label>
-                <input type="password" name="password" value="password" id="password" onchange='checkPass();' minlength="8" required>
-
-                <i class="fas fa-eye" id="togglePassword"> </i>
-            </div>
-            
-            <div class="container">
-                <label for="confirmPassword"> Confirm password: </label>
-                <input type="password" name="confirmPassword" value="password" id="confirmPassword" onchange='checkPass();' required>
-                
-                <i class="fas fa-eye" id="toggleConfirmPassword"> </i>
-            </div>
-            <input type="hidden" value="${wantedStoreId}" name="storeid"> 
-            <input type="hidden" value="${request.query.id}" name="id">   
-            <p id="matchingPasswords" style="color:red" hidden> The passwords do not match </p>
-            
-            <label for="superuser"> Is the account an admin account: </label>
-            <div id="wrapper">
-
-            <p>
-            <input type="radio" value="1" name="superuser" ${request.query.superuser == 1 ? "checked" :""}>Yes</input>
-            </p>
-            <p>
-            <input type="radio" value="0" name="superuser" ${request.query.superuser == 1 ? "" :"checked"}>No</input>
-            </p>
-            </div>
-            <br>
-        
-            <input type="submit" id="submit" value="Edit user">
-        </form>
-        <script>
-        function checkPass() {
-            if (document.getElementById('password').value ==
-                    document.getElementById('confirmPassword').value) {
-                document.getElementById('submit').disabled = false;
-                document.getElementById('matchingPasswords').hidden = true;
-            } else {
-                document.getElementById('submit').disabled = true;
-                document.getElementById('matchingPasswords').hidden = false;
-            }
-        }
-        
-        // Eye toggle for password
-        const togglePassword = document.querySelector('#togglePassword');
-        const password = document.querySelector('#password');
-
-        togglePassword.addEventListener('click', function (e) {
-            const type = password.getAttribute('type') === 'password' ? 'text' : 'password';
-            password.setAttribute('type', type);
-            this.classList.toggle('fa-eye-slash');
-        });
-        
-
-        // Eye toggle for confirmPassword
-        const toggleConfirmPassword = document.querySelector('#toggleConfirmPassword');
-        const ConfirmPassword = document.querySelector('#confirmPassword');
-
-        toggleConfirmPassword.addEventListener('click', function (e) {
-            const type = confirmPassword.getAttribute('type') === 'password' ? 'text' : 'password';
-            confirmPassword.setAttribute('type', type);
-            this.classList.toggle('fa-eye-slash');
-        });
-        
-        
-        </script>
-        </body>
-    </html>
-    `);
+    response.write(renderEditEmployee(store, request, error));
     response.end();
 }
 
@@ -1534,27 +1124,16 @@ async function removeEmployeePost(request, response){
     response.end()
 }
 
-function employeesDashboard(request, response){
+async function employeesDashboard(request, response){
     let wantedStoreId = assertAdminAccess(request, request.query, response);
 
     if (wantedStoreId == null) {
         return;  
     }
-        response.write(`<!DOCTYPE html>
-        <html>
-            <head>
-                <title>Store admin for ${request.session.storeName}</title>
-            </head>
-            <body>
-                <h1>Manage employees </h1>
-                <ul>
-                    <li><a href="/admin/employees/employee_list?storeid=${request.session.storeId}">View, edit and remove employee accounts</a></li>
-                    <li><a href="/admin/employees/add?storeid=${request.session.storeId}">Add an employee account</a></li>
-                    <li><a href="/admin?storeid=${request.session.storeId}">Back to the homepage</a></li>
-                </ul>
-            </body>
-        </html>
-        `)
+
+    let store = await storeIdToStore(wantedStoreId);
+    
+    response.write(manageEmployees(store, request));
     response.end();
     
 }
@@ -1585,57 +1164,13 @@ async function employeeList(request, response){
             });
         });
 
-        let htmlTable = await new Promise((resolve, reject) => {
-        let htmlTable = `<table style="width=100%" border="1px">
-        <tr> <th> Id </th> <th>Username</th> <th> Employee name </th> <th> Is the account a superuser </th>  <th> Edit user </th> <th> Remove user </th> </tr> <br>\n`;
-        for (i = 0; i < userList.length; i++){
-            let isSuperuser = userList[i][3] == 1 ? "yes" : "no";
-            htmlTable += `
-            <tr> <td style="font-weight:normal" style="text-align:center" style="font-weight:normal">
-             ${userList[i][0]} </td> <td style="font-weight:normal" style="text-align:center"> ${userList[i][1]} </td> <td style="font-weight:normal"
-              style="text-align:center"> ${userList[i][2]} </td> <td style="font-weight:normal" style="text-align:center"> ${isSuperuser}  </td>
-              
-              <td> <form action="/admin/employees/edit" method="GET">
-                <input type="hidden" value="${userList[i][0]}" name="id">   
-                <input type="hidden" value="${userList[i][1]}" name="username">
-                <input type="hidden" value="${userList[i][2]}" name="name">
-                <input type="hidden" value="${userList[i][3]}" name="superuser">     
-                
-                <input type="hidden" value="${wantedStoreId}" name="storeid">   
-                <input type="submit" value="Edit">
-              
-              </form> </td> 
-
-              <td> <form action="/admin/employees/remove" method="POST">
-                <input type="hidden" value="${userList[i][1]}" name="username">     
-                <input type="hidden" value="${wantedStoreId}" name="storeid">   
-                <input type="submit" value="Remove">
-              
-              </form> </td> 
-               </tr> <br>\n`;
-        }
-        htmlTable += `</table>`
-        resolve(htmlTable);
-        });
+        let store = await storeIdToStore(wantedStoreId);
 
         request.session.displayError ? error = request.session.lastError : error = "";
         request.session.displayError = false;
 
         response.statusCode = 200;
-        response.write(`
-        <!DOCTYPE html>
-        <html>
-            <head>
-                <title>Employee list </title>
-            </head>
-            <body>
-                ${error ? `<p>${error}</p>` : ""}
-                <a href="/admin?storeid=${request.user.storeId}"> Go to admin startpage </a> <br>
-                <h> Employee list <h> <br>
-                <b> Here is a table of the current employee accounts: <br> ${htmlTable} </b>
-            </body>
-        </html>
-        `);
+        response.write(employeeListPage(store, userList, error));
         
         response.end();
 }
@@ -1667,6 +1202,7 @@ async function timeSlotSelector(request, response) {
         let parsedYear = Number(request.query.year);                                     //Just some limits that should avoid some edge cases
         if (!Number.isNaN(parsedYear) && Number.isInteger(parsedYear) && parsedYear >= now.year() - 5 && parsedYear < now.year() + 5) {
             selectedYear = parsedYear;
+            startingPoint = startingPoint.year(selectedYear);
         }
     }
 
@@ -1674,8 +1210,8 @@ async function timeSlotSelector(request, response) {
         let parsedWeek = Number(request.query.week);
         if (!Number.isNaN(parsedWeek) && Number.isInteger(parsedWeek) && parsedWeek >= 0) {
             let lowerBound = moment(startingPoint).startOf("year").startOf("isoWeek");
-            let upperBound = moment(startingPoint).endOf("year").endOf("isoWeek"); 
-            let proposedDate = moment(startingPoint).isoWeek(parsedWeek);
+            let upperBound = moment(startingPoint).endOf("year").endOf("isoWeek");
+            let proposedDate = moment(startingPoint).year(selectedYear).isoWeek(parsedWeek);
             if (proposedDate.isAfter(upperBound) || proposedDate.isBefore(lowerBound) || parsedWeek == 0) {
                 if (proposedDate.isAfter(upperBound)) {
                     response.statusCode = 302;
@@ -1684,7 +1220,7 @@ async function timeSlotSelector(request, response) {
                     return;
                 } else {
                     response.statusCode = 302;
-                    response.setHeader("Location", `/package?guid=${request.query.guid}&week=${moment().isoWeekYear(selectedYear).isoWeeksInYear()}&year=${selectedYear-1}`);
+                    response.setHeader("Location", `/package?guid=${request.query.guid}&week=${moment().isoWeekYear(selectedYear-1).isoWeeksInYear()}&year=${selectedYear-1}`);
                     response.end();
                     return;
                 }
@@ -1697,7 +1233,6 @@ async function timeSlotSelector(request, response) {
     let selectedWeekDay = moment().isoWeekYear(selectedYear).isoWeek(selectedWeek);
     let lower = moment(selectedWeekDay).startOf("isoWeek");
     let upper = moment(selectedWeekDay).endOf("isoWeek");
-    console.log(`Selected time range ${lower.format("YYYY-MM-DDTHH:mm:ss")} - ${upper.format("YYYY-MM-DDTHH:mm:ss")}`);
     
     /* Collects the data from the database */
     let result = await dbAll(db, `WITH valid_timeslots (id, storeId, startTime, endTime, queueId) as (
@@ -1969,6 +1504,130 @@ ${package.verificationCode}
 /* Helping function to the function getTime*/
 function format_date_as_time(date) {
     return `${date.getHours().toString().padStart(2, "0")}:${date.getMinutes().toString().padStart(2, "0")}`;
+}
+/*The ordering is important*/
+const DAYS_OF_WEEK = ["sunday", "monday", "tuesday", "wednesday", "thursday", "friday", "saturday"];
+
+async function openingTime(request, response) {
+    let wantedStoreId = assertAdminAccess(request, request.query, response);
+    if (wantedStoreId == null) {
+        return;
+    }
+
+    let store = await dbGet(db, "SELECT * FROM store WHERE id=?", [wantedStoreId]);
+    if (store == undefined) {
+        throw new Error(`Expected store with id ${wantedStoreId} to exist`);
+    }
+
+    let parsedOpeningTime = JSON.parse(store.openingTime);
+
+    let hasError = request.session.settingsError == null;
+
+    response.statusCode = 200;
+    response.setHeader('Content-Type', 'text/html');
+    response.write(renderSettings(store, request, DAYS_OF_WEEK, parsedOpeningTime, hasError));
+    request.session.settingsError = null;
+    response.end();
+}
+//Mangler at tjekke hvornår de begynder
+const CRAZY_QUERY = query = `SELECT id, strftime("%w", startTime) as week_day, time(startTime) as sTime, time(endTime) as eTime FROM timeSlot WHERE startTime > ? AND
+(${DAYS_OF_WEEK.map((day, i) => {
+    return `(week_day == "${i}" AND (sTime < ? OR eTime > ?))`;
+}).join(" OR\n")})`;
+
+async function settingsPost(request, response) {
+    let postBody = parseURLEncoded(await receiveBody(request));
+
+    let wantedStoreId = assertAdminAccess(request, request.query, response);
+    if (wantedStoreId == null) {
+        return;
+    }
+
+    for (day of DAYS_OF_WEEK) {
+        let openTime = postBody[`${day}-open`];
+        let closeTime = postBody[`${day}-close`];
+        if (!isValidTime(openTime) || !isValidTime(closeTime)) {
+            request.session.settingsError = `time range for ${day} was invalid`;
+            response.statusCode = 302
+            response.setHeader("Location", "/admin/settings?storeid=" + wantedStoreId.toString());
+            response.end();
+            return;
+        }
+/*We compare the strings and it returns which character was largest at the mismatch, for the hh:mm:ss format this also show which time is first*/
+        if (openTime > closeTime) {
+            request.session.settingsError = `time range for ${day} was invalid, closing time has to be after or equal to the opening time`;
+            response.statusCode = 302
+            response.setHeader("Location", "/admin/settings?storeid=" + wantedStoreId.toString());
+            response.end();
+            return;
+        }
+    }
+
+    let store = await dbGet(db, "SELECT * FROM store WHERE id=?", [wantedStoreId]);
+    if (store == undefined) {
+        throw new Error(`Expected store with id ${wantedStoreId} to exist`);
+    }
+
+    let newOpeningTime = {};
+    for (day of DAYS_OF_WEEK) {
+        let open = postBody[`${day}-open`];
+        let close = postBody[`${day}-close`];
+
+        if (open == close) {
+            newOpeningTime[day] = [];
+        } else {
+            newOpeningTime[day] = [open, close];
+        }
+    }
+
+    let now = moment();
+
+    await dbRun(db, "UPDATE store SET openingTime=? WHERE id=?",[JSON.stringify(newOpeningTime), wantedStoreId]);
+
+    if (postBody["delete-timeslots"] == "on") {
+        /*Bruger ikke nogen bruger bestemte variabler så det her er okay*/
+        let yep = await dbAll(db, CRAZY_QUERY, [toISODateTimeString(now)].concat(DAYS_OF_WEEK.map((day) => {
+            if (newOpeningTime[day].length == 0) {
+                return ["24:00:00", "00:00:00"];
+            }
+            return newOpeningTime[day]
+        }).flat()));
+
+        if (yep.length > 0) {
+        let ids = yep.map((v) => v.id);
+        await dbRun(db, `UPDATE package SET bookedTimeId=null WHERE bookedTimeId in (?${",?".repeat(ids.length - 1)})`, ids);
+        await dbRun(db, `DELETE FROM timeSlot WHERE id in (?${",?".repeat(ids.length - 1)})`, ids);
+        }
+    }
+
+    request.session.settingsError = "New opening time was successfully set";
+    response.statusCode = 302
+    response.setHeader("Location", "/admin/settings?storeid=" + wantedStoreId.toString());
+    response.end();
+}
+
+function isValidTime(str) {
+    if (typeof(str) != "string") {
+        return false;
+    }
+    let match = str.match(/^([0-9]){2}:([0-9]){2}:([0-9]){2}$/);
+    if (match == null) {
+        return false;
+    }
+
+    if (!isStringInt(match[1]) || !isStringInt(match[2]) || !isStringInt(match[3])) {
+        return false;
+    }
+
+    let match1 = Number(match[1]);
+    let match2 = Number(match[2]);
+    let match3 = Number(match[3]);
+
+    if (match1 >= 24 || match1 < 0 || match2 >= 60 || match2 < 0 || match3 >= 60 || match3 < 0) {
+        return false;
+    }
+
+    return true;
 }
 
 

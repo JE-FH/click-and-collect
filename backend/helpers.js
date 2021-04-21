@@ -168,6 +168,16 @@ exports.sendEmail = async function sendMail(recipientMail, recipientName, subjec
 
 }
 
+/* Replaces + in strings with a space */
+exports.sanitizeFullName = function sanitizeFullName(name) {
+    return name.replaceAll('+', ' ');
+}
+
+/* Replaces the hex code for @ with an actual @ */
+exports.sanitizeEmailAddress = function sanitizeEmailAddress(email) {
+    return email.replaceAll('%40', '@');
+}
+
 exports.fromISOToDate = function fromISOToEuFormat(time){
     let date = moment(time);
     return date.format("D. MMMM YYYY");
@@ -177,6 +187,16 @@ exports.fromISOToHHMM = function fromISOToEuFormat(time){
     let date = moment(time);
     return date.format("HH:mm");
 }
+
+exports.toISODateTimeString = function(moment_time) {
+    return moment_time.format("YYYY-MM-DDTHH:mm:ss");
+}
+
+/* Returns the string given as argument but with capitalized first letter */
+exports.capitalizeFirstLetter = function capitalizeFirstLetter(str) {
+    return str[0].toUpperCase()+str.slice(1);
+}
+
 
 exports.notifyTimeslotDeletion = async function notifyTimeslotDeletion(db, package, timeSlot, host) {
     plainText = `Hello ${package.customerName}
