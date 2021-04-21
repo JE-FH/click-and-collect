@@ -157,10 +157,14 @@ exports.sendEmail = async function sendMail(recipientMail, recipientName, subjec
         message["html"] = htmlContent;
     }
 
-    let info = await mailTransporter.sendMail(message);
+    try{
+        let info = await mailTransporter.sendMail(message);
+        console.log(`Fake mail was sent, preview can be seen here: ${nodemailer.getTestMessageUrl(info)}`);
+    } catch(err){
+        console.log(`The mail could not get sent. We get the following error: ${err}`)
+    }
 
-    console.log(`Fake mail was sent, preview can be seen here: ${nodemailer.getTestMessageUrl(info)}`);
-}
+    }
 
 /* Replaces + in strings with a space */
 exports.sanitizeFullName = function sanitizeFullName(name) {
@@ -180,4 +184,8 @@ exports.fromISOToDate = function fromISOToEuFormat(time){
 exports.fromISOToHHMM = function fromISOToEuFormat(time){
     let split = time.split(/[-:T]/);
     return split[3] + ":" + split[4];
+}
+
+exports.toISODateTimeString = function(moment_time) {
+    return moment_time.format("YYYY-MM-DDTHH:mm:ss");
 }

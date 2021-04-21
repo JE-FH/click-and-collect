@@ -3,7 +3,7 @@ const sqlite3 = require("sqlite3");
 const fs = require("fs/promises");
 const crypto = require("crypto");
 const moment = require("moment");
-const {isStringInt, isStringNumber, receiveBody, parseURLEncoded, assertAdminAccess, assertEmployeeAccess, setupEmail, sendEmail, sanitizeFullName, sanitizeEmailAddress, fromISOToDate, fromISOToHHMM } = require("./helpers");
+const {toISODateTimeString, isStringInt, isStringNumber, receiveBody, parseURLEncoded, assertAdminAccess, assertEmployeeAccess, setupEmail, sendEmail, sanitizeFullName, sanitizeEmailAddress, fromISOToDate, fromISOToHHMM } = require("./helpers");
 const {queryMiddleware, sessionMiddleware, createUserMiddleware} = require("./middleware");
 const {adminNoAccess, invalidParameters, invalidCustomerParameters} = require("./generic-responses");
 const {dbAll, dbGet, dbRun, dbExec} = require("./db-helpers");
@@ -60,6 +60,9 @@ async function requestHandler(request, response) {
                     break;
                 case "/admin/queues/add":
                     queueAdd(request, response);
+                    break;
+                case "/admin/settings":
+                    settingsPost(request, response);
                     break;
                 case "/package/select_time":
                     selectTimeSlot(request, response);
@@ -130,6 +133,12 @@ async function requestHandler(request, response) {
                     break;
                 case "/static/js/external/qr-scanner-worker.min.js":
                     serveFile(response, __dirname + "/../frontend/js/external/qr-scanner-worker.min.js", "text/javascript");
+                    break;
+                case "/static/js/settingsScript.js":
+                    serveFile(response, __dirname + "/../frontend/js/settingsScript.js", "text/javascript");
+                    break;
+                case "/admin/settings":
+                    openingTime(request, response);
                     break;
                 case "/static/css/timeSlotSelection.css":
                     serveFile(response, __dirname + "/../frontend/css/timeSlotSelection.css", "text/css");
@@ -827,7 +836,7 @@ async function main() {
     userMiddleware = createUserMiddleware(db);
 
     await setupEmail();
-
+    
     /* Sends reminders to customers who hasn't booked a time slot. Checks every 10 minutes. */
     setInterval(async () => {
         await sendReminders();
@@ -1224,6 +1233,7 @@ async function timeSlotSelector(request, response) {
         let parsedYear = Number(request.query.year);                                     //Just some limits that should avoid some edge cases
         if (!Number.isNaN(parsedYear) && Number.isInteger(parsedYear) && parsedYear >= now.year() - 5 && parsedYear < now.year() + 5) {
             selectedYear = parsedYear;
+            startingPoint = startingPoint.year(selectedYear);
         }
     }
 
@@ -1231,8 +1241,8 @@ async function timeSlotSelector(request, response) {
         let parsedWeek = Number(request.query.week);
         if (!Number.isNaN(parsedWeek) && Number.isInteger(parsedWeek) && parsedWeek >= 0) {
             let lowerBound = moment(startingPoint).startOf("year").startOf("isoWeek");
-            let upperBound = moment(startingPoint).endOf("year").endOf("isoWeek"); 
-            let proposedDate = moment(startingPoint).isoWeek(parsedWeek);
+            let upperBound = moment(startingPoint).endOf("year").endOf("isoWeek");
+            let proposedDate = moment(startingPoint).year(selectedYear).isoWeek(parsedWeek);
             if (proposedDate.isAfter(upperBound) || proposedDate.isBefore(lowerBound) || parsedWeek == 0) {
                 if (proposedDate.isAfter(upperBound)) {
                     response.statusCode = 302;
@@ -1241,7 +1251,7 @@ async function timeSlotSelector(request, response) {
                     return;
                 } else {
                     response.statusCode = 302;
-                    response.setHeader("Location", `/package?guid=${request.query.guid}&week=${moment().isoWeekYear(selectedYear).isoWeeksInYear()}&year=${selectedYear-1}`);
+                    response.setHeader("Location", `/package?guid=${request.query.guid}&week=${moment().isoWeekYear(selectedYear-1).isoWeeksInYear()}&year=${selectedYear-1}`);
                     response.end();
                     return;
                 }
@@ -1254,7 +1264,6 @@ async function timeSlotSelector(request, response) {
     let selectedWeekDay = moment().isoWeekYear(selectedYear).isoWeek(selectedWeek);
     let lower = moment(selectedWeekDay).startOf("isoWeek");
     let upper = moment(selectedWeekDay).endOf("isoWeek");
-    console.log(`Selected time range ${lower.format("YYYY-MM-DDTHH:mm:ss")} - ${upper.format("YYYY-MM-DDTHH:mm:ss")}`);
     
     /* Collects the data from the database */
     let result = await dbAll(db, `WITH valid_timeslots (id, storeId, startTime, endTime, queueId) as (
@@ -1489,11 +1498,11 @@ async function sendPickupDocumentation(package, timeSlotDetails) {
 
     sendEmail(package.customerEmail, package.customerName ?? package.customerEmail, "Click&Collect pickup documentation", 
     `Hello ${package.customerName}
-You have selected the following timeslot
-${timeSlotDetails.startTime} - ${timeSlotDetails.endTime}
-You have been put in queue ${timeSlotDetails.qid}
-the queue location can be seen using this link ${mapLink}
-Please use the following code to verify your identity at the pickup point
+You have selected the following timeslot:
+${fromISOToDate(timeSlotDetails.startTime)} from ${fromISOToHHMM(timeSlotDetails.startTime)} to ${fromISOToHHMM(timeSlotDetails.endTime)}
+You have been put in queue ${timeSlotDetails.qid}.
+The queue location can be seen using this link ${mapLink}.
+Please use the following code to verify your identity at the pickup point:
 ${package.verificationCode}
 `, `
         <!DOCTYPE html>
@@ -1506,16 +1515,16 @@ ${package.verificationCode}
             </head>
             <body>
                 <h1>Hello ${package.customerName ?? ""}</h1>
-                <p>You have selected the following time slot</p>
-                <p>${timeSlotDetails.startTime} - ${timeSlotDetails.endTime}</p>
+                <p>You have selected the following time slot:</p>
+                <p>${fromISOToDate(timeSlotDetails.startTime)} from ${fromISOToHHMM(timeSlotDetails.startTime)} to ${fromISOToHHMM(timeSlotDetails.endTime)}</p>
                 <p>You have been put in queue ${timeSlotDetails.qid} </p>
                 <p>
-                    the queue location can be seen 
+                    The queue location can be seen 
                     <a href="${mapLink}">here</a>
                 </p>
                 <h2>Show the following qr code to the employee when you go to the pickup location</h2>
                 <img src="${qrCode}" style="display: block;max-width: 100vh;height: auto;max-height: 100vh;width: 100%;"/>
-                <p>If the image is not visible you can try to enable image displaying in your email client or use the following code instead of the qr code at the pickup</p>
+                <p>If the image is not visible you can try to enable image displaying in your email client or use the following code instead of the qr code at the pickup location:</p>
                 <code>${package.verificationCode}</code>
             </body>
         </html>
@@ -1525,6 +1534,173 @@ ${package.verificationCode}
 /* Helping function to the function getTime*/
 function format_date_as_time(date) {
     return `${date.getHours().toString().padStart(2, "0")}:${date.getMinutes().toString().padStart(2, "0")}`;
+}
+/*The ordering is important*/
+const DAYS_OF_WEEK = ["sunday", "monday", "tuesday", "wednesday", "thursday", "friday", "saturday"];
+
+async function openingTime(request, response) {
+    let wantedStoreId = assertAdminAccess(request, request.query, response);
+    if (wantedStoreId == null) {
+        return;
+    }
+
+    let store = await dbGet(db, "SELECT * FROM store WHERE id=?", [wantedStoreId]);
+    if (store == undefined) {
+        throw new Error(`Expected store with id ${wantedStoreId} to exist`);
+    }
+
+    let parsedOpeningTime = JSON.parse(store.openingTime);
+
+    let hasError = request.session.settingsError == null;
+
+    response.statusCode = 200;
+    response.setHeader('Content-Type', 'text/html');
+    response.write(`
+<!DOCTYPE html>
+<html>
+    <head>
+        <title>Opening time for ${store.name}</title>
+        <style>
+            .hidden {
+                display: none;
+            }
+        </style>
+    </head>
+    <body>
+        <a href="/admin?storeid=${store.id}">Go back to dashboard</a>
+        <h1>Opening time for ${store.name}</h1>
+        <p id="error-message" class="${hasError ? "" : "hidden"}">${hasError ? "" : request.session.settingsError}</p>
+        <form method="POST" id="settings-form">
+            <table>
+                <thead>
+                    <tr>
+                        <th>Day</th>
+                        <th>Open time</th>
+                        <th>Closing time</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    ${DAYS_OF_WEEK.map((day) => {
+                        if (parsedOpeningTime[day].length == 0) {
+                            parsedOpeningTime[day] = ["00:00:00", "00:00:00"];
+                        }
+                        return `<tr>
+                            <td>${day}</td>
+                            <td><input name="${day}-open" type="time" value="${parsedOpeningTime[day][0]}" step="1"></td>
+                            <td><input name="${day}-close" type="time" value="${parsedOpeningTime[day][1]}" step="1"></td>
+                        </tr>`;
+                    }).join("\n")}
+                </tbody>
+            </table>
+            <label for="delete-timeslots">Delete existing timeslots outside of open times: </label>
+            <input type="checkbox" name="delete-timeslots"><br>
+            <input type="submit" value="Set new opentime">
+        </form>
+        <script src="/static/js/settingsScript.js"></script>
+    </body>
+</html>`);
+    request.session.settingsError = null;
+    response.end();
+}
+//Mangler at tjekke hvornår de begynder
+const CRAZY_QUERY = query = `SELECT id, strftime("%w", startTime) as week_day, time(startTime) as sTime, time(endTime) as eTime FROM timeSlot WHERE startTime > ? AND
+(${DAYS_OF_WEEK.map((day, i) => {
+    return `(week_day == "${i}" AND (sTime < ? OR eTime > ?))`;
+}).join(" OR\n")})`;
+
+async function settingsPost(request, response) {
+    let postBody = parseURLEncoded(await receiveBody(request));
+
+    let wantedStoreId = assertAdminAccess(request, request.query, response);
+    if (wantedStoreId == null) {
+        return;
+    }
+
+    for (day of DAYS_OF_WEEK) {
+        let openTime = postBody[`${day}-open`];
+        let closeTime = postBody[`${day}-close`];
+        if (!isValidTime(openTime) || !isValidTime(closeTime)) {
+            request.session.settingsError = `time range for ${day} was invalid`;
+            response.statusCode = 302
+            response.setHeader("Location", "/admin/settings?storeid=" + wantedStoreId.toString());
+            response.end();
+            return;
+        }
+/*We compare the strings and it returns which character was largest at the mismatch, for the hh:mm:ss format this also show which time is first*/
+        if (openTime > closeTime) {
+            request.session.settingsError = `time range for ${day} was invalid, closing time has to be after or equal to the opening time`;
+            response.statusCode = 302
+            response.setHeader("Location", "/admin/settings?storeid=" + wantedStoreId.toString());
+            response.end();
+            return;
+        }
+    }
+
+    let store = await dbGet(db, "SELECT * FROM store WHERE id=?", [wantedStoreId]);
+    if (store == undefined) {
+        throw new Error(`Expected store with id ${wantedStoreId} to exist`);
+    }
+
+    let newOpeningTime = {};
+    for (day of DAYS_OF_WEEK) {
+        let open = postBody[`${day}-open`];
+        let close = postBody[`${day}-close`];
+
+        if (open == close) {
+            newOpeningTime[day] = [];
+        } else {
+            newOpeningTime[day] = [open, close];
+        }
+    }
+
+    let now = moment();
+
+    await dbRun(db, "UPDATE store SET openingTime=? WHERE id=?",[JSON.stringify(newOpeningTime), wantedStoreId]);
+
+    if (postBody["delete-timeslots"] == "on") {
+        /*Bruger ikke nogen bruger bestemte variabler så det her er okay*/
+        let yep = await dbAll(db, CRAZY_QUERY, [toISODateTimeString(now)].concat(DAYS_OF_WEEK.map((day) => {
+            if (newOpeningTime[day].length == 0) {
+                return ["24:00:00", "00:00:00"];
+            }
+            return newOpeningTime[day]
+        }).flat()));
+
+        if (yep.length > 0) {
+        let ids = yep.map((v) => v.id);
+        await dbRun(db, `UPDATE package SET bookedTimeId=null WHERE bookedTimeId in (?${",?".repeat(ids.length - 1)})`, ids);
+        await dbRun(db, `DELETE FROM timeSlot WHERE id in (?${",?".repeat(ids.length - 1)})`, ids);
+        }
+    }
+
+    request.session.settingsError = "New opening time was successfully set";
+    response.statusCode = 302
+    response.setHeader("Location", "/admin/settings?storeid=" + wantedStoreId.toString());
+    response.end();
+}
+
+function isValidTime(str) {
+    if (typeof(str) != "string") {
+        return false;
+    }
+    let match = str.match(/^([0-9]){2}:([0-9]){2}:([0-9]){2}$/);
+    if (match == null) {
+        return false;
+    }
+
+    if (!isStringInt(match[1]) || !isStringInt(match[2]) || !isStringInt(match[3])) {
+        return false;
+    }
+
+    let match1 = Number(match[1]);
+    let match2 = Number(match[2]);
+    let match3 = Number(match[3]);
+
+    if (match1 >= 24 || match1 < 0 || match2 >= 60 || match2 < 0 || match3 >= 60 || match3 < 0) {
+        return false;
+    }
+
+    return true;
 }
 
 
