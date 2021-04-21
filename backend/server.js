@@ -3,7 +3,7 @@ const sqlite3 = require("sqlite3");
 const fs = require("fs/promises");
 const crypto = require("crypto");
 const moment = require("moment");
-const {toISODateTimeString, isStringInt, isStringNumber, receiveBody, parseURLEncoded, assertAdminAccess, assertEmployeeAccess, setupEmail, sendEmail, sanitizeFullName, sanitizeEmailAddress, fromISOToDate, fromISOToHHMM } = require("./helpers");
+const {toISODateTimeString, isStringInt, isStringNumber, receiveBody, parseURLEncoded, assertAdminAccess, assertEmployeeAccess, setupEmail, sendEmail, sanitizeFullName, sanitizeEmailAddress, fromISOToDate, fromISOToHHMM, deleteTimeslotsWithId} = require("./helpers");
 const {queryMiddleware, sessionMiddleware, createUserMiddleware} = require("./middleware");
 const {adminNoAccess, invalidParameters, invalidCustomerParameters} = require("./generic-responses");
 const {dbAll, dbGet, dbRun, dbExec} = require("./db-helpers");
@@ -688,7 +688,7 @@ async function queueRemove(request, response) {
 
     await dbRun(db, "DELETE FROM queue WHERE id=? and storeId=?", [wantedQueueId, wantedStoreId]);
 
-    await dbRun(db, "DELETE FROM timeslot WHERE queueId=?", [wantedQueueId]);
+    deleteTimeslotsWithId(db, HOST, wantedQueueId, wantedStoreId)
 
     response.statusCode = 302;
     response.setHeader("Location", "/admin/queues?storeid=" + wantedStoreId.toString());
@@ -707,17 +707,19 @@ async function queueAdd(request, response) {
     if (
         !isStringInt(postParameters.size) || 
         !isStringNumber(postParameters.latitude) ||
-        !isStringNumber(postParameters.longitude)
+        !isStringNumber(postParameters.longitude) ||
+        typeof(postParameters.queueName) != "string"
     ){
-        invalidParameters(response, "size, latitude or longitude malformed", `/admin/queues?storeid=${wantedStoreId}`, "Back to queue list");
+        invalidParameters(response, "size, latitude, longitude or name malformed", `/admin/queues?storeid=${wantedStoreId}`, "Back to queue list");
         return;
     }
 
     let wantedSize = Number(postParameters.size);
     let wantedLatitude = Number(postParameters.latitude);
     let wantedLongitude = Number(postParameters.longitude);
+    let wantedName = postParameters.queueName;
 
-    dbRun(db, "INSERT INTO queue (latitude, longitude, size, storeId) VALUES (?, ?, ?, ?)", [wantedLatitude, wantedLongitude, wantedSize, wantedStoreId]);
+    dbRun(db, "INSERT INTO queue (latitude, longitude, size, storeId, queueName) VALUES (?, ?, ?, ?, ?)", [wantedLatitude, wantedLongitude, wantedSize, wantedStoreId, wantedName]);
 
     response.statusCode = 302;
     response.setHeader("Location", "/admin/queues?storeid=" + wantedStoreId.toString());
@@ -1359,6 +1361,7 @@ async function timeBookedPage(request, response, package) {
     if (package.bookedTimeId != null) {
         bookedTimeSlot = await dbGet(db, "SELECT * FROM timeSlot where id=?", [package.bookedTimeId]);
     }
+    let queueName = (await dbGet(db, "SELECT queueName FROM queue WHERE id = ? AND storeId = ?", [bookedTimeSlot.queueId, package.storeId])).queueName;
     response.statusCode = 200;
     response.setHeader('Content-Type', 'text/html');
     response.write(`<!DOCTYPE html>
@@ -1370,7 +1373,7 @@ async function timeBookedPage(request, response, package) {
                 <h1>Hey ${package.customerName == null ? "" : package.customerName}</h1>
                 <p>You have selected a timeslot for this package, here is your package information:</p>
                 <p>Booked time period: ${fromISOToDate(bookedTimeSlot.startTime)} from ${fromISOToHHMM(bookedTimeSlot.startTime)} to ${fromISOToHHMM(bookedTimeSlot.endTime)} </p>
-                <p>Your booking is in queue number ${bookedTimeSlot.queueId}
+                <p>Your booking is in queue ${queueName}
                 <h2>Actions</h2>
                 ${package.delivered == 0 ? `
                 <p>If you can not come at the booked time, you can cancel and book a new time:</p> 
@@ -1383,7 +1386,6 @@ async function timeBookedPage(request, response, package) {
     `);
     response.end();
 }
-
 
 async function selectTimeSlot(request, response) {
     let postData = parseURLEncoded(await receiveBody(request));
@@ -1462,12 +1464,13 @@ async function sendPickupDocumentation(package, timeSlotDetails) {
     let qrCode = await QRCode.toDataURL(package.verificationCode);
 
     let mapLink = `https://www.openstreetmap.org/?mlat=${encodeURIComponent(timeSlotDetails.qlatitude)}&mlon=${encodeURIComponent(timeSlotDetails.qlongitude)}`;
+    let queueName = (await dbGet(db, "SELECT queueName FROM queue WHERE id = ? AND storeId = ?", [timeSlotDetails.qid, package.storeId])).queueName;
 
     sendEmail(package.customerEmail, package.customerName ?? package.customerEmail, "Click&Collect pickup documentation", 
     `Hello ${package.customerName}
 You have selected the following timeslot:
 ${fromISOToDate(timeSlotDetails.startTime)} from ${fromISOToHHMM(timeSlotDetails.startTime)} to ${fromISOToHHMM(timeSlotDetails.endTime)}
-You have been put in queue ${timeSlotDetails.qid}.
+You have been put in queue ${queueName}.
 The queue location can be seen using this link ${mapLink}.
 Please use the following code to verify your identity at the pickup point:
 ${package.verificationCode}
@@ -1475,7 +1478,7 @@ ${package.verificationCode}
         <!DOCTYPE html>
         <html>
             <head>
-                <title>Test Email Sample</title>
+                <title>Pickup information</title>
                 <meta http–equiv=“Content-Type” content=“text/html; charset=UTF-8” />
                 <meta http–equiv=“X-UA-Compatible” content=“IE=edge” />
                 <meta name=“viewport” content=“width=device-width, initial-scale=1.0 “ />
@@ -1484,7 +1487,7 @@ ${package.verificationCode}
                 <h1>Hello ${package.customerName ?? ""}</h1>
                 <p>You have selected the following time slot:</p>
                 <p>${fromISOToDate(timeSlotDetails.startTime)} from ${fromISOToHHMM(timeSlotDetails.startTime)} to ${fromISOToHHMM(timeSlotDetails.endTime)}</p>
-                <p>You have been put in queue ${timeSlotDetails.qid} </p>
+                <p>You have been put in queue ${queueName} </p>
                 <p>
                     The queue location can be seen 
                     <a href="${mapLink}">here</a>
