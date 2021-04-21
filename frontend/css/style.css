@@ -241,6 +241,17 @@ form input[type=radio] {
 form input[type=submit] {
     margin-top: 1em;
 }
+.container {
+    display: flex;
+    align-items: center;
+    position: relative;
+    margin-bottom: 1em;
+}
+#togglePassword, #toggleConfirmPassword {
+    position: absolute;
+    right: 10px;
+}
+
 /* Admin Dashboard */
 .dash {
     padding: 0;

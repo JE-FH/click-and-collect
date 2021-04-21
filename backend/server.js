@@ -606,7 +606,7 @@ async function packageList(request,response, error){
                                 <h3>Creation date:</h3>
                                 <p>${packages[i].creationDate}</p>
                                 <h3>Status:</h3>
-                                <p>${packages[i].delivered ? "DELIVERED" : "NOT DELIVERED"}</p>
+                                <p style="color: ${packages[i].delivered ? "green" : "red"}">${packages[i].delivered ? "DELIVERED" : "NOT DELIVERED"}</p>
                                 <a href="/store/package?validationKey=${packages[i].verificationCode}&storeid=${packages[i].storeId}" class="knap">Actions</a>
                             </div>
             `;
