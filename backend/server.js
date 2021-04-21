@@ -3,7 +3,7 @@ const sqlite3 = require("sqlite3");
 const fs = require("fs/promises");
 const crypto = require("crypto");
 const moment = require("moment");
-const {isStringInt, isStringNumber, receiveBody, parseURLEncoded, assertAdminAccess, assertEmployeeAccess, setupEmail, sendEmail, fromISOToDate, fromISOToHHMM } = require("./helpers");
+const {isStringInt, isStringNumber, receiveBody, parseURLEncoded, assertAdminAccess, assertEmployeeAccess, setupEmail, sendEmail, fromISOToDate, fromISOToHHMM, deleteTimeslotsWithId } = require("./helpers");
 const {queryMiddleware, sessionMiddleware, createUserMiddleware} = require("./middleware");
 const {adminNoAccess, invalidParameters, invalidCustomerParameters} = require("./generic-responses");
 const {dbAll, dbGet, dbRun, dbExec} = require("./db-helpers");
@@ -851,7 +851,7 @@ async function queueRemove(request, response) {
 
     await dbRun(db, "DELETE FROM queue WHERE id=? and storeId=?", [wantedQueueId, wantedStoreId]);
 
-    await dbRun(db, "DELETE FROM timeslot WHERE queueId=?", [wantedQueueId]);
+    deleteTimeslotsWithId(db, HOST, wantedQueueId, wantedStoreId)
 
     response.statusCode = 302;
     response.setHeader("Location", "/admin/queues?storeid=" + wantedStoreId.toString());
@@ -1943,7 +1943,7 @@ ${package.verificationCode}
         <!DOCTYPE html>
         <html>
             <head>
-                <title>Test Email Sample</title>
+                <title>Pickup information</title>
                 <meta http–equiv=“Content-Type” content=“text/html; charset=UTF-8” />
                 <meta http–equiv=“X-UA-Compatible” content=“IE=edge” />
                 <meta name=“viewport” content=“width=device-width, initial-scale=1.0 “ />

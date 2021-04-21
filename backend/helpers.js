@@ -1,5 +1,7 @@
 const nodemailer = require("nodemailer");
+const { dbAll, dbRun } = require("./db-helpers");
 const {adminNoAccess, invalidParameters} = require("./generic-responses");
+const moment = require("moment");
 /**
  * Checks if a string can be converted to a whole number safely
  * @param {string} str 
@@ -161,17 +163,61 @@ exports.sendEmail = async function sendMail(recipientMail, recipientName, subjec
         let info = await mailTransporter.sendMail(message);
         console.log(`Fake mail was sent, preview can be seen here: ${nodemailer.getTestMessageUrl(info)}`);
     } catch(err){
-        console.log(`The mail could not get sent. We get the following error: ${err}`)
+        console.log(`The mail could not be sent. We get the following error: ${err}`)
     }
 
-    }
+}
 
 exports.fromISOToDate = function fromISOToEuFormat(time){
-    let split = time.split(/[-:T]/);
-    return split[2] + "-" + split[1];
+    let date = moment(time);
+    return date.format("D. MMMM YYYY");
 }
 
 exports.fromISOToHHMM = function fromISOToEuFormat(time){
-    let split = time.split(/[-:T]/);
-    return split[3] + ":" + split[4];
+    let date = moment(time);
+    return date.format("HH:mm");
+}
+
+exports.notifyTimeslotDeletion = async function notifyTimeslotDeletion(db, package, timeSlot, host) {
+    plainText = `Hello ${package.customerName}
+Your scheduled delivery at the following time:
+${exports.fromISOToDate(timeSlot.startTime)} from ${exports.fromISOToHHMM(timeSlot.startTime)} to ${exports.fromISOToHHMM(timeSlot.endTime)}
+In queue ${timeSlot.queueId} has been cancelled.
+You will have to schedule a new pickup time using the following link:
+${host}/package?guid=${package.guid}.`;
+
+    htmlText =  `<!DOCTYPE html>
+    <html>
+        <head>
+            <title>Cancelled pickup</title>
+            <meta http–equiv=“Content-Type” content=“text/html; charset=UTF-8” />
+            <meta http–equiv=“X-UA-Compatible” content=“IE=edge” />
+            <meta name=“viewport” content=“width=device-width, initial-scale=1.0 “ />
+        </head>
+        <body>
+            <h1>Hello ${package.customerName ?? ""}</h1>
+            <p>Your order in the following time slot:</p>
+            <p>${exports.fromISOToDate(timeSlot.startTime)} from ${exports.fromISOToHHMM(timeSlot.startTime)} to ${exports.fromISOToHHMM(timeSlot.endTime)}</p>
+            <p>In queue ${timeSlot.queueId} has been cancelled. </p>
+            <p> You will have to schedule a new pickup time using this link:
+            <a href="${host}/package?guid=${package.guid}"> Schedule new pickup time </a>  </p>
+        </body>
+    </html>`;
+
+    await exports.sendEmail(package.customerEmail, package.customerName, "Your pickup has been cancelled", plainText, htmlText);
+}
+
+exports.deleteTimeslotsWithId = async function deleteTimeslotsWithId(db, host, id, storeId){
+    let timeSlots = await dbAll(db, "SELECT * FROM timeSlot WHERE queueId = ? AND storeId = ?", [id,storeId]);
+    
+    for (let timeSlot of timeSlots) {
+        let packages = await dbAll(db, "SELECT * FROM package WHERE bookedTimeId = ? AND storeId = ?", [timeSlot.id, storeId]);
+
+        await dbAll(db, "UPDATE package SET bookedTimeId=null WHERE bookedTimeId = ? AND storeId = ?", [timeSlot.id, storeId]);
+        for (let package of packages){
+            await exports.notifyTimeslotDeletion(db, package, timeSlot, host);
+        }
+    }
+
+    await dbRun(db, "DELETE FROM timeslot WHERE queueId = ?", [id]);
 }
