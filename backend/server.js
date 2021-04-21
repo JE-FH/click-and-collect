@@ -8,98 +8,13 @@ const {queryMiddleware, sessionMiddleware, createUserMiddleware} = require("./mi
 const {adminNoAccess, invalidParameters, invalidCustomerParameters} = require("./generic-responses");
 const {dbAll, dbGet, dbRun, dbExec} = require("./db-helpers");
 const QRCode = require("qrcode");
-
+const {RequestHandler} = require("./request-handler");
 
 const port = 8000;
 const hostname = '127.0.0.1';
 const HOST = "http://127.0.0.1:8000";
 
 let db;
-
-const RequestHandler = function(defaultHandler, errorHandler) {
-    this.endpoints = new Map();
-    this.middleware = [];
-    this.defaultHandler = defaultHandler;
-    this.errorHandler = errorHandler;
-}
-
-/**
- * Gets the name of the endpoint in the endpoint map
- * @param {string} method 
- * @param {string} path 
- * @returns 
- */
-RequestHandler.prototype.getEndpointName = function (method, path) {
-    return `${method.toUpperCase()}:${path}`;
-}
-
-RequestHandler.prototype.callHandler = async function (handler, request, response) {
-    if (handler.length == 1) {
-        await handler(response);
-    } else {
-        await handler(request, response);
-    }
-}
-
-/**
- * Handles a http request
- * @param {http.IncomingMessage} request 
- * @param {http.ServerResponse} response 
- */
-RequestHandler.prototype.handleRequest = async function (request, response) {
-    let pathPart = request.url.split("?")[0];
-
-    let endpointName = this.getEndpointName(request.method, pathPart);
-
-    let handler = this.endpoints.get(endpointName);
-
-    try {
-        for (let middleware of this.middleware) {
-            await this.callHandler(middleware, request, response);
-        }
-
-        if (handler == null) {
-            if (this.defaultHandler != null) {
-                await this.callHandler(this.defaultHandler, request, response);
-            }
-        } else {
-            await this.callHandler(handler, request, response);
-        }
-    } catch (e) {
-        if (this.errorHandler == null) {
-            console.error("No errorHandler so rethrowing");
-            throw e;
-        } else {
-            if (handler.errorHandler == 2) {
-                await this.errorHandler(response, e);
-            } else {
-                await this.errorHandler(request, response, e);
-            }
-        }
-    }
-}
-
-/**
- * Adds an endpoint to the request handler
- * @param {"GET" | "POST"} method 
- * @param {string} path 
- * @param {function(http.IncomingMessage, http.ServerResponse) | function(http.ServerResponse)} handler
- */
-RequestHandler.prototype.addEndpoint = function(method, path, handler) {
-    let endpointName = this.getEndpointName(method, path);
-    if (this.endpoints.has(endpointName)) {
-        throw new Error(`Handler for the endpoint ${path} for ${method} has already been added`);
-    }
-    this.endpoints.set(endpointName, handler);
-}
-
-/**
- * Adds middleware at the end of the middleware chain
- * @param {function(http.IncomingMessage, http.ServerResponse) | function(http.ServerResponse)} middlewareFunction 
- */
-RequestHandler.prototype.addMiddleware = function (middlewareFunction) {
-    this.middleware.push(middlewareFunction);
-}
 
 async function sendReminders() {
     let unbookedPackages = await getUnbookedPackages();
@@ -1055,7 +970,9 @@ async function main() {
     let requestHandler = new RequestHandler(defaultResponse, errorResponse);
 
     /* Logging middleware */
-    requestHandler.addMiddleware((request, _) => console.log(`${moment().format("YYYY-MM-DD HH:mm:ss")}\t${request.method}\t${request.url}`));
+    requestHandler.addMiddleware((req, _) => {
+        console.log(`${req.socket.remoteAddress}\t${moment().format("YYYY-MM-DD HH:mm:ss ZZ")}\t${req.method} ${req.url}`)}
+    );
 
     requestHandler.addMiddleware(sessionMiddleware);
     requestHandler.addMiddleware(createUserMiddleware(db));
@@ -1071,7 +988,7 @@ async function main() {
     requestHandler.addEndpoint("GET", "/admin/employees/employee_list", employeeList);
     requestHandler.addEndpoint("GET", "/admin/package_form", packageFormGet);
     requestHandler.addEndpoint("GET", "/store", storeMenu);
-    requestHandler.addEndpoint("GET", "/store/packages", (req, res) => packageList(request, response, ""));
+    requestHandler.addEndpoint("GET", "/store/packages", (req, res) => packageList(req, res, ""));
     requestHandler.addEndpoint("GET", "/store/package", packageStoreView);
     requestHandler.addEndpoint("GET", "/package", timeSlotSelector);
     requestHandler.addEndpoint("GET", "/store/scan", storeScan);
