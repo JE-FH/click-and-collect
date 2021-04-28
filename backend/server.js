@@ -436,7 +436,7 @@ async function storeMenu(request, response){
 }
 
 async function packageList(request,response, error){
-   
+    
     let wantedStoreId = assertEmployeeAccess(request, request.query, response);
     if (wantedStoreId == null) {
         return;
@@ -956,7 +956,7 @@ async function editEmployeePost(request, response){
     // Giver true hvis den bruger der bliver edited er den sidste superuser
     let lastAdminCheck = await new Promise((resolve, reject) => {
         db.serialize(() => {
-            db.get("SELECT id FROM user WHERE superuser=1 AND id!=?", [postParameters["id"]], (err, row) => {
+            db.get("SELECT id FROM user WHERE superuser=1 AND id!=? AND storeId=?", [postParameters["id"],wantedStoreId], (err, row) => {
                 if (err) {
                     resolve(null);
                 } else {
