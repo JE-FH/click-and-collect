@@ -723,5 +723,5 @@ exports.render500 = function render500(request) {
             <a href="/admin?storeid=${userId}"> Go to admin dashboard</a> <br>
             ` : ""}
         </body>
-    </html>
+    </html>`;
 }

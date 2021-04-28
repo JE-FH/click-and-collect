@@ -724,7 +724,7 @@ async function main() {
     requestHandler.addEndpoint("GET", "/store/scan", storeScan);
     requestHandler.addEndpoint("GET", "/admin/settings", openingTime);
 
-    requestHandler.addEndpoint("GET", "/static/style.css", (response) => 
+    requestHandler.addEndpoint("GET", "/static/css/style.css", (response) => 
         serveFile(response, __dirname + "/../frontend/css/style.css", "text/css")
     );
     requestHandler.addEndpoint("GET", "/static/js/queueListScript.js", (response) => 
