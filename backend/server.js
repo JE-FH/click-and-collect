@@ -326,14 +326,6 @@ async function packageFormGet(request, response) {
     response.end();
 }
 
-async function staticStyleCss(response) {
-    let content = (await fs.readFile(__dirname + "/../frontend/css/style.css")).toString();
-    response.statusCode = 200;
-    response.setHeader("Content-Type", "text/css");
-    response.write(content);
-    response.end();
-}
-
 /* Request handler for any endpoint that isn't explicitally handled */
 function defaultResponse(request, response) {
     let userId = null;
@@ -733,7 +725,7 @@ async function main() {
     requestHandler.addEndpoint("GET", "/admin/settings", openingTime);
 
     requestHandler.addEndpoint("GET", "/static/style.css", (response) => 
-        serveFile(response, __dirname + "/../frontend/css/style.css", "text/javascript")
+        serveFile(response, __dirname + "/../frontend/css/style.css", "text/css")
     );
     requestHandler.addEndpoint("GET", "/static/js/queueListScript.js", (response) => 
         serveFile(response, __dirname + "/../frontend/js/queueListScript.js", "text/javascript")
