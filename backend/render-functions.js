@@ -411,19 +411,34 @@ exports.renderPackageList = function renderPackageList(store, nonDeliveredPackag
     page += `
                 <div class="main-body">
                     <h1>Package Overview</h1>
+                    <form action="/store/packages" method="POST">
+                        <label for="customerName"> Search for customer name: </label>
+                        <input type="text" name="customerName" required>
+                        <input type="hidden" value="${store.id}" name="storeid">
+                        <input type="submit" id="submit" value="Search">
+                    </form>
                     ${nonDeliveredPackageTable}
                     ${deliveredPackageTable}
                     <a class="knap" id="showButton" onclick="toggleShowDelivered()"> Show delivered packages </a>
-                    <a class="knap" onclick="toggleTimeSlotChosen()"> Show packages without a timeslot </a>
+                    <a class="knap" id="toggleTimeslots"onclick="toggleTimeSlotChosen()"> Hide packages without an assigned timeslot </a>
                     <a href="/store?storeid=${store.id}" class="knap">Back</a>
                 </div>
             </body>
             <script>
+            let showToggle = 1;
             function toggleShowDelivered(){
                 table = document.getElementById('deliveredPackages');
-                table.hidden = !table.hidden;
+                console.log(table);
+                
+                if (table.style.display === "none"){
+                    table.style.display = "initial";
+                    console.log(table.style.display);
+                } else{
+                    table.style.display = "none";    
+                }
+                console.log(table.style.display);
                 button = document.getElementById('showButton');
-                if (table.hidden){
+                if (table.style.display === "none"){
                     button.innerText = "Show delivered packages";
                 }
                 else{
@@ -435,10 +450,19 @@ exports.renderPackageList = function renderPackageList(store, nonDeliveredPackag
 
                 elements = table.getElementsByTagName('div');
                 
+                button = document.getElementById('toggleTimeslots');
+
                 for (i = 0; i < elements.length; i++){
                     if (elements[i].classList.contains('noTimeSlot')){
                         elements[i].hidden = !elements[i].hidden;
                     }
+                }
+                if (showToggle == 1){
+                    showToggle = 0;
+                    button.innerText = "Show packages without an assigned timeslot";
+                }else{
+                    showToggle = 1;
+                    button.innerText = "Hide packages without an assigned timeslot";
                 }
             }
             </script>

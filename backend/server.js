@@ -435,7 +435,7 @@ async function storeMenu(request, response){
     response.end();
 }
 
-async function packageList(request,response, error){
+async function packageList(request,response){
     
     let wantedStoreId = assertEmployeeAccess(request, request.query, response);
     if (wantedStoreId == null) {
@@ -443,9 +443,9 @@ async function packageList(request,response, error){
     }
     else{
 
-        let nonDeliveredPackages = await dbAll(db,"SELECT * FROM package p LEFT JOIN timeSlot t ON t.id = p.bookedTimeId WHERE p.storeId=? AND p.delivered=0 ORDER BY t.startTime",[wantedStoreId]);
+        let nonDeliveredPackages = await dbAll(db,"SELECT * FROM package p LEFT JOIN timeSlot t ON t.id = p.bookedTimeId WHERE p.storeId=? AND p.delivered=0 ORDER BY t.startTime IS NULL, t.startTime",[wantedStoreId]);
         // Medtager ikke pakker der blev leveret for mere end en uge siden.
-        let deliveredPackages = await dbAll(db,"SELECT * FROM package p LEFT JOIN timeSlot t ON t.id = p.bookedTimeId WHERE p.storeId=? AND t.endTime >=? AND p.delivered=1 ORDER BY t.startTime",[wantedStoreId, formatMomentAsISO(moment().subtract(7, 'days'))]);
+        let deliveredPackages = await dbAll(db,"SELECT * FROM package p LEFT JOIN timeSlot t ON t.id = p.bookedTimeId WHERE p.storeId=? AND t.endTime >=? AND p.delivered=1 ORDER BY t.startTime IS NULL, t.startTime",[wantedStoreId, formatMomentAsISO(moment().subtract(7, 'days'))]);
 
         let nonDeliveredPackageTable = `<div id="nonDeliveredPackages" class="packages">
         <p>Number of undelivered packages: ${nonDeliveredPackages.length}</p>`;
@@ -498,23 +498,175 @@ async function packageList(request,response, error){
         }
         nonDeliveredPackageTable += `</div>`
 
-        let deliveredPackageTable = `<div id="deliveredPackages" hidden class="packages">
+        let deliveredPackageTable = `<div id="deliveredPackages" style="display: none" class="packages">
         <p>Number of delivered packages: ${deliveredPackages.length}</p>`;
 
         for (i = 0; i < deliveredPackages.length; i++){
+            let timeSlot = await new Promise((resolve, reject) => {
+                db.get("SELECT * FROM timeslot WHERE storeId=? AND id=?", [deliveredPackages[i].storeId, deliveredPackages[i].bookedTimeId], (err, row) => {
+                    if(err) {
+                        reject(err);
+                    } else {
+                        resolve(row);
+                    }
+                });
+            })
+            
+            if (timeSlot != null){
+                queueName = await new Promise((resolve, reject) => {
+                    db.get("SELECT queueName FROM queue WHERE storeId=? AND id=?", [timeSlot.storeId, timeSlot.queueId], (err, row) => {
+                        if(err) {
+                            reject(err);
+                        } else {
+                            resolve(row);
+                        }
+                    });
+                })
+            } else{
+                queueName = null;
+            }
             deliveredPackageTable += `
-                        <div class="package">
-                            <h2>${deliveredPackages[i].externalOrderId}</h2>
+                <div class="package">
+                    <h2>Order id: ${deliveredPackages[i].externalOrderId}</h2>
+                    <h3>Customer info:</h3>
+                    <p>Name: ${deliveredPackages[i].customerName}</p>
+                    <p>Mail: ${deliveredPackages[i].customerEmail}</p>
+                    <h3>Creation date:</h3>
+                    <p>${fromISOToDate(deliveredPackages[i].creationDate)} ${fromISOToHHMM(deliveredPackages[i].creationDate)} </p>
+                    <h3> Booked time: </h3>
+                    <p> ${timeSlot == null ? "No timeslot booked" : `${fromISOToDate(timeSlot.startTime)} from ${fromISOToHHMM(timeSlot.startTime)} to ${fromISOToHHMM(timeSlot.endTime)}`}
+                    
+                    ${timeSlot == null ? '' : `<h3> Queue: </h3>
+                    ${queueName == null ? `` : `<p> Name: ${queueName.queueName} </p>`}
+                    <p> Id: ${timeSlot.id}`}
+                    <h3>Status:</h3>
+                    <p style="color:green"> DELIVERED </p>
+                    <a href="/store/package?validationKey=${deliveredPackages[i].verificationCode}&storeid=${deliveredPackages[i].storeId}" class="knap">Actions</a>
+                </div>
+            `;
+        }
+        deliveredPackageTable += `</div>`
+
+        let store = await storeIdToStore(request.user.storeId);
+
+        response.statusCode = 200;
+
+        response.write(renderPackageList(store, nonDeliveredPackageTable, deliveredPackageTable));
+        
+        response.end();
+    }
+}
+
+async function packageListPost(request,response){
+    let postParameters = await receiveBody(request);
+    postParameters = parseURLEncoded(postParameters);
+
+    let wantedStoreId = assertAdminAccess(request, postParameters, response);
+    if (wantedStoreId == null) {
+        return;
+    }else{
+        let nonDeliveredPackages = await dbAll(db,"SELECT * FROM package p LEFT JOIN timeSlot t ON t.id = p.bookedTimeId WHERE p.storeId=? AND p.delivered=0 AND customerName like ? ORDER BY t.startTime IS NULL, t.startTime",[wantedStoreId, '%' + postParameters.customerName + '%']);
+        // Medtager pakker der blev leveret for mere end en uge siden.
+        let deliveredPackages = await dbAll(db,"SELECT * FROM package p LEFT JOIN timeSlot t ON t.id = p.bookedTimeId WHERE p.storeId=? AND p.delivered=1 AND customerName like ? ORDER BY t.startTime IS NULL, t.startTime",[wantedStoreId, '%' + postParameters.customerName + '%']);
+
+        
+        let nonDeliveredPackageTable = `<div id="nonDeliveredPackages" class="packages">
+        <p>Number of undelivered packages: ${nonDeliveredPackages.length}</p>`;
+                            
+        for (i = 0; i < nonDeliveredPackages.length; i++){
+           
+            let timeSlot = await new Promise((resolve, reject) => {
+                db.get("SELECT * FROM timeslot WHERE storeId=? AND id=?", [nonDeliveredPackages[i].storeId,nonDeliveredPackages[i].bookedTimeId], (err, row) => {
+                    if(err) {
+                        reject(err);
+                    } else {
+                        resolve(row);
+                    }
+                });
+            })
+            
+            if (timeSlot != null){
+                queueName = await new Promise((resolve, reject) => {
+                    db.get("SELECT queueName FROM queue WHERE storeId=? AND id=?", [timeSlot.storeId, timeSlot.queueId], (err, row) => {
+                        if(err) {
+                            reject(err);
+                        } else {
+                            resolve(row);
+                        }
+                    });
+                })
+            } else{
+                queueName = null;
+            }
+            
+            nonDeliveredPackageTable += `
+                        <div class="package${timeSlot == null ? ' noTimeSlot' : ''}">
+                            <h2>Order id: ${nonDeliveredPackages[i].externalOrderId}</h2>
                             <h3>Customer info:</h3>
-                            <p>${deliveredPackages[i].customerName}</p>
-                            <p>${deliveredPackages[i].customerEmail}</p>
+                            <p>Name: ${nonDeliveredPackages[i].customerName}</p>
+                            <p>Mail: ${nonDeliveredPackages[i].customerEmail}</p>
                             <h3>Creation date:</h3>
-                            <p>${deliveredPackages[i].creationDate}</p>
+                            <p>${fromISOToDate(nonDeliveredPackages[i].creationDate)} ${fromISOToHHMM(nonDeliveredPackages[i].creationDate)} </p>
+                            <h3> Booked time: </h3>
+                            <p> ${timeSlot == null ? "No timeslot booked" : `${fromISOToDate(timeSlot.startTime)} from ${fromISOToHHMM(timeSlot.startTime)} to ${fromISOToHHMM(timeSlot.endTime)}`}
+                            
+                            ${timeSlot == null ? '' : `<h3> Queue: </h3>
+                            ${queueName == null ? `` : `<p> Name: ${queueName.queueName} </p>`}
+                            <p> Id: ${timeSlot.id}`}
                             <h3>Status:</h3>
-                            <p style="color:green"> DELIVERED </p>
-                            <a href="/store/package?validationKey=${deliveredPackages[i].verificationCode}&storeid=${deliveredPackages[i].storeId}" class="knap">Actions</a>
+                            <p style="color:red"> NOT DELIVERED </p>
+                            <a href="/store/package?validationKey=${nonDeliveredPackages[i].verificationCode}&storeid=${nonDeliveredPackages[i].storeId}" class="knap">Actions</a>
                         </div>
         `;
+        }
+        nonDeliveredPackageTable += `</div>`
+
+        let deliveredPackageTable = `<div id="deliveredPackages" class="packages">
+        <p>Number of delivered packages: ${deliveredPackages.length}</p>`;
+
+        for (i = 0; i < deliveredPackages.length; i++){
+            let timeSlot = await new Promise((resolve, reject) => {
+                db.get("SELECT * FROM timeslot WHERE storeId=? AND id=?", [deliveredPackages[i].storeId, deliveredPackages[i].bookedTimeId], (err, row) => {
+                    if(err) {
+                        reject(err);
+                    } else {
+                        resolve(row);
+                    }
+                });
+            })
+            
+            if (timeSlot != null){
+                queueName = await new Promise((resolve, reject) => {
+                    db.get("SELECT queueName FROM queue WHERE storeId=? AND id=?", [timeSlot.storeId, timeSlot.queueId], (err, row) => {
+                        if(err) {
+                            reject(err);
+                        } else {
+                            resolve(row);
+                        }
+                    });
+                })
+            } else{
+                queueName = null;
+            }
+            deliveredPackageTable += `
+                <div class="package">
+                    <h2>Order id: ${deliveredPackages[i].externalOrderId}</h2>
+                    <h3>Customer info:</h3>
+                    <p>Name: ${deliveredPackages[i].customerName}</p>
+                    <p>Mail: ${deliveredPackages[i].customerEmail}</p>
+                    <h3>Creation date:</h3>
+                    <p>${fromISOToDate(deliveredPackages[i].creationDate)} ${fromISOToHHMM(deliveredPackages[i].creationDate)} </p>
+                    <h3> Booked time: </h3>
+                    <p> ${timeSlot == null ? "No timeslot booked" : `${fromISOToDate(timeSlot.startTime)} from ${fromISOToHHMM(timeSlot.startTime)} to ${fromISOToHHMM(timeSlot.endTime)}`}
+                    
+                    ${timeSlot == null ? '' : `<h3> Queue: </h3>
+                    ${queueName == null ? `` : `<p> Name: ${queueName.queueName} </p>`}
+                    <p> Id: ${timeSlot.id}`}
+                    <h3>Status:</h3>
+                    <p style="color:green"> DELIVERED </p>
+                    <a href="/store/package?validationKey=${deliveredPackages[i].verificationCode}&storeid=${deliveredPackages[i].storeId}" class="knap">Actions</a>
+                </div>
+            `;
     }
         deliveredPackageTable += `</div>`
 
@@ -757,12 +909,11 @@ async function main() {
     requestHandler.addEndpoint("GET", "/admin/employees/employee_list", employeeList);
     requestHandler.addEndpoint("GET", "/admin/package_form", packageFormGet);
     requestHandler.addEndpoint("GET", "/store", storeMenu);
-    requestHandler.addEndpoint("GET", "/store/packages", (req, res) => packageList(req, res, ""));
+    requestHandler.addEndpoint("GET", "/store/packages", packageList);
     requestHandler.addEndpoint("GET", "/store/package", packageStoreView);
     requestHandler.addEndpoint("GET", "/package", timeSlotSelector);
     requestHandler.addEndpoint("GET", "/store/scan", storeScan);
     requestHandler.addEndpoint("GET", "/admin/settings", openingTime);
-
     requestHandler.addEndpoint("GET", "/static/css/style.css", (response) => 
         serveFile(response, __dirname + "/../frontend/css/style.css", "text/css")
     );
@@ -797,6 +948,7 @@ async function main() {
     requestHandler.addEndpoint("POST", "/admin/queues/add", queueAdd);
     requestHandler.addEndpoint("POST", "/package/select_time", selectTimeSlot);
     requestHandler.addEndpoint("POST", "/package/cancel", cancelTimeSlot);
+    requestHandler.addEndpoint("POST", "/store/packages", packageListPost);
     requestHandler.addEndpoint("POST", "/admin/settings", settingsPost);
 
     const server = http.createServer((request, response) => requestHandler.handleRequest(request, response));
