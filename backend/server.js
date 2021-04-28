@@ -3,11 +3,11 @@ const sqlite3 = require("sqlite3");
 const fs = require("fs/promises");
 const crypto = require("crypto");
 const moment = require("moment");
-const {toISODateTimeString, isStringInt, isStringNumber, receiveBody, parseURLEncoded, assertAdminAccess, assertEmployeeAccess, setupEmail, sendEmail, sanitizeFullName, sanitizeEmailAddress, fromISOToDate, fromISOToHHMM, deleteTimeslotsWithId} = require("./helpers");
+const {toISODateTimeString, isStringInt, isStringNumber, receiveBody, parseURLEncoded, assertAdminAccess, assertEmployeeAccess, setupEmail, sendEmail, sanitizeFullName, sanitizeEmailAddress, fromISOToDate, fromISOToHHMM, deleteTimeslotsWithId, } = require("./helpers");
 const {queryMiddleware, sessionMiddleware, createUserMiddleware} = require("./middleware");
 const {adminNoAccess, invalidParameters, invalidCustomerParameters} = require("./generic-responses");
 const {dbAll, dbGet, dbRun, dbExec} = require("./db-helpers");
-const {renderAdmin, renderQueueList, renderPackageForm, manageEmployees, employeeListPage, addEmployeePage, renderStoreMenu, renderPackageList, renderSettings, renderStoreScan, renderPackageOverview, render404, renderLogin, renderEditEmployee} = require("./render-functions");
+const {renderAdmin, renderQueueList, renderPackageForm, manageEmployees, employeeListPage, addEmployeePage, renderStoreMenu, renderPackageList, renderSettings, renderStoreScan, renderPackageOverview, render404, renderLogin, renderEditEmployee, render500} = require("./render-functions");
 const QRCode = require("qrcode");
 const {RequestHandler} = require("./request-handler");
 
@@ -471,25 +471,54 @@ async function packageList(request,response, error){
             });
             
         });
-        let nonDeliveredPackageTable = `<div class="packages">
+        let nonDeliveredPackageTable = `<div id="nonDeliveredPackages" class="packages">
         <p>Number of undelivered packages: ${nonDeliveredPackages.length}</p>`;
                             
         for (i = 0; i < nonDeliveredPackages.length; i++){
-                nonDeliveredPackageTable += `
-                            <div class="package">
-                                <h2>Order id: ${nonDeliveredPackages[i].externalOrderId}</h2>
-                                <h3>Customer info:</h3>
-                                <p>Name: ${nonDeliveredPackages[i].customerName}</p>
-                                <p>Mail: ${nonDeliveredPackages[i].customerEmail}</p>
-                                <h3>Creation date:</h3>
-                                <p>${fromIsoToDate(nonDeliveredPackages[i].creationDate)} ${fromISOToHHMM(nonDeliveredPackages[i].creationDate)} </p>
-                                <h3> Booked time: </h3>
-
-                                <h3>Status:</h3>
-                                <p style="color:red"> NOT DELIVERED </p>
-                                <a href="/store/package?validationKey=${nonDeliveredPackages[i].verificationCode}&storeid=${nonDeliveredPackages[i].storeId}" class="knap">Actions</a>
-                            </div>
-            `;
+           
+            let timeSlot = await new Promise((resolve, reject) => {
+                db.get("SELECT * FROM timeslot WHERE storeId=? AND id=?", [nonDeliveredPackages[i].storeId,nonDeliveredPackages[i].bookedTimeId], (err, row) => {
+                    if(err) {
+                        reject(err);
+                    } else {
+                        resolve(row);
+                    }
+                });
+            })
+            
+            if (timeSlot != null){
+                queueName = await new Promise((resolve, reject) => {
+                    db.get("SELECT queueName FROM queue WHERE storeId=? AND id=?", [timeSlot.storeId, timeSlot.queueId], (err, row) => {
+                        if(err) {
+                            reject(err);
+                        } else {
+                            resolve(row);
+                        }
+                    });
+                })
+            } else{
+                queueName = null;
+            }
+            
+            nonDeliveredPackageTable += `
+                        <div class="package${timeSlot == null ? ' noTimeSlot' : ''}">
+                            <h2>Order id: ${nonDeliveredPackages[i].externalOrderId}</h2>
+                            <h3>Customer info:</h3>
+                            <p>Name: ${nonDeliveredPackages[i].customerName}</p>
+                            <p>Mail: ${nonDeliveredPackages[i].customerEmail}</p>
+                            <h3>Creation date:</h3>
+                            <p>${fromISOToDate(nonDeliveredPackages[i].creationDate)} ${fromISOToHHMM(nonDeliveredPackages[i].creationDate)} </p>
+                            <h3> Booked time: </h3>
+                            <p> ${timeSlot == null ? "No timeslot booked" : `${fromISOToDate(timeSlot.startTime)} from ${fromISOToHHMM(timeSlot.startTime)} to ${fromISOToHHMM(timeSlot.endTime)}`}
+                            
+                            ${timeSlot == null ? '' : `<h3> Queue: </h3>
+                            ${queueName == null ? `` : `<p> Name: ${queueName.queueName} </p>`}
+                            <p> Id: ${timeSlot.id}`}
+                            <h3>Status:</h3>
+                            <p style="color:red"> NOT DELIVERED </p>
+                            <a href="/store/package?validationKey=${nonDeliveredPackages[i].verificationCode}&storeid=${nonDeliveredPackages[i].storeId}" class="knap">Actions</a>
+                        </div>
+        `;
         }
         nonDeliveredPackageTable += `</div>`
 

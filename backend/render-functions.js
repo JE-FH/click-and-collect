@@ -411,6 +411,7 @@ exports.renderPackageList = function renderPackageList(store, nonDeliveredPackag
                     ${nonDeliveredPackageTable}
                     ${deliveredPackageTable}
                     <a class="knap" id="showButton" onclick="toggleShowDelivered()"> Show delivered packages </a>
+                    <a class="knap" onclick="toggleTimeSlotChosen()"> Show packages without a timeslot </a>
                     <a href="/store?storeid=${store.id}" class="knap">Back</a>
                 </div>
             </body>
@@ -424,6 +425,17 @@ exports.renderPackageList = function renderPackageList(store, nonDeliveredPackag
                 }
                 else{
                     button.innerText = "Hide delivered packages";
+                }
+            }
+            function toggleTimeSlotChosen(){
+                table = document.getElementById('nonDeliveredPackages');
+
+                elements = table.getElementsByTagName('div');
+                
+                for (i = 0; i < elements.length; i++){
+                    if (elements[i].classList.contains('noTimeSlot')){
+                        elements[i].hidden = !elements[i].hidden;
+                    }
                 }
             }
             </script>
