@@ -40,6 +40,14 @@ exports.receiveBody = async function receiveBody(request) {
 }
 
 /**
+ * since decodeURIComponent doesnt decode URIComponent completely correct, this is neccesary to patch whats missing
+ * @param {string} data url encoded data
+ */
+function decodeURIComponent4real(data) {
+    return decodeURIComponent(data.replaceAll("+", "%20"));
+}
+
+/**
  * Parses a url encoded string
  * @param {string} data 
  * @returns {object}
@@ -48,7 +56,7 @@ exports.parseURLEncoded = function parseURLEncoded(data) {
     let rv = {};
     data.split("&").map((v) => {
         let split = v.split("=");
-        rv[decodeURIComponent(split[0])] = decodeURIComponent(split[1] ?? "");
+        rv[decodeURIComponent4real(split[0])] = decodeURIComponent4real(split[1] ?? "");
     });
     return rv;
 }
