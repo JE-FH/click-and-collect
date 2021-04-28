@@ -409,7 +409,7 @@ exports.renderPackageList = function renderPackageList(store, packageTable) {
 
     page += `${renderEmployeeNav(store)}`;
     page += `
-                <h1 style="margin-left: 32px">Package Overview</h1>
+                <h1 style="text-align: center">Package Overview</h1>
                 <div class="main-body" id="packageOverview">
                     ${packageTable}
                     <a href="/store?storeid=${store.id}" class="knap">Back</a>

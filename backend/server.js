@@ -458,7 +458,7 @@ async function packageList(request,response, error){
         });
 
         let packageTable = `<div class="packages">
-                                <p style="margin-left: 32px">Number of packages: ${packages.length}</p>`;
+                                <p style="text-align: center">Number of packages: ${packages.length}</p>`;
                             
         for (i = 0; i < packages.length; i++){
             packageTable += `
