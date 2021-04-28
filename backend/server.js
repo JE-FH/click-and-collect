@@ -461,7 +461,8 @@ async function packageList(request,response, error){
                                 <p>Number of packages: ${packages.length}</p>`;
                             
         for (i = 0; i < packages.length; i++){
-            packageTable += `
+            if (!packages[i].delivered){
+                packageTable += `
                             <div class="package">
                                 <h2>${packages[i].externalOrderId}</h2>
                                 <h3>Customer info:</h3>
@@ -473,7 +474,7 @@ async function packageList(request,response, error){
                                 <p style="color: ${packages[i].delivered ? "green" : "red"}">${packages[i].delivered ? "DELIVERED" : "NOT DELIVERED"}</p>
                                 <a href="/store/package?validationKey=${packages[i].verificationCode}&storeid=${packages[i].storeId}" class="knap">Actions</a>
                             </div>
-            `;
+            `;}
         }
 
         packageTable += `</div>`
