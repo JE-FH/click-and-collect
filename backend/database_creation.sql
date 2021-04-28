@@ -66,7 +66,7 @@ CREATE TABLE IF NOT EXISTS package (
 	delivered blob NOT NULL DEFAULT 0,
 	remindersSent NOT NULL DEFAULT 0,
 	FOREIGN KEY (bookedTimeId)
-		REFERENCES queue (id),
+		REFERENCES timeSlot (id),
 	FOREIGN KEY (storeId)
 		REFERENCES store (id)
 );
