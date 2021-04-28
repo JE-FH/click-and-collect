@@ -1,4 +1,6 @@
 //const capitalizeFirstLetter = require("./helpers");
+const moment = require('moment');
+const {fromISOToDate, fromISOToHHMM} = require('./helpers');
 
 function renderNavigation(store) {
     return `
@@ -45,6 +47,7 @@ function renderEmployeeNav(store) {
         <nav class="employee-nav">
             <a href="/store?storeid=${store.id}">Home</a>
             <a id="scan" href="/store/scan?storeid=${store.id}">Scan</a>
+            <a href="/store/packages?storeid=${store.id}">Packages</a>
         </nav>
     `;
 }
@@ -406,8 +409,8 @@ exports.renderPackageList = function renderPackageList(store, packageTable) {
 
     page += `${renderEmployeeNav(store)}`;
     page += `
-                <div class="main-body">
-                    <h1>Package Overview</h1>
+                <h1 style="text-align: center">Package Overview</h1>
+                <div class="main-body" id="packageOverview">
                     ${packageTable}
                     <a href="/store?storeid=${store.id}" class="knap">Back</a>
                 </div>
@@ -698,6 +701,96 @@ exports.renderEditEmployee = function renderEditEmployee(store, request, error) 
                         this.classList.toggle('fa-eye-slash');
                     });
                 </script>
+            </body>
+        </html>
+    `;
+
+    return page;
+}
+
+exports.renderTimeSlots = function renderTimeSlots(selectedWeek, selectedYear, selectedWeekDay, targetPackage, lower, rowsHTML) {
+    let page = `
+        <html>
+            <head>
+                <title>Timeslots</title>
+                <meta charset="UTF-8">
+                <link href="/static/css/timeSlotSelection.css" rel="stylesheet">
+            </head>
+            <body>
+                <h1>Week ${selectedWeekDay.isoWeek() }</h1>
+                <p>Please select a time slot</p>
+                <div class="btnWrap">
+                    <form action="/package">
+                        <input type="hidden" name="week" value="${selectedWeek - 1}">
+                        <input type="hidden" name="year" value="${selectedYear}">
+                        <input type="hidden" name="guid" value="${targetPackage.guid}">
+                        <input type="submit" value="Previous week">
+                    </form>
+                    <form action="/package">
+                        <input type="hidden" name="week" value="${selectedWeek + 1}">
+                        <input type="hidden" name="year" value="${selectedYear}">
+                        <input type="hidden" name="guid" value="${targetPackage.guid}">
+                        <input type="submit" value="Next week">
+                    </form>
+                </div>
+            
+                <div class="time">
+                    <table>
+                        <thead>
+                            <tr>
+                            ${(Array(7).fill().map((_, i) => {
+                                let thing = moment(lower).isoWeekday(i + 1);
+                                return `<th>${thing.format("dddd")}<br>${thing.format("DD/MM/YYYY")}</th>`;
+                            })).join("\n")}
+                            </tr>
+                        </thead>
+                        <tbody> 
+                            ${rowsHTML}
+                        </tbody>
+                    </table>
+                </div>
+
+                <div id="myModal" class="modal">
+                    <div class="modal-content">
+                        <span class="close">&times;</span>
+                        <h2>Do you want the following time slot?</h2>
+                        <p id="selectedTime" class="sTime"> </p>
+                        <form action="/package/select_time" method="POST">
+                            <input name="guid" type="hidden" value="${targetPackage.guid}">
+                            <input id="selected-time-id" type="hidden" value="" name="selectedTimeId">
+                            <input type="submit" class="submitbtn" value="Submit" style="font-size:20px;">
+                        </form>
+                    </div>
+                </div>
+                <script src="/static/js/timeSlotSelection.js"></script>
+            </body>
+        </html>
+    `;
+
+    return page;
+}
+
+exports.renderTimeSlotStatus = function renderTimeSlotStatus(package, bookedTimeSlot, queueName) {
+    let page = `
+        <html>
+            <head>
+                <title>Package status</title>
+                <link rel="stylesheet" href="/static/css/style.css">
+            </head>
+            <body>
+                <div class="main-body" style="margin-top: 1em">
+                    <h1>Hey ${package.customerName == null ? "" : package.customerName}</h1>
+                    <p>You have selected a timeslot for this package, here is your package information:</p>
+                    <p>Booked time period: ${fromISOToDate(bookedTimeSlot.startTime)} from ${fromISOToHHMM(bookedTimeSlot.startTime)} to ${fromISOToHHMM(bookedTimeSlot.endTime)} </p>
+                    <p>Your booking is in queue ${queueName}
+                    <h2>Actions</h2>
+                    ${package.delivered == 0 ? `
+                    <p>If you can not come at the booked time, you can cancel and book a new time:</p> 
+                    <form action="/package/cancel" method="POST">
+                        <input type="hidden" value="${package.guid}" name="guid">
+                        <input type="submit" value="Cancel the booked time">
+                    </form>` : ""}
+                </div>
             </body>
         </html>
     `;
