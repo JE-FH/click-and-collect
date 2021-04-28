@@ -3,6 +3,45 @@ const moment = require("moment");
 const { dbGet, dbExec, dbAll } = require("./db-helpers");
 const fs = require("fs/promises");
 const { isStringInt } = require("./helpers");
+/**
+ * Creates frequency data from begin to end
+ * @param {sqlite3.Database} db 
+ * @param {moment} begin 
+ * @param {moment} end 
+ */
+
+const TIME_STEPS = [30, 15, 10, 5];
+async function createFrequencyData(db, begin, end) {
+	let yep = await dbAll(db, "select t.startTime, t.endTime, count(p.id) as booked from timeSlot t left outer join package p on t.id = p.bookedTimeId left outer join queue q on t.queueId=q.id group by t.startTime, t.endTime ORDER BY t.startTime");
+	let hourTimes
+	 = {};
+	yep.forEach((row) => {
+		let start = moment(row.startTime);
+		let end = moment(row.endTime);
+		let format = start.format("d:HH");
+		if (hourTimes
+			[format] == null) {
+			hourTimes
+			[format] = [0, 0, ""];
+		}
+		hourTimes
+		[format][0] += row.booked;
+		if (hourTimes
+			[format][2] != start.format("YYYY-MM-DD")) {
+			hourTimes
+			[format][1] += 1;
+			hourTimes
+			[format][2] = start.format("YYYY-MM-DD");
+		}
+	});
+
+	Object.entries(hourTimes
+		).forEach(([key, val]) => {
+		val = val[0] / val[1];
+	});
+	return hourTimes
+	;
+}
 
 async function main() {
 	db = new sqlite3.Database(__dirname + "/../databasen.sqlite3");
@@ -16,6 +55,9 @@ async function main() {
 
     console.log("Database correctly configured");
 	let now = moment();
+
+	let hourTimes
+	 = await createFrequencyData(db);
 
 	let applicableRangeStart = roundUpHour(moment(now));
 	let applicableRangeEnd = moment(applicableRangeStart).add(7, "day");
@@ -31,7 +73,7 @@ async function main() {
 	if (beginningTime.isSameOrAfter(applicableRangeEnd)) {
 		console.log("Cant add anything");
 	}
-	let stores = await dbAll(db, "select * from store")
+	let stores = await dbAll(db, "select s.id, s.openingTime, s.name, SUM(q.size) as queueSizeSum from store s left outer join queue q on s.id = q.storeId group by s.id");
 
 	let timeSlots = [];
 
@@ -76,14 +118,23 @@ async function main() {
 				}
 			}
 
-			const TIMESLOT_LENGTH = 15; //minutes
 			timeSlotRanges.forEach(range => {
-				for (let currentTime = moment(range[0]); moment(currentTime).add(TIMESLOT_LENGTH, "minutes").isSameOrBefore(range[1]); currentTime.add(TIMESLOT_LENGTH, "minute")) {
-					let end = moment(currentTime).add(TIMESLOT_LENGTH, "minute");
-					timeSlots.push([currentTime.format("YYYY-MM-DDTHH:mm:ss"), end.format("YYYY-MM-DDTHH:mm:ss"), store.id, queue.id])
+				let currentTime = moment(range[0]);
+				while (true) {
+					let currentTimeFormat = currentTime.format("d:HH");
+					let currentAmount = hourTimes[currentTimeFormat];
+
+					if (!moment(currentTime).add(TIMESLOT_LENGTH, "minutes").isSameOrBefore(range[1])) {
+						break;
+					}
+					currentTime.add(TIMESLOT_LENGTH, "minute")
 					
+					let end = moment(currentTime).add(TIMESLOT_LENGTH, "minute");
+
+					timeSlots.push([currentTime.format("YYYY-MM-DDTHH:mm:ss"), end.format("YYYY-MM-DDTHH:mm:ss"), store.id, queue.id])
+
 				}
-			})
+			});
 		}));
 	}));
 
