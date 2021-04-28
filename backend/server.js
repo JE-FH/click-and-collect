@@ -3,7 +3,7 @@ const sqlite3 = require("sqlite3");
 const fs = require("fs/promises");
 const crypto = require("crypto");
 const moment = require("moment");
-const {toISODateTimeString, isStringInt, isStringNumber, receiveBody, parseURLEncoded, assertAdminAccess, assertEmployeeAccess, setupEmail, sendEmail, sanitizeFullName, sanitizeEmailAddress, fromISOToDate, fromISOToHHMM, deleteTimeslotsWithId, } = require("./helpers");
+const {toISODateTimeString, isStringInt, isStringNumber, receiveBody, parseURLEncoded, assertAdminAccess, assertEmployeeAccess, setupEmail, sendEmail, sanitizeFullName, sanitizeEmailAddress, formatMomentAsISO, fromISOToDate, fromISOToHHMM, deleteTimeslotsWithId, } = require("./helpers");
 const {queryMiddleware, sessionMiddleware, createUserMiddleware} = require("./middleware");
 const {adminNoAccess, invalidParameters, invalidCustomerParameters} = require("./generic-responses");
 const {dbAll, dbGet, dbRun, dbExec} = require("./db-helpers");
@@ -442,35 +442,11 @@ async function packageList(request,response, error){
         return;
     }
     else{
-        let nonDeliveredPackages = await new Promise((resolve, reject) => {
-            let rv = [];
-            db.all("SELECT * FROM package WHERE storeId=? AND delivered=0 ORDER BY id", [wantedStoreId], (err, rows) => {
-                if (err) {
-                    reject(err);
-                }
-                rows.forEach((row) => {
-                    valueToAdd = row;
-                    rv.push(valueToAdd);
-                });
-                resolve (rv);
-            });
-            
-        });
 
-        let deliveredPackages = await new Promise((resolve, reject) => {
-            let rv = [];
-            db.all("SELECT * FROM package WHERE storeId=? AND delivered=1 ORDER BY id", [wantedStoreId], (err, rows) => {
-                if (err) {
-                    reject(err);
-                }
-                rows.forEach((row) => {
-                    valueToAdd = row;
-                    rv.push(valueToAdd);
-                });
-                resolve (rv);
-            });
-            
-        });
+        let nonDeliveredPackages = await dbAll(db,"SELECT * FROM package p LEFT JOIN timeSlot t ON t.id = p.bookedTimeId WHERE p.storeId=? AND p.delivered=0 ORDER BY t.startTime",[wantedStoreId]);
+        // Medtager ikke pakker der blev leveret for mere end en uge siden.
+        let deliveredPackages = await dbAll(db,"SELECT * FROM package p LEFT JOIN timeSlot t ON t.id = p.bookedTimeId WHERE p.storeId=? AND t.endTime >=? AND p.delivered=1 ORDER BY t.startTime",[wantedStoreId, formatMomentAsISO(moment().subtract(7, 'days'))]);
+
         let nonDeliveredPackageTable = `<div id="nonDeliveredPackages" class="packages">
         <p>Number of undelivered packages: ${nonDeliveredPackages.length}</p>`;
                             
@@ -741,7 +717,6 @@ async function packageStoreUnconfirm(request, response) {
 }
 
 async function main() {
-    
 
     db = new sqlite3.Database(__dirname + "/../databasen.sqlite3");
 

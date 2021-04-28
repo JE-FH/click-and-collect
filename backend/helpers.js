@@ -176,7 +176,7 @@ exports.sendEmail = async function sendMail(recipientMail, recipientName, subjec
 
 }
 
-exports.formatMomentAsISO = function fomratMomentAsISO(m) {
+exports.formatMomentAsISO = function formatMomentAsISO(m) {
     return m.format("YYYY-MM-DDTHH:mm:ss");
 }
 /* Replaces + in strings with a space */
