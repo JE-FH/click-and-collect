@@ -52,10 +52,18 @@ function renderEmployeeNav(store) {
     `;
 }
 
+function generalHeader() {
+    return `
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta charset="utf-8">
+    `;
+}
+
 exports.render404 = function render404(userId) {
     let page = `
         <html>
             <head>
+                ${generalHeader()}
                 <title>404 page not found</title>
                 <link rel="stylesheet" href="/static/css/style.css">
             </head>
@@ -77,6 +85,7 @@ exports.renderAdmin = function renderAdmin(request, store) {
     let page = `
         <html>
             <head>
+                ${generalHeader()}
                 <link rel="stylesheet" href="/static/css/style.css">
                 <title>Store admin for ${store.name}</title>
             </head>
@@ -125,6 +134,7 @@ exports.renderQueueList = function renderQueueList(store, queues) {
     let page = `
         <html>
             <head>
+                ${generalHeader()}
                 <title>Queue list for ${store.name}</title>
                 <link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/openlayers/openlayers.github.io@master/en/v6.5.0/css/ol.css" type="text/css">
                 <script src="https://cdn.jsdelivr.net/gh/openlayers/openlayers.github.io@master/en/v6.5.0/build/ol.js"></script>
@@ -174,7 +184,7 @@ exports.renderPackageForm = function renderPackageForm(store, request) {
     let page = `
         <html>
             <head>
-                <meta charset="UTF-8">
+                ${generalHeader()}
                 <title>Add package</title>
                 <link rel="stylesheet" href="/static/css/style.css">
             </head>
@@ -204,6 +214,7 @@ exports.manageEmployees = function manageEmployees(store, request) {
     let page = `
         <html>
             <head>
+                ${generalHeader()}
                 <title>Store admin for ${request.session.storeName}</title>
                 <link rel="stylesheet" href="/static/css/style.css">
             </head>
@@ -263,6 +274,7 @@ exports.employeeListPage = function employeeListPage(store, employeeList, error)
     let page = `
         <html>
             <head>
+                ${generalHeader()}
                 <title>Employee list </title>
                 <link rel="stylesheet" href="/static/css/style.css">
             </head>
@@ -289,6 +301,7 @@ exports.addEmployeePage = function addEmployeePage(store, error) {
     let page = `
         <html>
             <head>
+                ${generalHeader()}
                 <title>Adding new employee </title>
                 <link href="https://maxcdn.bootstrapcdn.com/font-awesome/4.2.0/css/font-awesome.min.css" rel="stylesheet">
                 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.13.0/css/all.min.css">
@@ -374,6 +387,7 @@ exports.renderStoreMenu = function renderStoreMenu(store, request) {
     let page = `
         <html>
             <head>
+                ${generalHeader()}
                 <title>Store menu for ${store.name}</title>
                 <link rel="stylesheet" href="/static/css/style.css">
             </head>
@@ -402,6 +416,7 @@ exports.renderPackageList = function renderPackageList(store, packageTable) {
     let page = `
         <html>
             <head>
+                ${generalHeader()}
                 <title>Package overview</title>
                 <link rel="stylesheet" href="/static/css/style.css">
             </head>
@@ -429,6 +444,7 @@ exports.renderSettings = function renderSettings(store, request, DAYS_OF_WEEK, p
     let page = `
         <html>
             <head>
+                ${generalHeader()}
                 <title>Opening time for ${store.name}</title>
                 <link rel="stylesheet" href="/static/css/style.css">
                 <style>
@@ -483,6 +499,7 @@ exports.renderStoreScan = function renderStoreScan(store) {
     let page = `
         <html>
             <head>
+                ${generalHeader()}
                 <title>scanner</title>
                 <link rel="stylesheet" href="/static/css/style.css">
                 <link href="https://maxcdn.bootstrapcdn.com/font-awesome/4.2.0/css/font-awesome.min.css" rel="stylesheet">
@@ -542,6 +559,7 @@ exports.renderPackageOverview = function renderPackageOverview(store, package) {
     let page = `
         <html>
             <head>
+                ${generalHeader()}
                 <title>Package overview</title>
                 <link rel="stylesheet" href="/static/css/style.css">
             </head>
@@ -582,6 +600,7 @@ exports.renderLogin = function renderLogin(error) {
     let page = `
         <html>
             <head>
+                ${generalHeader()}
                 <link href="https://maxcdn.bootstrapcdn.com/font-awesome/4.2.0/css/font-awesome.min.css" rel="stylesheet">
                 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.13.0/css/all.min.css">
                 <link rel="stylesheet" href="/static/css/style.css">
@@ -626,6 +645,7 @@ exports.renderEditEmployee = function renderEditEmployee(store, request, error) 
     let page = `
         <html>
             <head>
+                ${generalHeader()}
                 <title> Editing user: ${request.query.username} </title>
                 <link href="https://maxcdn.bootstrapcdn.com/font-awesome/4.2.0/css/font-awesome.min.css" rel="stylesheet">
                 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.13.0/css/all.min.css">
@@ -712,8 +732,8 @@ exports.renderTimeSlots = function renderTimeSlots(selectedWeek, selectedYear, s
     let page = `
         <html>
             <head>
+                ${generalHeader()}
                 <title>Timeslots</title>
-                <meta charset="UTF-8">
                 <link href="/static/css/timeSlotSelection.css" rel="stylesheet">
             </head>
             <body>
@@ -774,6 +794,7 @@ exports.renderTimeSlotStatus = function renderTimeSlotStatus(package, bookedTime
     let page = `
         <html>
             <head>
+                ${generalHeader()}
                 <title>Package status</title>
                 <link rel="stylesheet" href="/static/css/style.css">
             </head>
@@ -806,6 +827,7 @@ exports.render500 = function render500(request) {
     return`<!DOCTYPE html>
     <html>
         <head>
+            ${generalHeader()}
             <title>500 server error</title>
         </head>
         <body>
