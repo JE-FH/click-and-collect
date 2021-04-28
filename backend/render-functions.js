@@ -579,6 +579,19 @@ exports.renderPackageOverview = function renderPackageOverview(store, package) {
 }
 
 exports.renderLogin = function renderLogin(error) {
+    let message = null;
+
+    switch(error) {
+        case 'Wrong username':
+            message = `<p class="error-message">Wrong username</p>`;
+            break;
+        case 'Wrong password':
+            message = `<p class="error-message">Wrong password</p>`;
+            break;
+        default:
+            message = null;
+    }
+
     let page = `
         <html>
             <head>
@@ -589,7 +602,6 @@ exports.renderLogin = function renderLogin(error) {
             </head>
 
             <body>
-                ${error ? `<p>${error}</p>` : ""}
                 <form action="/login" method="POST">
                     <label for="username">Username: </label>
                     <input type="text" name="username" placeholder="username" required><br>
@@ -599,6 +611,7 @@ exports.renderLogin = function renderLogin(error) {
                             <i class="fas fa-eye" id="togglePassword"> </i>
                         </div>
                     <input type="submit" value="login">
+                    ${message ? `${message}` : ""}
                 </form>
 
                 <script>
