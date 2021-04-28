@@ -47,6 +47,7 @@ function renderEmployeeNav(store) {
         <nav class="employee-nav">
             <a href="/store?storeid=${store.id}">Home</a>
             <a id="scan" href="/store/scan?storeid=${store.id}">Scan</a>
+            <a href="/store/packages?storeid=${store.id}">Packages</a>
         </nav>
     `;
 }
