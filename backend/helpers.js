@@ -168,6 +168,9 @@ exports.sendEmail = async function sendMail(recipientMail, recipientName, subjec
 
 }
 
+exports.formatMomentAsISO = function fomratMomentAsISO(m) {
+    return m.format("YYYY-MM-DDTHH:mm:ss");
+}
 /* Replaces + in strings with a space */
 exports.sanitizeFullName = function sanitizeFullName(name) {
     return name.replaceAll('+', ' ');

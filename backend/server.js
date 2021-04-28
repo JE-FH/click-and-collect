@@ -9,154 +9,13 @@ const {adminNoAccess, invalidParameters, invalidCustomerParameters} = require(".
 const {dbAll, dbGet, dbRun, dbExec} = require("./db-helpers");
 const {renderAdmin, renderQueueList, renderPackageForm, manageEmployees, employeeListPage, addEmployeePage, renderStoreMenu, renderPackageList, renderSettings, renderStoreScan, renderPackageOverview, render404, renderLogin, renderEditEmployee} = require("./render-functions");
 const QRCode = require("qrcode");
-
+const {RequestHandler} = require("./request-handler");
 
 const port = 8000;
 const hostname = '127.0.0.1';
 const HOST = "http://127.0.0.1:8000";
 
 let db;
-let userMiddleware;
-
-async function requestHandler(request, response) {
-    console.log("Received " + request.method + " " + request.url);
-    
-    sessionMiddleware(request, response);
-    await userMiddleware(request, response);
-    queryMiddleware(request, response);
-
-    switch(request.method) {
-        case "POST": {
-            switch(request.path) {
-                default:
-                    defaultResponse(request, response);
-                    break;
-                case "/login":
-                    loginPost(request, response);
-                    break;
-                case "/api/add_package":
-                    apiPost(request, response);
-                    break;
-                case "/package_form_handler":
-                    packageFormHandler(request, response);
-                    break;
-                case "/admin/employees/add":
-                    addEmployeePost(request, response);
-                    break;
-                case "/admin/employees/remove":
-                    removeEmployeePost(request,response);
-                    break;
-                case "/admin/employees/edit":
-                    editEmployeePost(request,response);
-                    break;
-                case "/admin/queues/remove":
-                    queueRemove(request, response);
-                    break;
-                case "/store/package/confirm":
-                    packageStoreConfirm(request, response);
-                    break;
-                case "/store/package/undeliver":
-                    packageStoreUnconfirm(request, response);
-                    break;
-                case "/admin/queues/add":
-                    queueAdd(request, response);
-                    break;
-                case "/admin/settings":
-                    settingsPost(request, response);
-                    break;
-                case "/package/select_time":
-                    selectTimeSlot(request, response);
-                    break;
-                case "/package/cancel":
-                    cancelTimeSlot(request, response);
-                    break;
-            }
-            break;
-        }
-        case "GET": {
-            switch(request.path) {
-                case "/":   
-                case "/login":
-                    loginGet(request, response);
-                    break;
-                case "/admin/employees/add":
-                    addEmployee(request, response, "");
-                    break;
-                case "/admin/employees/edit":
-                    editEmployee(request,response);
-                    break;
-                case "/admin/queues":
-                    queueList(request, response);
-                    break;
-                case "/admin":
-                    adminGet(request, response);
-                    break;
-                case "/admin/settings":
-                    openingTime(request, response);
-                    break;
-                case "/admin/employees":
-                    employeesDashboard(request, response);
-                    break;
-                case "/admin/employees/employee_list":
-                    employeeList(request, response);
-                    break;
-                case "/admin/package_form":
-                    packageFormGet(request, response);
-                    break;
-                case "/static/css/style.css":
-                    serveFile(response, __dirname + "/../frontend/css/style.css", "text/css");
-                    //staticStyleCss(response);
-                    break;
-                case "/store":
-                    storeMenu(request, response);
-                    break;
-                case "/store/packages":
-                    packageList(request, response, "");
-                    break;
-                case "/store/package":
-                    packageStoreView(request, response);
-                    break;
-                case "/static/js/queueListScript.js":
-                    serveFile(response, __dirname + "/../frontend/js/queueListScript.js", "text/javascript");
-                    break;
-                case "/package":
-                    timeSlotSelector(request, response);
-                    break;
-                case "/store/scan":
-                    storeScan(request, response);
-                    break;
-                case "/static/js/qrScannerScript.js":
-                    serveFile(response, __dirname + "/../frontend/js/qrScannerScript.js", "text/javascript");
-                    break;
-                case "/static/js/external/qr-scanner.umd.min.js":
-                    serveFile(response, __dirname + "/../frontend/js/external/qr-scanner.umd.min.js", "text/javascript");
-                    break;
-                case "/static/js/external/qr-scanner-worker.min.js":
-                    serveFile(response, __dirname + "/../frontend/js/external/qr-scanner-worker.min.js", "text/javascript");
-                    break;
-                case "/static/js/settingsScript.js":
-                    serveFile(response, __dirname + "/../frontend/js/settingsScript.js", "text/javascript");
-                    break;
-                case "/admin/settings":
-                    openingTime(request, response);
-                    break;
-                case "/static/css/timeSlotSelection.css":
-                    serveFile(response, __dirname + "/../frontend/css/timeSlotSelection.css", "text/css");
-                    break;
-                case "/static/js/timeSlotSelection.js":
-                    serveFile(response, __dirname + "/../frontend/js/timeSlotSelection.js", "text/javascript");
-                    break;
-                default:
-                    defaultResponse(request, response);
-                    break;
-            }
-            break;
-        }
-        default:
-            defaultResponse(request, response);
-            break;
-    }
-}
 
 async function sendReminders() {
     let unbookedPackages = await getUnbookedPackages();
@@ -467,28 +326,28 @@ async function packageFormGet(request, response) {
     response.end();
 }
 
-async function staticStyleCss(response) {
-    let content = (await fs.readFile(__dirname + "/../frontend/css/style.css")).toString();
-    response.statusCode = 200;
-    response.setHeader("Content-Type", "text/css");
-    response.write(content);
-    response.end();
-}
-
 /* Request handler for any endpoint that isn't explicitally handled */
 function defaultResponse(request, response) {
-    response.statusCode = 404;
-    response.setHeader('Content-Type', 'text/html');
     let userId = null;
     if (request.user != null){
         userId = request.user.storeId;
     }
     
-    console.log(userId);
-
+    response.statusCode = 404;
+    response.setHeader('Content-Type', 'text/html');
     response.write(render404(userId));
     response.end();
-   
+}
+
+/* Request handler for when a server error occurs*/
+function errorResponse(request, response, err) {
+    console.log("Unhandled error occurred");
+    console.log(err);
+    
+    response.statusCode = 500;
+    response.setHeader('Content-Type', 'text/html');
+    response.write(render500(request));
+    response.end();
 }
 
 async function loginGet(request, response, error) {
@@ -548,13 +407,9 @@ async function loginPost(request, response) {
             response.setHeader('Location','/store?storeid=' + user.storeId.toString());
         }
         response.end();
-
-        //TODO: set session state when we have session middleware or something like that
-        return;
     } else {
         /* Wrong password */
         loginGet(request, response, "Wrong password");
-        return;
     }
 
 }
@@ -822,7 +677,7 @@ async function packageStoreUnconfirm(request, response) {
 }
 
 async function main() {
-    const server = http.createServer(requestHandler);
+    
 
     db = new sqlite3.Database(__dirname + "/../databasen.sqlite3");
 
@@ -835,14 +690,77 @@ async function main() {
 
     console.log("Database correctly configured");
 
-    userMiddleware = createUserMiddleware(db);
-
     await setupEmail();
     
     /* Sends reminders to customers who hasn't booked a time slot. Checks every 10 minutes. */
     setInterval(async () => {
         await sendReminders();
     }, 600000);
+
+    let requestHandler = new RequestHandler(defaultResponse, errorResponse);
+
+    /* Logging middleware */
+    requestHandler.addMiddleware((req, _) => {
+        console.log(`${req.socket.remoteAddress}\t${moment().format("YYYY-MM-DD HH:mm:ss ZZ")}\t${req.method} ${req.url}`)}
+    );
+
+    requestHandler.addMiddleware(sessionMiddleware);
+    requestHandler.addMiddleware(createUserMiddleware(db));
+    requestHandler.addMiddleware(queryMiddleware);
+
+    requestHandler.addEndpoint("GET", "/", loginGet);
+    requestHandler.addEndpoint("GET", "/login", loginGet);
+    requestHandler.addEndpoint("GET", "/admin/employees/add", (req, res) => addEmployee(req, res, ""));
+    requestHandler.addEndpoint("GET", "/admin/employees/edit", editEmployee);
+    requestHandler.addEndpoint("GET", "/admin/queues", queueList);
+    requestHandler.addEndpoint("GET", "/admin", adminGet);
+    requestHandler.addEndpoint("GET", "/admin/employees", employeesDashboard);
+    requestHandler.addEndpoint("GET", "/admin/employees/employee_list", employeeList);
+    requestHandler.addEndpoint("GET", "/admin/package_form", packageFormGet);
+    requestHandler.addEndpoint("GET", "/store", storeMenu);
+    requestHandler.addEndpoint("GET", "/store/packages", (req, res) => packageList(req, res, ""));
+    requestHandler.addEndpoint("GET", "/store/package", packageStoreView);
+    requestHandler.addEndpoint("GET", "/package", timeSlotSelector);
+    requestHandler.addEndpoint("GET", "/store/scan", storeScan);
+    requestHandler.addEndpoint("GET", "/admin/settings", openingTime);
+
+    requestHandler.addEndpoint("GET", "/static/style.css", (response) => 
+        serveFile(response, __dirname + "/../frontend/css/style.css", "text/css")
+    );
+    requestHandler.addEndpoint("GET", "/static/js/queueListScript.js", (response) => 
+        serveFile(response, __dirname + "/../frontend/js/queueListScript.js", "text/javascript")
+    );
+    requestHandler.addEndpoint("GET", "/static/js/qrScannerScript.js", (response) => 
+        serveFile(response, __dirname + "/../frontend/js/qrScannerScript.js", "text/javascript")
+    );
+    requestHandler.addEndpoint("GET", "/static/js/external/qr-scanner.umd.min.js", (response) => 
+        serveFile(response, __dirname + "/../frontend/js/external/qr-scanner.umd.min.js", "text/javascript")
+    );
+    requestHandler.addEndpoint("GET", "/static/js/external/qr-scanner-worker.min.js", (response) => 
+        serveFile(response, __dirname + "/../frontend/js/external/qr-scanner-worker.min.js", "text/javascript")
+    );
+    requestHandler.addEndpoint("GET", "/static/css/timeSlotSelection.css", (response) => 
+        serveFile(response, __dirname + "/../frontend/css/timeSlotSelection.css", "text/css")
+    );
+    requestHandler.addEndpoint("GET", "/static/js/timeSlotSelection.js", (response) => 
+        serveFile(response, __dirname + "/../frontend/js/timeSlotSelection.js", "text/javascript")
+    );
+
+    requestHandler.addEndpoint("POST", "/login", loginPost);
+    requestHandler.addEndpoint("POST", "/api/add_package", apiPost);
+    requestHandler.addEndpoint("POST", "/package_form_handler", packageFormHandler);
+    requestHandler.addEndpoint("POST", "/admin/employees/add", addEmployeePost);
+    requestHandler.addEndpoint("POST", "/admin/employees/remove", removeEmployeePost);
+    requestHandler.addEndpoint("POST", "/admin/employees/edit", editEmployeePost);
+    requestHandler.addEndpoint("POST", "/admin/queues/remove", queueRemove);
+    requestHandler.addEndpoint("POST", "/store/package/confirm", packageStoreConfirm);
+    requestHandler.addEndpoint("POST", "/store/package/undeliver", packageStoreUnconfirm);
+    requestHandler.addEndpoint("POST", "/admin/queues/add", queueAdd);
+    requestHandler.addEndpoint("POST", "/package/select_time", selectTimeSlot);
+    requestHandler.addEndpoint("POST", "/package/cancel", cancelTimeSlot);
+    requestHandler.addEndpoint("POST", "/admin/settings", settingsPost);
+
+    const server = http.createServer((request, response) => requestHandler.handleRequest(request, response));
 
     /* Starts the server */
     server.listen(port, hostname, () => {

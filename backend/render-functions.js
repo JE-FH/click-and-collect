@@ -704,3 +704,24 @@ exports.renderEditEmployee = function renderEditEmployee(store, request, error) 
 
     return page;
 }
+
+exports.render500 = function render500(request) {
+    let userId = null;
+    if (request.user != null){
+        userId = request.user.storeId;
+    }
+    return`<!DOCTYPE html>
+    <html>
+        <head>
+            <title>500 server error</title>
+        </head>
+        <body>
+            <b>A server error occurred while serving your request<br></b>
+            <a href="/login">Go to login page </a> <br>
+            ${userId != null ? `
+            <a href="/store?storeid=${userId}"> Go to employee dashboard</a> <br>
+            <a href="/admin?storeid=${userId}"> Go to admin dashboard</a> <br>
+            ` : ""}
+        </body>
+    </html>
+}
