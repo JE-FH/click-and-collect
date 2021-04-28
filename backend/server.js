@@ -442,9 +442,9 @@ async function packageList(request,response, error){
         return;
     }
     else{
-        let packages = await new Promise((resolve, reject) => {
+        let nonDeliveredPackages = await new Promise((resolve, reject) => {
             let rv = [];
-            db.all("SELECT * FROM package WHERE storeId=? ORDER BY id", [wantedStoreId], (err, rows) => {
+            db.all("SELECT * FROM package WHERE storeId=? AND delivered=0 ORDER BY id", [wantedStoreId], (err, rows) => {
                 if (err) {
                     reject(err);
                 }
@@ -457,33 +457,67 @@ async function packageList(request,response, error){
             
         });
 
-        let packageTable = `<div class="packages">
-                                <p>Number of packages: ${packages.length}</p>`;
+        let deliveredPackages = await new Promise((resolve, reject) => {
+            let rv = [];
+            db.all("SELECT * FROM package WHERE storeId=? AND delivered=1 ORDER BY id", [wantedStoreId], (err, rows) => {
+                if (err) {
+                    reject(err);
+                }
+                rows.forEach((row) => {
+                    valueToAdd = row;
+                    rv.push(valueToAdd);
+                });
+                resolve (rv);
+            });
+            
+        });
+        let nonDeliveredPackageTable = `<div class="packages">
+        <p>Number of undelivered packages: ${nonDeliveredPackages.length}</p>`;
                             
-        for (i = 0; i < packages.length; i++){
-            if (!packages[i].delivered){
-                packageTable += `
+        for (i = 0; i < nonDeliveredPackages.length; i++){
+                nonDeliveredPackageTable += `
                             <div class="package">
-                                <h2>${packages[i].externalOrderId}</h2>
+                                <h2>Order id: ${nonDeliveredPackages[i].externalOrderId}</h2>
                                 <h3>Customer info:</h3>
-                                <p>${packages[i].customerName}</p>
-                                <p>${packages[i].customerEmail}</p>
+                                <p>Name: ${nonDeliveredPackages[i].customerName}</p>
+                                <p>Mail: ${nonDeliveredPackages[i].customerEmail}</p>
                                 <h3>Creation date:</h3>
-                                <p>${packages[i].creationDate}</p>
-                                <h3>Status:</h3>
-                                <p style="color: ${packages[i].delivered ? "green" : "red"}">${packages[i].delivered ? "DELIVERED" : "NOT DELIVERED"}</p>
-                                <a href="/store/package?validationKey=${packages[i].verificationCode}&storeid=${packages[i].storeId}" class="knap">Actions</a>
-                            </div>
-            `;}
-        }
+                                <p>${fromIsoToDate(nonDeliveredPackages[i].creationDate)} ${fromISOToHHMM(nonDeliveredPackages[i].creationDate)} </p>
+                                <h3> Booked time: </h3>
 
-        packageTable += `</div>`
+                                <h3>Status:</h3>
+                                <p style="color:red"> NOT DELIVERED </p>
+                                <a href="/store/package?validationKey=${nonDeliveredPackages[i].verificationCode}&storeid=${nonDeliveredPackages[i].storeId}" class="knap">Actions</a>
+                            </div>
+            `;
+        }
+        nonDeliveredPackageTable += `</div>`
+
+        let deliveredPackageTable = `<div id="deliveredPackages" hidden class="packages">
+        <p>Number of delivered packages: ${deliveredPackages.length}</p>`;
+
+        for (i = 0; i < deliveredPackages.length; i++){
+            deliveredPackageTable += `
+                        <div class="package">
+                            <h2>${deliveredPackages[i].externalOrderId}</h2>
+                            <h3>Customer info:</h3>
+                            <p>${deliveredPackages[i].customerName}</p>
+                            <p>${deliveredPackages[i].customerEmail}</p>
+                            <h3>Creation date:</h3>
+                            <p>${deliveredPackages[i].creationDate}</p>
+                            <h3>Status:</h3>
+                            <p style="color:green"> DELIVERED </p>
+                            <a href="/store/package?validationKey=${deliveredPackages[i].verificationCode}&storeid=${deliveredPackages[i].storeId}" class="knap">Actions</a>
+                        </div>
+        `;
+    }
+        deliveredPackageTable += `</div>`
 
         let store = await storeIdToStore(request.user.storeId);
 
         response.statusCode = 200;
 
-        response.write(renderPackageList(store, packageTable));
+        response.write(renderPackageList(store, nonDeliveredPackageTable, deliveredPackageTable));
         
         response.end();
     }

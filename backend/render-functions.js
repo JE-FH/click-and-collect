@@ -395,7 +395,7 @@ exports.renderStoreMenu = function renderStoreMenu(store, request) {
     return page;
 }
 
-exports.renderPackageList = function renderPackageList(store, packageTable) {
+exports.renderPackageList = function renderPackageList(store, nonDeliveredPackageTable, deliveredPackageTable ) {
     let page = `
         <html>
             <head>
@@ -408,10 +408,25 @@ exports.renderPackageList = function renderPackageList(store, packageTable) {
     page += `
                 <div class="main-body">
                     <h1>Package Overview</h1>
-                    ${packageTable}
+                    ${nonDeliveredPackageTable}
+                    ${deliveredPackageTable}
+                    <a class="knap" id="showButton" onclick="toggleShowDelivered()"> Show delivered packages </a>
                     <a href="/store?storeid=${store.id}" class="knap">Back</a>
                 </div>
             </body>
+            <script>
+            function toggleShowDelivered(){
+                table = document.getElementById('deliveredPackages');
+                table.hidden = !table.hidden;
+                button = document.getElementById('showButton');
+                if (table.hidden){
+                    button.innerText = "Show delivered packages";
+                }
+                else{
+                    button.innerText = "Hide delivered packages";
+                }
+            }
+            </script>
         </html>
     `;
 
