@@ -54,7 +54,7 @@ exports.RequestHandler.prototype.handleRequest = async function (request, respon
             console.error("No errorHandler so rethrowing");
             throw e;
         } else {
-            if (handler.errorHandler == 2) {
+            if (this.errorHandler.length == 2) {
                 await this.errorHandler(response, e);
             } else {
                 await this.errorHandler(request, response, e);

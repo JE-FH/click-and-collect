@@ -1,9 +1,24 @@
+body {
+    font-family: sans-serif;
+    padding: 0;
+    margin: 0;
+    background-color: #ECF0F1;
+}
 h1 {
     text-align: center;
-    background-color: #E3BCBC;
+    color: #ECF0F1;
+    background-color: #222;
     background-position: 50% top;
     padding: 50px;
     font-weight: normal;
+    margin: 0;
+}
+body > p {
+    background-color: #333;
+    color: #ECF0F1;
+    margin: 0 0 2em 0;
+    padding: 30px;
+    text-align: center;
 }
 h2 {
     text-align: center;
@@ -62,4 +77,20 @@ th {
 }
 .sTime {
     text-align: center;
+}
+.btnWrap {
+    display: flex;
+    justify-content: space-around;
+    margin: 1em auto;
+    max-width: 500px;
+}
+.btnWrap > form {
+    display: flex;
+    flex: 1;
+    margin: 0;
+    max-width: 150px;
+}
+.btnWrap > form > input {
+    flex: 1;
+    padding: 0.5em 1em;
 }

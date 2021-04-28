@@ -7,7 +7,7 @@ const {toISODateTimeString, isStringInt, isStringNumber, receiveBody, parseURLEn
 const {queryMiddleware, sessionMiddleware, createUserMiddleware} = require("./middleware");
 const {adminNoAccess, invalidParameters, invalidCustomerParameters} = require("./generic-responses");
 const {dbAll, dbGet, dbRun, dbExec} = require("./db-helpers");
-const {renderAdmin, renderQueueList, renderPackageForm, manageEmployees, employeeListPage, addEmployeePage, renderStoreMenu, renderPackageList, renderSettings, renderStoreScan, renderPackageOverview, render404, renderLogin, renderEditEmployee} = require("./render-functions");
+const {renderAdmin, renderQueueList, renderPackageForm, manageEmployees, employeeListPage, addEmployeePage, renderStoreMenu, renderPackageList, renderSettings, renderStoreScan, renderPackageOverview, render404, renderLogin, render500, renderEditEmployee, renderTimeSlots, renderTimeSlotStatus} = require("./render-functions");
 const QRCode = require("qrcode");
 const {RequestHandler} = require("./request-handler");
 
@@ -1208,67 +1208,10 @@ async function timeSlotSelector(request, response) {
                 rowsHTML += "</tr>";
             }
         }
-    
-        
-        /* First part of html */
-        let page = `
-        <!DOCTYPE HTML>
-        <html>
-            <head>
-                <title>Timeslots</title>
-                <meta charset="UTF-8">
-                <link href="/static/css/timeSlotSelection.css" rel="stylesheet">
-            </head>
-            <body> 
-                <form action="/package">
-                    <input type="hidden" name="week" value="${selectedWeek - 1}">
-                    <input type="hidden" name="year" value="${selectedYear}">
-                    <input type="hidden" name="guid" value="${targetPackage.guid}">
-                    <input type="submit" value="Previous week">
-                </form>
-                <h1>Week ${selectedWeekDay.isoWeek() }</h1>
-                <form action="/package">
-                    <input type="hidden" name="week" value="${selectedWeek + 1}">
-                    <input type="hidden" name="year" value="${selectedYear}">
-                    <input type="hidden" name="guid" value="${targetPackage.guid}">
-                    <input type="submit" value="Next week">
-                </form>
-            
-                <div class="time">
-                    <table>
-                        <thead>
-                            <tr>
-                            ${(Array(7).fill().map((_, i) => {
-                                let thing = moment(lower).isoWeekday(i + 1);
-                                return `<th>${thing.format("dddd")}<br>${thing.format("DD/MM/YYYY")}</th>`;
-                            })).join("\n")}
-                            </tr>
-                        </thead>
-                        <tbody> 
-                            ${rowsHTML}
-                        </tbody>
-                    </table>
-                </div>
-
-                <div id="myModal" class="modal">
-                    <div class="modal-content">
-                        <span class="close">&times;</span>
-                        <h2>Do you want the following time slot?</h2>
-                        <p id="selectedTime" class="sTime"> </p>
-                        <form action="/package/select_time" method="POST">
-                            <input name="guid" type="hidden" value="${targetPackage.guid}">
-                            <input id="selected-time-id" type="hidden" value="" name="selectedTimeId">
-                            <input type="submit" class="submitbtn" value="Submit" style="font-size:20px;">
-                        </form>
-                    </div>
-                </div>
-                <script src="/static/js/timeSlotSelection.js"></script>
-            </body>
-        </html>`
 
         response.statusCode = 200;
         response.setHeader('Content-Type', 'text/html');
-        response.write(page);
+        response.write(renderTimeSlots(selectedWeek, selectedYear, selectedWeekDay, targetPackage, lower, rowsHTML));
 
         response.end();
 
@@ -1282,26 +1225,7 @@ async function timeBookedPage(request, response, package) {
     let queueName = (await dbGet(db, "SELECT queueName FROM queue WHERE id = ? AND storeId = ?", [bookedTimeSlot.queueId, package.storeId])).queueName;
     response.statusCode = 200;
     response.setHeader('Content-Type', 'text/html');
-    response.write(`<!DOCTYPE html>
-        <html>
-            <head>
-                <title>Package status</title>
-            </head>
-            <body>
-                <h1>Hey ${package.customerName == null ? "" : package.customerName}</h1>
-                <p>You have selected a timeslot for this package, here is your package information:</p>
-                <p>Booked time period: ${fromISOToDate(bookedTimeSlot.startTime)} from ${fromISOToHHMM(bookedTimeSlot.startTime)} to ${fromISOToHHMM(bookedTimeSlot.endTime)} </p>
-                <p>Your booking is in queue ${queueName}
-                <h2>Actions</h2>
-                ${package.delivered == 0 ? `
-                <p>If you can not come at the booked time, you can cancel and book a new time:</p> 
-                <form action="/package/cancel" method="POST">
-                    <input type="hidden" value="${package.guid}" name="guid">
-                    <input type="submit" value="Cancel the booked time">
-                </form>` : ""}
-            </body>
-        </html>
-    `);
+    response.write(renderTimeSlotStatus(package, bookedTimeSlot, queueName));
     response.end();
 }
 
