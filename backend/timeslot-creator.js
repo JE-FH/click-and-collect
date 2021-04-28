@@ -2,7 +2,7 @@ const sqlite3 = require("sqlite3");
 const moment = require("moment");
 const { dbGet, dbExec, dbAll } = require("./db-helpers");
 const fs = require("fs/promises");
-const { isStringInt } = require("./helpers");
+const { isStringInt, formatMomentAsISO } = require("./helpers");
 /**
  * Creates frequency data from begin to end
  * @param {sqlite3.Database} db 
@@ -10,37 +10,34 @@ const { isStringInt } = require("./helpers");
  * @param {moment} end 
  */
 
-const TIME_STEPS = [30, 15, 10, 5];
+const TIME_STEPS = [30, 30, 30, 15, 7.5, 5];
 async function createFrequencyData(db, begin, end) {
-	let yep = await dbAll(db, "select t.startTime, t.endTime, count(p.id) as booked from timeSlot t left outer join package p on t.id = p.bookedTimeId left outer join queue q on t.queueId=q.id group by t.startTime, t.endTime ORDER BY t.startTime");
-	let hourTimes
-	 = {};
+	let yep = await dbAll(db, `select t.startTime, t.endTime, count(p.id) as booked from timeSlot t 
+	left outer join package p on t.id = p.bookedTimeId 
+	left outer join queue q on t.queueId=q.id  
+	WHERE t.startTime > ? AND 
+	t.endTime < ? 
+	group by t.startTime, t.endTime 
+	ORDER BY t.startTime`, [formatMomentAsISO(begin), formatMomentAsISO(end)]);
+	let hourTimes = {};
 	yep.forEach((row) => {
 		let start = moment(row.startTime);
 		let end = moment(row.endTime);
 		let format = start.format("d:HH");
-		if (hourTimes
-			[format] == null) {
-			hourTimes
-			[format] = [0, 0, ""];
+		if (hourTimes[format] == null) {
+			hourTimes[format] = [0, 0, ""];
 		}
-		hourTimes
-		[format][0] += row.booked;
-		if (hourTimes
-			[format][2] != start.format("YYYY-MM-DD")) {
-			hourTimes
-			[format][1] += 1;
-			hourTimes
-			[format][2] = start.format("YYYY-MM-DD");
+		hourTimes[format][0] += row.booked;
+		if (hourTimes[format][2] != start.format("YYYY-MM-DD")) {
+			hourTimes[format][1] += 1;
+			hourTimes[format][2] = start.format("YYYY-MM-DD");
 		}
 	});
 
-	Object.entries(hourTimes
-		).forEach(([key, val]) => {
-		val = val[0] / val[1];
+	Object.entries(hourTimes).forEach(([key, val]) => {
+		hourTimes[key] = val[0] / val[1];
 	});
-	return hourTimes
-	;
+	return hourTimes;
 }
 
 async function main() {
@@ -56,8 +53,7 @@ async function main() {
     console.log("Database correctly configured");
 	let now = moment();
 
-	let hourTimes
-	 = await createFrequencyData(db);
+	let hourTimes = await createFrequencyData(db, moment(now).subtract(21, "day"), moment(now).set(0, "second").set(0, "minute").set(0, "hour"));
 
 	let applicableRangeStart = roundUpHour(moment(now));
 	let applicableRangeEnd = moment(applicableRangeStart).add(7, "day");
@@ -122,14 +118,17 @@ async function main() {
 				let currentTime = moment(range[0]);
 				while (true) {
 					let currentTimeFormat = currentTime.format("d:HH");
-					let currentAmount = hourTimes[currentTimeFormat];
-
-					if (!moment(currentTime).add(TIMESLOT_LENGTH, "minutes").isSameOrBefore(range[1])) {
+					let currentAmount = hourTimes[currentTimeFormat] ?? 0;
+					let step = Math.min(Math.ceil(currentAmount / store.queueSizeSum), TIME_STEPS.length - 1);
+					console.log(step);
+					let currentLength = TIME_STEPS[step];
+					console.log(currentLength);
+					if (!moment(currentTime).add(currentLength, "minute").isSameOrBefore(range[1])) {
 						break;
 					}
-					currentTime.add(TIMESLOT_LENGTH, "minute")
+					currentTime.add(currentLength, "minute")
 					
-					let end = moment(currentTime).add(TIMESLOT_LENGTH, "minute");
+					let end = moment(currentTime).add(currentLength, "minute");
 
 					timeSlots.push([currentTime.format("YYYY-MM-DDTHH:mm:ss"), end.format("YYYY-MM-DDTHH:mm:ss"), store.id, queue.id])
 
