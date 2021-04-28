@@ -900,7 +900,7 @@ async function editEmployeePost(request, response){
     /* Find the user if it exists */
     let usernameUnique = await new Promise((resolve, reject) => {
         db.serialize(() => {
-            db.get("SELECT id FROM user WHERE username=? AND id!=?", [postParameters["username"],postParameters["id"]], (err, row) => {
+            db.get("SELECT id FROM user WHERE username=? AND id!=? AND storeId=?", [postParameters["username"],postParameters["id"],wantedStoreId], (err, row) => {
                 if (err) {
                     resolve(null);
                 } else {
@@ -917,7 +917,7 @@ async function editEmployeePost(request, response){
     // Giver true hvis den bruger der bliver edited er den sidste superuser
     let lastAdminCheck = await new Promise((resolve, reject) => {
         db.serialize(() => {
-            db.get("SELECT id FROM user WHERE superuser=1 AND id!=?", [postParameters["id"]], (err, row) => {
+            db.get("SELECT id FROM user WHERE superuser=1 AND id!=? AND storeId=?", [postParameters["id"],wantedStoreId], (err, row) => {
                 if (err) {
                     resolve(null);
                 } else {
@@ -933,7 +933,7 @@ async function editEmployeePost(request, response){
 
     let user = await new Promise((resolve, reject) => {
         db.serialize(() => {
-            db.get("SELECT * FROM user WHERE id=?", [postParameters["id"]], (err, row) => {
+            db.get("SELECT * FROM user WHERE id=? AND storeId=?", [postParameters["id"],wantedStoreId], (err, row) => {
                 if (err) {
                     resolve(null);
                 } else {
@@ -970,16 +970,16 @@ async function editEmployeePost(request, response){
                         });
                     });
                     
-                    db.run(`update user set password=? where id=?`,[hashed.toString(HASHING_HASH_ENCODING),user.id]);
+                    db.run(`update user set password=? where id=? AND storeId=?`,[hashed.toString(HASHING_HASH_ENCODING),user.id, wantedStoreId]);
                     }
                 if (changeInUsername) {
-                    db.run(`update user set username=? where id=?`, [postParameters["username"],user.id]);
+                    db.run(`update user set username=? where id=? AND storeId=?`, [postParameters["username"], user.id,wantedStoreId]);
                 }
                 if (changeInName) {
-                    db.run(`update user set name=? where id=?`,[postParameters["employeeName"],user.id]);
+                    db.run(`update user set name=? where id=? AND storeId=?`,[postParameters["employeeName"], user.id, wantedStoreId]);
                 }
                 if (changeInSuperuser) {
-                    db.run(`update user set superuser=? where id=?`,[postParameters["superuser"],user.id]);
+                    db.run(`update user set superuser=? where id=? AND storeId=?`,[postParameters["superuser"], user.id, wantedStoreId]);
                 }
                 if (changeInUsername || changeInName || changeInPassword || changeInSuperuser){
                     request.session.lastError = `The user was edited.`;
