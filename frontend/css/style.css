@@ -21,6 +21,14 @@ body {
     margin: 1em 0;
 }
 
+.error-message {
+    color: red;
+    padding: 0.5em;
+    border: solid 2px red;
+    display: block;
+    margin: 1em 0;
+}
+
 /* Navigation */
 .navigation {
     z-index: 999;
