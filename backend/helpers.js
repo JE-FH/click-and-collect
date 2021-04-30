@@ -252,3 +252,25 @@ exports.deleteTimeslotsWithId = async function deleteTimeslotsWithId(db, host, i
 
     await dbRun(db, "DELETE FROM timeslot WHERE queueId = ?", [id]);
 }
+
+exports.readyStateToReadableString = async function readyStateToReadableString(readyState) {
+    switch (readyState) {
+        case 0:
+            return "Not packed yet";
+        case 1:
+            return "Not delivered";
+        case 2:
+            return "Delivered";
+        default:
+            throw new Error(`Tried to convert invalid readyState, readyState had the value: ${readyState}`);
+    }
+}
+const ReadyState = {
+    0: "NotPackedYet",
+    1: "NotDelivered",
+    2: "Delivered",
+    "NotPackedYet": 0,
+    "NotDelivered": 0,
+    "Delivered": 2
+};
+exports.ReadyState = ReadyState;

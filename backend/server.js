@@ -3,7 +3,7 @@ const sqlite3 = require("sqlite3");
 const fs = require("fs/promises");
 const crypto = require("crypto");
 const moment = require("moment");
-const {toISODateTimeString, isStringInt, isStringNumber, receiveBody, parseURLEncoded, assertAdminAccess, assertEmployeeAccess, setupEmail, sendEmail, sanitizeFullName, sanitizeEmailAddress, fromISOToDate, fromISOToHHMM, deleteTimeslotsWithId} = require("./helpers");
+const {toISODateTimeString, isStringInt, isStringNumber, receiveBody, parseURLEncoded, assertAdminAccess, assertEmployeeAccess, setupEmail, sendEmail, sanitizeFullName, sanitizeEmailAddress, fromISOToDate, fromISOToHHMM, deleteTimeslotsWithId, readyStateToReadableString, ReadyState} = require("./helpers");
 const {queryMiddleware, sessionMiddleware, createUserMiddleware} = require("./middleware");
 const {adminNoAccess, invalidParameters, invalidCustomerParameters} = require("./generic-responses");
 const {dbAll, dbGet, dbRun, dbExec} = require("./db-helpers");
@@ -470,7 +470,7 @@ async function packageList(request,response, error){
                                 <h3>Creation date:</h3>
                                 <p>${packages[i].creationDate}</p>
                                 <h3>Status:</h3>
-                                <p style="color: ${packages[i].delivered ? "green" : "red"}">${packages[i].delivered ? "DELIVERED" : "NOT DELIVERED"}</p>
+                                <p style="color: ${packages[i].readyState ? "green" : "red"}">${readyStateToReadableString(packages[i].readyState)}</p>
                                 <a href="/store/package?validationKey=${packages[i].verificationCode}&storeid=${packages[i].storeId}" class="knap">Actions</a>
                             </div>
             `;
@@ -635,13 +635,13 @@ async function packageStoreConfirm(request, response) {
 
     let actual_package_id = Number(post_data.packageid);
 
-    let package = await dbGet(db, "SELECT * FROM package WHERE id=? AND storeId=? AND delivered=0", [actual_package_id, wantedStoreId]);
+    let package = await dbGet(db, "SELECT * FROM package WHERE id=? AND storeId=? AND readyState!=?", [actual_package_id, wantedStoreId, ReadyState.Delivered]);
     if (package == null) {
         invalidParameters(response, "packageid was not valid", `/store/scan?queryid=${wantedStoreId}`, "package scanner");
         return;
     }
 
-    await dbRun(db, "UPDATE package SET delivered=1 WHERE id=? AND storeId=? AND delivered=0", [actual_package_id, wantedStoreId]);
+    await dbRun(db, "UPDATE package SET readyState=? WHERE id=? AND storeId=? AND readyState!=?", [actual_package_id, wantedStoreId, ReadyState.Delivered, ReadyState.Delivered]);
 
     response.statusCode = 302;
     response.setHeader("Location", `/store/package?storeid=${wantedStoreId.toString()}&validationKey=${package.verificationCode}`);
@@ -663,13 +663,13 @@ async function packageStoreUnconfirm(request, response) {
 
     let actual_package_id = Number(post_data.packageid);
 
-    let package = await dbGet(db, "SELECT * FROM package WHERE id=? AND storeId=? AND delivered=1", [actual_package_id, wantedStoreId]);
+    let package = await dbGet(db, "SELECT * FROM package WHERE id=? AND storeId=? AND readyState=?", [actual_package_id, wantedStoreId, ReadyState.Delivered]);
     if (package == null) {
         invalidParameters(response, "packageid was not valid", `/store/scan?queryid=${wantedStoreId}`, "package scanner");
         return;
     }
 
-    await dbRun(db, "UPDATE package SET delivered=0 WHERE id=? AND storeId=? AND delivered=1", [actual_package_id, wantedStoreId]);
+    await dbRun(db, "UPDATE package SET readyState=? WHERE id=? AND storeId=? AND readyState=?", [ReadyState.NotDelivered, actual_package_id, wantedStoreId, ReadyState.Delivered]);
 
     response.statusCode = 302;
     response.setHeader("Location", `/store/package?storeid=${wantedStoreId.toString()}&validationKey=${package.verificationCode}`);
@@ -677,8 +677,6 @@ async function packageStoreUnconfirm(request, response) {
 }
 
 async function main() {
-    
-
     db = new sqlite3.Database(__dirname + "/../databasen.sqlite3");
 
     let databaseCreationCommand = (await fs.readFile(__dirname + "/database_creation.sql")).toString();
@@ -1026,7 +1024,13 @@ async function timeSlotSelector(request, response) {
         return;
     }
 
-    if (targetPackage.bookedTimeId != null || targetPackage.delivered == 1) {
+    if (targetPackage.readyState == ReadyState.NotPackedYet) {
+        //Skal nok laves om til en bedre error side
+        invalidParameters(response, "Your package is not ready to be picked up yet");
+        return;
+    }
+
+    if (targetPackage.bookedTimeId != null || targetPackage.readyState == ReadyState.Delivered) {
         timeBookedPage(request, response, targetPackage);
         return;
     }
@@ -1092,49 +1096,47 @@ async function timeSlotSelector(request, response) {
         GROUP BY time_format
         ORDER BY time_format ASC`, [lower.format("YYYY-MM-DDTHH:mm:ss"), upper.format("YYYY-MM-DDTHH:mm:ss"), targetPackage.storeId]);
 
-        result.forEach(row => {
-            row.timeSlotData = [];
-            let split = row.timeSlotDataStr.split(";");
-            split.forEach(x => {
-                let split2 = x.split(",");
-                if (split2.length != 3) {
-                    throw new Error("Database returned invalid data");
-                }
-                row.timeSlotData.push({
-                    id: Number(split2[2]),
-                    startTime: new Date(split2[0]),
-                    endTime: new Date(split2[1])
-                });
+    result.forEach(row => {
+        row.timeSlotData = [];
+        let split = row.timeSlotDataStr.split(";");
+        split.forEach(x => {
+            let split2 = x.split(",");
+            if (split2.length != 3) {
+                throw new Error("Database returned invalid data");
+            }
+            row.timeSlotData.push({
+                id: Number(split2[2]),
+                startTime: new Date(split2[0]),
+                endTime: new Date(split2[1])
             });
         });
-        /* middle part of the html */
-        let rowsHTML = ``;
-        /* Checks if there are data to be found, if not it will be logged*/
-        if (result.length > 0) {
-            /* Runs through the (result) which is the collected data */
-            for (let row of result) {
-                rowsHTML += `<tr>`;
-                /* Goes through the days of the week */
-                for (let i = 0; i < 7; i++) {
-                    let found = row.timeSlotData.find((x) => {
-                        return ((x.startTime.getDay() + 6) % 7) == i
-                    });
-                    if (found != null) {                     //Adding 5 minute so the user has time to click it
-                        rowsHTML += `<td><button ${new Date().getTime() + 1000 * 60 * 5 < found.endTime.getTime() ? "" : "disabled"} data-id="${found.id}">${format_date_as_time(found.startTime)} - ${format_date_as_time(found.endTime)}</button></td>`
-                    } else {
-                        rowsHTML += `<td></td>`;
-                    }
+    });
+    /* middle part of the html */
+    let rowsHTML = ``;
+    /* Checks if there are data to be found, if not it will be logged*/
+    if (result.length > 0) {
+        /* Runs through the (result) which is the collected data */
+        for (let row of result) {
+            rowsHTML += `<tr>`;
+            /* Goes through the days of the week */
+            for (let i = 0; i < 7; i++) {
+                let found = row.timeSlotData.find((x) => {
+                    return ((x.startTime.getDay() + 6) % 7) == i
+                });
+                if (found != null) {                     //Adding 5 minute so the user has time to click it
+                    rowsHTML += `<td><button ${new Date().getTime() + 1000 * 60 * 5 < found.endTime.getTime() ? "" : "disabled"} data-id="${found.id}">${format_date_as_time(found.startTime)} - ${format_date_as_time(found.endTime)}</button></td>`
+                } else {
+                    rowsHTML += `<td></td>`;
                 }
-                rowsHTML += "</tr>";
             }
+            rowsHTML += "</tr>";
         }
-
-        response.statusCode = 200;
-        response.setHeader('Content-Type', 'text/html');
-        response.write(renderTimeSlots(selectedWeek, selectedYear, selectedWeekDay, targetPackage, lower, rowsHTML));
-
-        response.end();
-
+    }
+    
+    response.statusCode = 200;
+    response.setHeader('Content-Type', 'text/html');
+    response.write(renderTimeSlots(selectedWeek, selectedYear, selectedWeekDay, targetPackage, lower, rowsHTML));
+    response.end();
 }
 
 async function timeBookedPage(request, response, package) {
