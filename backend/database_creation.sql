@@ -63,7 +63,7 @@ CREATE TABLE IF NOT EXISTS package (
 	customerName varchar,
 	externalOrderId integer,
 	creationDate timestamp NOT NULL,
-	delivered blob NOT NULL DEFAULT 0,
+	readyState integer NOT NULL DEFAULT 0,
 	remindersSent NOT NULL DEFAULT 0,
 	FOREIGN KEY (bookedTimeId)
 		REFERENCES timeSlot (id),
