@@ -850,7 +850,7 @@ async function addEmployeePost(request, response){
     });
 
     if (usernameUnique) {
-        request.session.lastError = "User succesfully added to database";
+        request.session.lastError = "User successfully added to database";
         let salt = crypto.randomBytes(16).toString(HASHING_HASH_ENCODING);
         let hashed = await new Promise((resolve, reject) => {
             crypto.pbkdf2(postParameters["password"], salt, HASHING_ITERATIONS, HASHING_KEYLEN, HASHING_ALGO, (err, derivedKey) => {
@@ -860,7 +860,6 @@ async function addEmployeePost(request, response){
                 resolve(derivedKey);
             });
         });
-        console.log("Bruger indsat i databasen");
         db.run("INSERT INTO user (name, username, superuser, storeid, password, salt) VALUES (?, ?, ?, ?, ?, ?)", [[postParameters["employeeName"]],[postParameters["username"]], [postParameters["superuser"]], request.user.storeId, hashed.toString(HASHING_HASH_ENCODING), salt]);
         }
         

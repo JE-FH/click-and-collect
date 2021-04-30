@@ -275,6 +275,34 @@ function renderListOfEmployees(list, storeId) {
 }
 
 exports.employeeListPage = function employeeListPage(store, employeeList, error) {
+    let message;
+
+    switch(error) {
+        case "The user was edited.":
+            message = `<p class="success-message">${error}</p>`;
+            break;
+        case "User deleted":
+            message = `<p class="success-message">${error}</p>`;
+            break;
+        case "Nothing was changed.":
+            message = `<p class="message">${error}</p>`;
+            break;
+        case "No changes were made.":
+            message = `<p class="message">${error}</p>`;
+            break;
+        case "User not found":
+            message = `<p class="error-message">${error}</p>`;
+            break;
+        case "You can not remove the last superuser.":
+            message = `<p class="error-message">${error}</p>`;
+            break;
+        case "You can't delete your own user":
+            message = `<p class="error-message">${error}</p>`;
+            break;
+        default:
+            break;
+    }
+
     let page = `
         <html>
             <head>
@@ -287,7 +315,7 @@ exports.employeeListPage = function employeeListPage(store, employeeList, error)
     page += `
             <div class="main-body">
                 <h1>Employee list</h1>
-                ${error ? `<p>${error}</p>` : ""}
+                ${message ? message : ""}
                 <div class="employee-list">
                     ${renderListOfEmployees(employeeList, store.id)}
                 </div>
@@ -301,6 +329,21 @@ exports.employeeListPage = function employeeListPage(store, employeeList, error)
 }
 
 exports.addEmployeePage = function addEmployeePage(store, error) {
+    let message;
+
+    console.log(error);
+
+    switch(error) {
+        case "User successfully added to database":
+            message = `<p class="success-message">${error}</p>`;
+            break;
+        case "Username already exists":
+            message = `<p class="error-message">${error}</p>`;
+            break;
+        default:
+            break;
+    }
+
     let page = `
         <html>
             <head>
@@ -343,7 +386,7 @@ exports.addEmployeePage = function addEmployeePage(store, error) {
                     
                         <input type="submit" id="submit" value="Create user" disabled>
                     </form>
-                    ${error ? `<p class="success-message">${error}</p>` : ""}
+                    ${message ? message : ""}
                     <a href="/admin/employees?storeid=${store.id}" class="knap">Back</a>
                 </div>
                 <script>
