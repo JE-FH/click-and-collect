@@ -338,7 +338,7 @@ async function loginPost(request, response) {
         loginGet(request, response, "You didn't enter username and/or password");
         return;
     }
-
+    postParameters["username"] = postParameters["username"].toLowerCase();
     /* Find the user if it exists */
     let user = await dbGet(db, "SELECT id, password, salt, storeId, superuser FROM user WHERE username=?", postParameters["username"]);
 
@@ -554,7 +554,7 @@ async function packageListPost(request,response){
     let postParameters = await receiveBody(request);
     postParameters = parseURLEncoded(postParameters);
 
-    let wantedStoreId = assertAdminAccess(request, postParameters, response);
+    let wantedStoreId = assertEmployeeAccess(request, postParameters, response);
     if (wantedStoreId == null) {
         return;
     }else{
@@ -926,6 +926,9 @@ async function main() {
     requestHandler.addEndpoint("GET", "/static/js/timeSlotSelection.js", (response) => 
         serveFile(response, __dirname + "/../frontend/js/timeSlotSelection.js", "text/javascript")
     );
+    requestHandler.addEndpoint("GET", "/static/js/settingsScript.js", (response) => 
+        serveFile(response, __dirname + "/../frontend/js/settingsScript.js", "text/javascript")
+    );
 
     requestHandler.addEndpoint("POST", "/login", loginPost);
     requestHandler.addEndpoint("POST", "/api/add_package", apiPost);
@@ -991,7 +994,7 @@ async function addEmployeePost(request, response){
     if (wantedStoreId == null) {
         return;  
     }
-
+    postParameters["username"] = postParameters["username"].toLowerCase();
     /* Find the user if it exists */
     let usernameUnique = (await dbGet(db, "SELECT id FROM user WHERE username=?", [postParameters["username"]])) == null;
     
@@ -1055,8 +1058,7 @@ async function editEmployeePost(request, response){
 
     if (wantedStoreId == null) {
         return;  
-    }
-    if (typeof(postParameters["password"]) != "string" || typeof(postParameters["username"]) != "string"
+    } if (typeof(postParameters["password"]) != "string" || typeof(postParameters["username"]) != "string"
         || typeof(postParameters["employeeName"]) != "string" || typeof(postParameters["id"]) != "string" || typeof(postParameters["superuser"]) != "number")
         {
         request.session.lastError = "Some input data was invalid";
@@ -1066,6 +1068,7 @@ async function editEmployeePost(request, response){
         response.end();
         return;
     }
+    postParameters["username"] = postParameters["username"].toLowerCase();
     /* Find the user if it exists */
     let usernameUnique = 
         (await dbGet(db, "SELECT id FROM user WHERE username=? AND id!=? AND storeId=?", [postParameters["username"], postParameters["id"],wantedStoreId])) == null;
@@ -1141,7 +1144,7 @@ async function removeEmployeePost(request, response){
     if (wantedStoreId == null) {
         return;  
     }
-    
+    postParameters["username"] = postParameters["username"].toLowerCase();
     await dbRun(db, "SELECT username, id, password, salt, superuser FROM user WHERE username=? AND storeId=?", [postParameters["username"],request.user.storeId]);
 
     if (user == null){ 
@@ -1172,10 +1175,6 @@ async function employeesDashboard(request, response){
     response.end();
     
 }
-
-/* Hjælpefunktion til at finde username, name, id og superuser til employee list
-   clunky med den er funktionel ;)
-*/
 
 async function employeeList(request, response){
     let wantedStoreId = assertAdminAccess(request, request.query, response);
@@ -1486,15 +1485,21 @@ const CLOSED_TIMESLOT_SELECTION = query = `SELECT id, strftime("%w", startTime) 
 
 async function settingsPost(request, response) {
     let postBody = parseURLEncoded(await receiveBody(request));
-
-    let wantedStoreId = assertAdminAccess(request, request.query, response);
+    let wantedStoreId = assertAdminAccess(request, postBody, response);
     if (wantedStoreId == null) {
         return;
     }
 
     for (day of DAYS_OF_WEEK) {
-        let openTime = postBody[`${day}-open`];
-        let closeTime = postBody[`${day}-close`];
+        if (postBody[`${day}`] != undefined) {
+            if (postBody[`${day}`]){
+                openTime = closeTime = postBody[`${day}-open`];
+            }
+        } else {
+            openTime = postBody[`${day}-open`];
+            closeTime = postBody[`${day}-close`];
+        }
+
         if (!isValidTime(openTime) || !isValidTime(closeTime)) {
             request.session.settingsError = `time range for ${day} was invalid`;
             response.statusCode = 302
@@ -1519,8 +1524,14 @@ async function settingsPost(request, response) {
 
     let newOpeningTime = {};
     for (day of DAYS_OF_WEEK) {
-        let open = postBody[`${day}-open`];
-        let close = postBody[`${day}-close`];
+        if (postBody[`${day}`] != undefined) {
+            if (postBody[`${day}`]){
+                open = close = postBody[`${day}-open`];
+            }
+        } else {
+            open = postBody[`${day}-open`];
+            close = postBody[`${day}-close`];
+        }
 
         if (open == close) {
             newOpeningTime[day] = [];
@@ -1530,7 +1541,7 @@ async function settingsPost(request, response) {
     }
 
     let now = moment();
-
+    console.log(newOpeningTime);
     await dbRun(db, "UPDATE store SET openingTime=? WHERE id=?",[JSON.stringify(newOpeningTime), wantedStoreId]);
 
     if (postBody["delete-timeslots"] == "on") {
