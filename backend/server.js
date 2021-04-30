@@ -104,16 +104,7 @@ async function reminderHTML(package) {
 }
 
 async function getUnbookedPackages() {
-    let packages = await new Promise((resolve, reject) => {
-       db.all("SELECT * FROM package WHERE bookedTimeId IS NULL", (err, rows) => {
-           if(err) {
-               reject(err);
-           } else {
-               resolve(rows);
-           }
-       }) 
-    })
-
+    let packages = await dbAll(db, "SELECT * FROM package WHERE bookedTimeId IS NULL", []);
     return packages;
 }
 
@@ -150,31 +141,13 @@ async function apiPost(request, response) {
 
 /* Returns the associated store from a given API key */
 async function apiKeyToStore(apiKey) {
-    let store = await new Promise((resolve, reject) => {
-        db.get("SELECT * FROM store WHERE apiKey=?", [apiKey], (err, row) => {
-            if(err) {
-                reject(err);
-            } else {
-                resolve(row);
-            }
-        });
-    })
-
+    let store = await dbGet(db, "SELECT * FROM store WHERE apiKey=?", [apiKey]);
     return store;
 }
 
 /* Returns the associated store from a given store id */
 async function storeIdToStore(storeId) {
-    let store = await new Promise((resolve, reject) => {
-        db.get("SELECT * FROM store WHERE id=?", [storeId], (err, row) => {
-            if(err) {
-                reject(err);
-            } else {
-                resolve(row);
-            }
-        });
-    })
-
+    let store = await dbGet(db, "SELECT * FROM store WHERE id=?", [storeId]);
     return store;
 }
 
@@ -237,21 +210,14 @@ async function addPackage(storeId, customerEmail, customerName, externalOrderId)
     bookedTimeId = null;
     creationDate = moment();
     verificationCode = generateVerification();
-    let existingOrder = await new Promise((resolve, reject) => {
-        db.get("SELECT * FROM package WHERE externalOrderId=?", [externalOrderId], (err, row) => {
-            if(err) {
-                reject(err);
-            } else {
-                resolve(row);
-            }
-        });
-    }) /* Vi tjekker om en pakke med samme ordre id eksisterer og gør ikke så meget ved det*/
+    let existingOrder = await dbGet(db, "SELECT * FROM package WHERE externalOrderId=?", [externalOrderId]);
+     /* Vi tjekker om en pakke med samme ordre id eksisterer og gør ikke så meget ved det*/
     if (existingOrder != null){
         console.log(`An order with this id already exists: ${externalOrderId}`);
     }
     let query = 'INSERT INTO package (guid, storeId, bookedTimeId, verificationCode, customerEmail, customerName, externalOrderId, creationDate) VALUES (?, ?, ?, ?, ?, ?, ?, ?)';
 
-    db.run(query, [guid, storeId, bookedTimeId, verificationCode, sanitizeEmailAddress(customerEmail), sanitizeFullName(customerName), externalOrderId, creationDate.format("YYYY-MM-DDTHH:mm:ss")]);
+    dbRun(db, query, [guid, storeId, bookedTimeId, verificationCode, sanitizeEmailAddress(customerEmail), sanitizeFullName(customerName), externalOrderId, creationDate.format("YYYY-MM-DDTHH:mm:ss")]);
 
     console.log('Package added for: ' + customerName);
 
@@ -457,26 +423,10 @@ async function packageList(request,response){
         
         for (i = 0; i < nonDeliveredPackages.length; i++){
            
-            let timeSlot = await new Promise((resolve, reject) => {
-                db.get("SELECT * FROM timeslot WHERE storeId=? AND id=?", [nonDeliveredPackages[i].storeId,nonDeliveredPackages[i].bookedTimeId], (err, row) => {
-                    if(err) {
-                        reject(err);
-                    } else {
-                        resolve(row);
-                    }
-                });
-            })
-            
+            let timeSlot = await dbGet(db, "SELECT * FROM timeslot WHERE storeId=? AND id=?", [nonDeliveredPackages[i].storeId,nonDeliveredPackages[i].bookedTimeId]); 
+
             if (timeSlot != null){
-                queueName = await new Promise((resolve, reject) => {
-                    db.get("SELECT queueName FROM queue WHERE storeId=? AND id=?", [timeSlot.storeId, timeSlot.queueId], (err, row) => {
-                        if(err) {
-                            reject(err);
-                        } else {
-                            resolve(row);
-                        }
-                    });
-                })
+                queueName = await dbGet(db, "SELECT queueName FROM queue WHERE storeId=? AND id=?", [timeSlot.storeId, timeSlot.queueId]);
             } else{
                 queueName = null;
             }
@@ -507,26 +457,10 @@ async function packageList(request,response){
         <p>Number of delivered packages: ${deliveredPackages.length}</p>`;
 
         for (i = 0; i < deliveredPackages.length; i++){
-            let timeSlot = await new Promise((resolve, reject) => {
-                db.get("SELECT * FROM timeslot WHERE storeId=? AND id=?", [deliveredPackages[i].storeId, deliveredPackages[i].bookedTimeId], (err, row) => {
-                    if(err) {
-                        reject(err);
-                    } else {
-                        resolve(row);
-                    }
-                });
-            })
+            let timeSlot = await dbGet(db, "SELECT * FROM timeslot WHERE storeId=? AND id=?", [deliveredPackages[i].storeId, deliveredPackages[i].bookedTimeId]);
             
             if (timeSlot != null){
-                queueName = await new Promise((resolve, reject) => {
-                    db.get("SELECT queueName FROM queue WHERE storeId=? AND id=?", [timeSlot.storeId, timeSlot.queueId], (err, row) => {
-                        if(err) {
-                            reject(err);
-                        } else {
-                            resolve(row);
-                        }
-                    });
-                })
+                queueName = await dbGet(db, "SELECT queueName FROM queue WHERE storeId=? AND id=?", [timeSlot.storeId, timeSlot.queueId]);
             } else{
                 queueName = null;
             }
@@ -584,26 +518,10 @@ async function packageListPost(request,response){
                             
         for (i = 0; i < nonDeliveredPackages.length; i++){
            
-            let timeSlot = await new Promise((resolve, reject) => {
-                db.get("SELECT * FROM timeslot WHERE storeId=? AND id=?", [nonDeliveredPackages[i].storeId,nonDeliveredPackages[i].bookedTimeId], (err, row) => {
-                    if(err) {
-                        reject(err);
-                    } else {
-                        resolve(row);
-                    }
-                });
-            })
+            let timeSlot = await dbGet(db, "SELECT * FROM timeslot WHERE storeId=? AND id=?", [nonDeliveredPackages[i].storeId,nonDeliveredPackages[i].bookedTimeId]);
             
             if (timeSlot != null){
-                queueName = await new Promise((resolve, reject) => {
-                    db.get("SELECT queueName FROM queue WHERE storeId=? AND id=?", [timeSlot.storeId, timeSlot.queueId], (err, row) => {
-                        if(err) {
-                            reject(err);
-                        } else {
-                            resolve(row);
-                        }
-                    });
-                })
+                queueName = await dbGet(db, "SELECT queueName FROM queue WHERE storeId=? AND id=?", [timeSlot.storeId, timeSlot.queueId]);
             } else{
                 queueName = null;
             }
@@ -634,26 +552,10 @@ async function packageListPost(request,response){
         <p>Number of delivered packages: ${deliveredPackages.length}</p>`;
 
         for (i = 0; i < deliveredPackages.length; i++){
-            let timeSlot = await new Promise((resolve, reject) => {
-                db.get("SELECT * FROM timeslot WHERE storeId=? AND id=?", [deliveredPackages[i].storeId, deliveredPackages[i].bookedTimeId], (err, row) => {
-                    if(err) {
-                        reject(err);
-                    } else {
-                        resolve(row);
-                    }
-                });
-            })
+            let timeSlot = await dbGet(db, "SELECT * FROM timeslot WHERE storeId=? AND id=?", [deliveredPackages[i].storeId, deliveredPackages[i].bookedTimeId]);
             
             if (timeSlot != null){
-                queueName = await new Promise((resolve, reject) => {
-                    db.get("SELECT queueName FROM queue WHERE storeId=? AND id=?", [timeSlot.storeId, timeSlot.queueId], (err, row) => {
-                        if(err) {
-                            reject(err);
-                        } else {
-                            resolve(row);
-                        }
-                    });
-                })
+                queueName = await dbGet(db, "SELECT queueName FROM queue WHERE storeId=? AND id=?", [timeSlot.storeId, timeSlot.queueId]);
             } else{
                 queueName = null;
             }
@@ -1024,7 +926,7 @@ async function addEmployeePost(request, response){
             });
         });
         console.log("Bruger indsat i databasen");
-        db.run("INSERT INTO user (name, username, superuser, storeid, password, salt) VALUES (?, ?, ?, ?, ?, ?)", [[postParameters["employeeName"]],[postParameters["username"]], [postParameters["superuser"]], request.user.storeId, hashed.toString(HASHING_HASH_ENCODING), salt]);
+        dbRun(db, "INSERT INTO user (name, username, superuser, storeid, password, salt) VALUES (?, ?, ?, ?, ?, ?)", [[postParameters["employeeName"]],[postParameters["username"]], [postParameters["superuser"]], request.user.storeId, hashed.toString(HASHING_HASH_ENCODING), salt]);
     } else {
         request.session.lastError = "Username already exists";
     }
