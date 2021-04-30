@@ -45,7 +45,7 @@ async function sendReminder(package) {
         console.log('Sending reminder to: ' + package.customerEmail + ' (3 days has passed)');
         sendEmail(package.customerEmail, package.customerName, "Reminder: no time slot booked", `Link: ${HOST}/package?guid=${package.guid}`, await reminderHTML(package));
         /* Increment package.remindersSent in database */
-        db.run("UPDATE package SET remindersSent=1 WHERE id=?", [package.id]);
+        await dbRun(db, "UPDATE package SET remindersSent=1 WHERE id=?", [package.id]);
     } else {
         return;
     }
