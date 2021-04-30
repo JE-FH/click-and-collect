@@ -253,7 +253,7 @@ exports.deleteTimeslotsWithId = async function deleteTimeslotsWithId(db, host, i
     await dbRun(db, "DELETE FROM timeslot WHERE queueId = ?", [id]);
 }
 
-exports.readyStateToReadableString = async function readyStateToReadableString(readyState) {
+exports.readyStateToReadableString = function readyStateToReadableString(readyState) {
     switch (readyState) {
         case 0:
             return "Not packed yet";

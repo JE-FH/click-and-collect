@@ -470,7 +470,7 @@ async function packageList(request,response, error){
                                 <h3>Creation date:</h3>
                                 <p>${packages[i].creationDate}</p>
                                 <h3>Status:</h3>
-                                <p style="color: ${packages[i].readyState ? "green" : "red"}">${readyStateToReadableString(packages[i].readyState)}</p>
+                                <p style="color: ${packages[i].readyState == ReadyState.Delivered ? "green" : "red"}">${readyStateToReadableString(packages[i].readyState)}</p>
                                 <a href="/store/package?validationKey=${packages[i].verificationCode}&storeid=${packages[i].storeId}" class="knap">Actions</a>
                             </div>
             `;
@@ -1132,7 +1132,7 @@ async function timeSlotSelector(request, response) {
             rowsHTML += "</tr>";
         }
     }
-    
+
     response.statusCode = 200;
     response.setHeader('Content-Type', 'text/html');
     response.write(renderTimeSlots(selectedWeek, selectedYear, selectedWeekDay, targetPackage, lower, rowsHTML));
@@ -1164,7 +1164,7 @@ async function selectTimeSlot(request, response) {
         return;
     }
     
-    if (targetPackage.delivered || targetPackage.bookedTimeSlot != null) {
+    if (targetPackage.readyState == ReadyState.Delivered || targetPackage.bookedTimeSlot != null) {
         invalidParameters(response, "You already booked a time slot", `/package?guid=${postData.guid}`, "package status");
         return;
     }
@@ -1212,7 +1212,7 @@ async function cancelTimeSlot(request, response) {
         return;
     }
     
-    if (targetPackage.delivered == 1) {
+    if (targetPackage.readyState == ReadyState.Delivered) {
         invalidParameters(response, "This package was already delivered", `/package?guid=${postData.guid}`, "package status");
         return;
     }
