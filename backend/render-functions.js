@@ -574,7 +574,7 @@ exports.renderStoreScan = function renderStoreScan(store) {
                             <button id="start-scanner-btn">Start scanner</button>
                             <button id="stop-scanner-btn">Stop scanner</button>
                         </div>
-                        
+                    </div>
                         <h2>Package details</h2>
                         <p>Validation key is automatically set when a QR code is scanned. Press the lock to manually input package:</p>
                         <form action="/store/package" method="GET">
@@ -586,9 +586,9 @@ exports.renderStoreScan = function renderStoreScan(store) {
                             <input type="hidden" value="${store.id}" name="storeid">
                             <input type="submit" value="Go to package"><br>
                         </form>
-                    </div>
+                    
                     <a href="/store?storeid=${store.id}" class="knap">Back</a>
-                </div>
+                    </div>
 
                 <!-- Burde måske samles i en script -->
                 <script src="/static/js/external/qr-scanner.umd.min.js"></script>
