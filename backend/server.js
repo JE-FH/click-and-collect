@@ -7,7 +7,7 @@ const {toISODateTimeString, formatMomentAsISO, isStringInt, isStringNumber, rece
 const {queryMiddleware, sessionMiddleware, createUserMiddleware} = require("./middleware");
 const {adminNoAccess, invalidParameters, invalidCustomerParameters} = require("./generic-responses");
 const {dbAll, dbGet, dbRun, dbExec} = require("./db-helpers");
-const {renderAdmin, renderQueueList, renderPackageForm, manageEmployees, employeeListPage, addEmployeePage, renderStoreMenu, renderPackageList, renderSettings, renderStoreScan, renderPackageOverview, render404, renderLogin, render500, renderEditEmployee, renderTimeSlots, renderTimeSlotStatus, renderUnpackedPackages} = require("./render-functions");
+const {renderAdmin, renderQueueList, renderPackageForm, manageEmployees, employeeListPage, addEmployeePage, renderStoreMenu, renderPackageList, renderSettings, renderStoreScan, renderPackageOverview, render404, renderLogin, render500, renderEditEmployee, renderTimeSlots, renderTimeSlotStatus, renderUnpackedPackages, renderOrderProcessingMail} = require("./render-functions");
 const QRCode = require("qrcode");
 const {RequestHandler} = require("./request-handler");
 
@@ -217,13 +217,19 @@ async function addPackage(storeId, customerEmail, customerName, externalOrderId)
     }
     let query = 'INSERT INTO package (guid, storeId, bookedTimeId, verificationCode, customerEmail, customerName, externalOrderId, creationDate) VALUES (?, ?, ?, ?, ?, ?, ?, ?)';
 
-    dbRun(db, query, [guid, storeId, bookedTimeId, verificationCode, sanitizeEmailAddress(customerEmail), sanitizeFullName(customerName), externalOrderId, creationDate.format("YYYY-MM-DDTHH:mm:ss")]);
+    await dbRun(db, query, [guid, storeId, bookedTimeId, verificationCode, customerEmail, customerName, externalOrderId, creationDate.format("YYYY-MM-DDTHH:mm:ss")]);
 
     console.log('Package added for: ' + customerName);
 
     let store = await storeIdToStore(storeId);
 
-    await sendEmail(sanitizeEmailAddress(customerEmail), sanitizeFullName(customerName), `${store.name}: Choose a pickup time slot`, `Link: ${HOST}/package?guid=${guid}`, await renderMailTemplate(sanitizeFullName(customerName), store, guid, creationDate));
+    await sendEmail(
+        customerEmail, customerName, 
+        `${store.name}: Order for your package has been received`, 
+        `You have ordered a package from ${store.name} and it is currently being processed and packed\r\n` + 
+        "you will recieve an email when the order is packed and then you will be able to select a timeslot",
+        renderOrderProcessingMail(store, {customerName: customerName}, creationDate)
+    );
 }
 
 function generateVerification() {
@@ -232,14 +238,14 @@ function generateVerification() {
     let chars = "ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789";
 
     for(let i = 0; i < length; i++) {
-        result.push(chars[crypto.randomInt(0, 36)]);
+        result.push(chars[crypto.randomInt(0, chars.length)]);
     }
 
     return result.join('');
 }
 
 /* Email template for reminders */
-async function renderMailTemplate(name, store, uid, timestamp) {
+async function renderMailTemplate(name, store, guid, timestamp) {
     return `
         <html>
             <head>
@@ -249,9 +255,10 @@ async function renderMailTemplate(name, store, uid, timestamp) {
             <body>
                 <h1>Pick a time slot</h1>
                 <p>Hello ${name}. You have ordered items from ${store.name}.</p>
-                <p>Order received ${timestamp}.</p>
-                <h2>Your link:</h2>
-                <a target="_blank" href="${HOST}/package?guid=${uid}">${HOST}/package?guid=${uid}</a>
+                <p>The package has now been processed and packed.
+                Now you have to select a timeslot where you can pick up the package<p>
+                <h2>Your unique link:</h2>
+                <a target="_blank" href="${HOST}/package?guid=${guid}">${HOST}/package?guid=${guid}</a>
             </body>
         </html>
     `;
@@ -544,7 +551,28 @@ async function markPackageAsPacked(request, response) {
         return;
     }
 
-    await dbRun(db, "UPDATE package SET readyState=? WHERE id=? AND storeId=?", [ReadyState.NotDelivered, Number(postData.packageid), wantedStoreId]);
+    let packageId = Number(postData.packageid);
+
+    let package = await dbGet(db, "SELECT * FROM package WHERE id=? AND storeId=? LIMIT 1", [packageId, wantedStoreId]);
+    if (package == null) {
+        invalidParameters(response, "packageid was malformed", `/store/unpackedpackages?storeid=${wantedStoreId}`, "unpacked packages list");
+        return;
+    }
+
+    let store = await dbGet(db, "SELECT * FROM store WHERE id=? LIMIT 1", [wantedStoreId]);
+    if (store == null) {
+        throw new Error("storeid should not be null here 12354135");
+    }
+
+    await dbRun(db, "UPDATE package SET readyState=? WHERE id=? AND storeId=?", [ReadyState.NotDelivered, packageId, wantedStoreId]);
+    
+    await sendEmail(
+        package.customerEmail, package.customerName, 
+        `${store.name}: Choose a pickup time slot`, 
+        `Link: ${HOST}/package?guid=${package.guid}`, 
+        await renderMailTemplate(package.customerName, store, package.guid, package.creationDate)
+    );
+
     response.statusCode = 302;
     response.setHeader("Location", `/store/unpackedpackages?storeid=${wantedStoreId}`);
     response.end();
@@ -820,7 +848,7 @@ async function packageStoreConfirm(request, response) {
         return;
     }
 
-    await dbRun(db, "UPDATE package SET readyState=? WHERE id=? AND storeId=? AND readyState!=?", [actual_package_id, wantedStoreId, ReadyState.Delivered, ReadyState.Delivered]);
+    await dbRun(db, "UPDATE package SET readyState=? WHERE id=? AND storeId=? AND readyState!=?", [ReadyState.Delivered, actual_package_id, wantedStoreId, ReadyState.Delivered]);
 
     response.statusCode = 302;
     response.setHeader("Location", `/store/package?storeid=${wantedStoreId.toString()}&validationKey=${package.verificationCode}`);
@@ -864,10 +892,6 @@ async function main() {
     
     /* Execute the database creation commands */
     await dbExec(db, databaseCreationCommand);
-
-    db.on("trace", (sql) => {
-        console.log(sql);
-    })
 
     console.log("Database correctly configured");
 

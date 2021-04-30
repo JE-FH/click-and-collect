@@ -920,7 +920,7 @@ exports.renderTimeSlotStatus = function renderTimeSlotStatus(package, bookedTime
                     <p>Booked time period: ${fromISOToDate(bookedTimeSlot.startTime)} from ${fromISOToHHMM(bookedTimeSlot.startTime)} to ${fromISOToHHMM(bookedTimeSlot.endTime)} </p>
                     <p>Your booking is in queue ${queueName}
                     <h2>Actions</h2>
-                    ${package.delivered == 0 ? `
+                    ${package.readyState == ReadyState.NotDelivered ? `
                     <p>If you can not come at the booked time, you can cancel and book a new time:</p> 
                     <form action="/package/cancel" method="POST">
                         <input type="hidden" value="${package.guid}" name="guid">
@@ -954,4 +954,22 @@ exports.render500 = function render500(request) {
             ` : ""}
         </body>
     </html>`;
+}
+
+exports.renderOrderProcessingMail = function renderOrderProcessingMail(store, package, timestamp) {
+    return `
+        <html>
+            <head>
+                <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+                <title>Choose pickup</title>
+            </head>
+            <body>
+                <h1>Pick a time slot</h1>
+                <p>Hello ${package.customerName}. You have ordered items from ${store.name}.</p>
+                <p>Order received at ${timestamp}.</p>
+                <p>Your order is currently being processed and packed at the store. You will get another mail with further
+                information when the package has been packed and is ready for pick up.</p>
+            </body>
+        </html>
+    `;
 }
