@@ -352,7 +352,6 @@ function errorResponse(request, response, err) {
 
 async function loginGet(request, response) {
     let error = request.session.statusText;
-    console.log(error);
     response.statusCode = error == null ? 200 : 401;
     response.setHeader('Content-Type', 'text/html');
     response.write(renderLogin(error, request));
