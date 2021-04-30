@@ -43,9 +43,9 @@ async function sendReminder(package) {
 
     if(creationDelta >= msPerDay*days) {
         console.log('Sending reminder to: ' + package.customerEmail + ' (3 days has passed)');
-        sendEmail(package.customerEmail, package.customerName, "Reminder: no time slot booked", `Link: ${HOST}/package?guid=${package.guid}`, await reminderHTML(package));
+        await sendEmail(package.customerEmail, package.customerName, "Reminder: no time slot booked", `Link: ${HOST}/package?guid=${package.guid}`, await reminderHTML(package));
         /* Increment package.remindersSent in database */
-        db.run("UPDATE package SET remindersSent=1 WHERE id=?", [package.id]);
+        await dbRun(db, "UPDATE package SET remindersSent=1 WHERE id=?", [package.id]);
     } else {
         return;
     }
@@ -61,9 +61,9 @@ async function remindStoreOwner(package) {
 
     if(creationDelta >= msPerDay*days) {
         console.log('Sending reminder to store owner: ' + store.storeEmail + ' (14 days has passed - order: ' + package.externalOrderId + ')');
-        sendEmail(store.storeEmail, store.name, "Reminder: no time slot booked", `Order: ${package.externalOrderId}`, await reminderStoreHTML(package));
+        await sendEmail(store.storeEmail, store.name, "Reminder: no time slot booked", `Order: ${package.externalOrderId}`, await reminderStoreHTML(package));
         /* Increment package.remindersSent in database */
-        db.run("UPDATE package SET remindersSent=2 WHERE id=?", [package.id]);
+        await dbRun(db, "UPDATE package SET remindersSent=2 WHERE id=?", [package.id]);
     } else {
         return;
     }
@@ -773,7 +773,7 @@ async function queueAdd(request, response) {
     let wantedLongitude = Number(postParameters.longitude);
     let wantedName = postParameters.queueName;
 
-    dbRun(db, "INSERT INTO queue (latitude, longitude, size, storeId, queueName) VALUES (?, ?, ?, ?, ?)", [wantedLatitude, wantedLongitude, wantedSize, wantedStoreId, wantedName]);
+    await dbRun(db, "INSERT INTO queue (latitude, longitude, size, storeId, queueName) VALUES (?, ?, ?, ?, ?)", [wantedLatitude, wantedLongitude, wantedSize, wantedStoreId, wantedName]);
 
     response.statusCode = 302;
     response.setHeader("Location", "/admin/queues?storeid=" + wantedStoreId.toString());
@@ -1098,7 +1098,7 @@ async function editEmployeePost(request, response){
     /* Find the user if it exists */
     let usernameUnique = await new Promise((resolve, reject) => {
         db.serialize(() => {
-            db.get("SELECT id FROM user WHERE username=? AND id!=?", [postParameters["username"],postParameters["id"]], (err, row) => {
+            db.get("SELECT id FROM user WHERE username=? AND id!=? AND storeId=?", [postParameters["username"],postParameters["id"],wantedStoreId], (err, row) => {
                 if (err) {
                     resolve(null);
                 } else {
@@ -1131,7 +1131,7 @@ async function editEmployeePost(request, response){
 
     let user = await new Promise((resolve, reject) => {
         db.serialize(() => {
-            db.get("SELECT * FROM user WHERE id=?", [postParameters["id"]], (err, row) => {
+            db.get("SELECT * FROM user WHERE id=? AND storeId=?", [postParameters["id"],wantedStoreId], (err, row) => {
                 if (err) {
                     resolve(null);
                 } else {
@@ -1168,16 +1168,16 @@ async function editEmployeePost(request, response){
                         });
                     });
                     
-                    db.run(`update user set password=? where id=?`,[hashed.toString(HASHING_HASH_ENCODING),user.id]);
+                    db.run(`update user set password=? where id=? AND storeId=?`,[hashed.toString(HASHING_HASH_ENCODING),user.id, wantedStoreId]);
                     }
                 if (changeInUsername) {
-                    db.run(`update user set username=? where id=?`, [postParameters["username"],user.id]);
+                    db.run(`update user set username=? where id=? AND storeId=?`, [postParameters["username"], user.id,wantedStoreId]);
                 }
                 if (changeInName) {
-                    db.run(`update user set name=? where id=?`,[postParameters["employeeName"],user.id]);
+                    db.run(`update user set name=? where id=? AND storeId=?`,[postParameters["employeeName"], user.id, wantedStoreId]);
                 }
                 if (changeInSuperuser) {
-                    db.run(`update user set superuser=? where id=?`,[postParameters["superuser"],user.id]);
+                    db.run(`update user set superuser=? where id=? AND storeId=?`,[postParameters["superuser"], user.id, wantedStoreId]);
                 }
                 if (changeInUsername || changeInName || changeInPassword || changeInSuperuser){
                     request.session.lastError = `The user was edited.`;
