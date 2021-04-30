@@ -99,7 +99,7 @@ exports.renderAdmin = function renderAdmin(request, store) {
                     <ul class="dash">
                         <a href="/store?storeid=${store.id}"><li>Employee dashboard</li></a>
                         <a href="/admin/queues?storeid=${store.id}"><li>Manage queues</li></a>
-                        <a href="/admin/settings?storeid=${store.id}"><li>Change settings</li></a>
+                        <a href="/admin/settings?storeid=${store.id}"><li>Manage opening times</li></a>
                         <a href="/admin/package_form?storeid=${store.id}"><li>Create package manually</li></a>
                         <a href="/admin/employees?storeid=${store.id}"><li>Manage employees</li></a>
                     </ul>
@@ -509,7 +509,7 @@ exports.renderSettings = function renderSettings(store, request, DAYS_OF_WEEK, p
             page += `${renderNavigation(store)}`;
             page += `
                 <div class="main-body">
-                    <h1>Settings for ${store.name}</h1>
+                    <h1>Opening times for your store: </h1>
                     <p id="error-message" class="${hasError ? "" : "hidden"}">${hasError ? "" : request.session.settingsError}</p>
                     <form method="POST" id="settings-form">
                         <table>
@@ -533,7 +533,7 @@ exports.renderSettings = function renderSettings(store, request, DAYS_OF_WEEK, p
                                 }).join("\n")}
                             </tbody>
                         </table>
-                        <label for="delete-timeslots">Delete existing timeslots outside of open times: </label>
+                        <label for="delete-timeslots">Delete existing timeslots outside of opening times: </label>
                         <input type="checkbox" name="delete-timeslots"><br>
                         <input type="submit" value="Set new opentime">
                     </form>

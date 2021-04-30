@@ -338,7 +338,7 @@ async function loginPost(request, response) {
         loginGet(request, response, "You didn't enter username and/or password");
         return;
     }
-
+    postParameters["username"] = postParameters["username"].toLowerCase();
     /* Find the user if it exists */
     let user = await dbGet(db, "SELECT id, password, salt, storeId, superuser FROM user WHERE username=?", postParameters["username"]);
 
@@ -500,7 +500,7 @@ async function packageListPost(request,response){
     let postParameters = await receiveBody(request);
     postParameters = parseURLEncoded(postParameters);
 
-    let wantedStoreId = assertAdminAccess(request, postParameters, response);
+    let wantedStoreId = assertEmployeeAccess(request, postParameters, response);
     if (wantedStoreId == null) {
         return;
     }else{
@@ -910,7 +910,7 @@ async function addEmployeePost(request, response){
     if (wantedStoreId == null) {
         return;  
     }
-
+    postParameters["username"] = postParameters["username"].toLowerCase();
     /* Find the user if it exists */
     let usernameUnique = (await dbGet(db, "SELECT id FROM user WHERE username=?", [postParameters["username"]])) == null;
     
@@ -974,8 +974,7 @@ async function editEmployeePost(request, response){
 
     if (wantedStoreId == null) {
         return;  
-    }
-    if (typeof(postParameters["password"]) != "string" || typeof(postParameters["username"]) != "string"
+    } if (typeof(postParameters["password"]) != "string" || typeof(postParameters["username"]) != "string"
         || typeof(postParameters["employeeName"]) != "string" || typeof(postParameters["id"]) != "string" || typeof(postParameters["superuser"]) != "number")
         {
         request.session.lastError = "Some input data was invalid";
@@ -985,6 +984,7 @@ async function editEmployeePost(request, response){
         response.end();
         return;
     }
+    postParameters["username"] = postParameters["username"].toLowerCase();
     /* Find the user if it exists */
     let usernameUnique = 
         (await dbGet(db, "SELECT id FROM user WHERE username=? AND id!=? AND storeId=?", [postParameters["username"], postParameters["id"],wantedStoreId])) == null;
@@ -1060,7 +1060,7 @@ async function removeEmployeePost(request, response){
     if (wantedStoreId == null) {
         return;  
     }
-    
+    postParameters["username"] = postParameters["username"].toLowerCase();
     await dbRun(db, "SELECT username, id, password, salt, superuser FROM user WHERE username=? AND storeId=?", [postParameters["username"],request.user.storeId]);
 
     if (user == null){ 
@@ -1091,10 +1091,6 @@ async function employeesDashboard(request, response){
     response.end();
     
 }
-
-/* Hjælpefunktion til at finde username, name, id og superuser til employee list
-   clunky med den er funktionel ;)
-*/
 
 async function employeeList(request, response){
     let wantedStoreId = assertAdminAccess(request, request.query, response);
