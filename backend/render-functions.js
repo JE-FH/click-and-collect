@@ -48,7 +48,7 @@ function renderEmployeeNav(store) {
             <a href="/store?storeid=${store.id}">Home</a>
             <a id="scan" href="/store/scan?storeid=${store.id}">Scan</a>
             <a href="/store/packages?storeid=${store.id}">Packages</a>
-            <a href="/store/unpackedpackages?storeid=${store.id}">Unpacked packages</a>
+            <a href="/store/unpacked_packages?storeid=${store.id}">Unpacked packages</a>
         </nav>
     `;
 }
@@ -401,7 +401,7 @@ exports.renderStoreMenu = function renderStoreMenu(store, request) {
                         ${request.user.superuser ? `<a href="/admin?storeid=${store.id}"><li>Back to admin page</li></a>` : ""}
                         <a href="/store/packages?storeid=${store.id}"><li>Package overview</li></a>
                         <a href="/store/scan?storeid=${store.id}"><li>Scan package</li></a>
-                        <a href="/store/unpackedpackages?storeid=${store.id}"><li>Unpacked packages</li></a>
+                        <a href="/store/unpacked_packages?storeid=${store.id}"><li>Unpacked packages</li></a>
                     </ul>
                 </div>
             </body>
@@ -436,7 +436,7 @@ exports.renderUnpackedPackages = function renderUnpackedPackages(store, unpacked
                             <p>${fromISOToDate(package.creationDate)} ${fromISOToHHMM(package.creationDate)} </p>
                             <h3>Status:</h3>
                             <p style="color:red">Not packed yet</p>
-                            <form action="/store/package/readyfordelivery" method="POST">
+                            <form action="/store/package/ready_for_delivery" method="POST">
                                 <input type="hidden" name="packageid" value="${package.id}">
                                 <input type="hidden" name="storeid" value="${package.storeId}">
                                 <input type="submit" value="Mark as ready for delivery">

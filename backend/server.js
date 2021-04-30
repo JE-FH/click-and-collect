@@ -547,7 +547,7 @@ async function markPackageAsPacked(request, response) {
     }
 
     if (postData.packageid == null || !isStringInt(postData.packageid)) {
-        invalidParameters(response, "packageid was malformed", `/store/unpackedpackages?storeid=${wantedStoreId}`, "unpacked packages list");
+        invalidParameters(response, "packageid was malformed", `/store/unpacked_packages?storeid=${wantedStoreId}`, "unpacked packages list");
         return;
     }
 
@@ -555,7 +555,7 @@ async function markPackageAsPacked(request, response) {
 
     let package = await dbGet(db, "SELECT * FROM package WHERE id=? AND storeId=? LIMIT 1", [packageId, wantedStoreId]);
     if (package == null) {
-        invalidParameters(response, "packageid was malformed", `/store/unpackedpackages?storeid=${wantedStoreId}`, "unpacked packages list");
+        invalidParameters(response, "packageid was malformed", `/store/unpacked_packages?storeid=${wantedStoreId}`, "unpacked packages list");
         return;
     }
 
@@ -574,7 +574,7 @@ async function markPackageAsPacked(request, response) {
     );
 
     response.statusCode = 302;
-    response.setHeader("Location", `/store/unpackedpackages?storeid=${wantedStoreId}`);
+    response.setHeader("Location", `/store/unpacked_packages?storeid=${wantedStoreId}`);
     response.end();
 }
 
@@ -928,7 +928,7 @@ async function main() {
     requestHandler.addEndpoint("GET", "/package", timeSlotSelector);
     requestHandler.addEndpoint("GET", "/store/scan", storeScan);
     requestHandler.addEndpoint("GET", "/admin/settings", openingTime);
-    requestHandler.addEndpoint("GET", "/store/unpackedpackages", unpackedPackageList);
+    requestHandler.addEndpoint("GET", "/store/unpacked_packages", unpackedPackageList);
     requestHandler.addEndpoint("GET", "/static/css/style.css", (response) => 
         serveFile(response, __dirname + "/../frontend/css/style.css", "text/css")
     );
@@ -968,7 +968,7 @@ async function main() {
     requestHandler.addEndpoint("POST", "/package/cancel", cancelTimeSlot);
     requestHandler.addEndpoint("POST", "/store/packages", packageListPost);
     requestHandler.addEndpoint("POST", "/admin/settings", settingsPost);
-    requestHandler.addEndpoint("POST", "/store/package/readyfordelivery", markPackageAsPacked);
+    requestHandler.addEndpoint("POST", "/store/package/ready_for_delivery", markPackageAsPacked);
 
     const server = http.createServer((request, response) => requestHandler.handleRequest(request, response));
 
