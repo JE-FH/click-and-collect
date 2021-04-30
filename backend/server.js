@@ -846,6 +846,9 @@ async function main() {
     requestHandler.addEndpoint("GET", "/static/js/timeSlotSelection.js", (response) => 
         serveFile(response, __dirname + "/../frontend/js/timeSlotSelection.js", "text/javascript")
     );
+    requestHandler.addEndpoint("GET", "/static/js/settingsScript.js", (response) => 
+        serveFile(response, __dirname + "/../frontend/js/settingsScript.js", "text/javascript")
+    );
 
     requestHandler.addEndpoint("POST", "/login", loginPost);
     requestHandler.addEndpoint("POST", "/api/add_package", apiPost);
@@ -1397,15 +1400,21 @@ const CRAZY_QUERY = query = `SELECT id, strftime("%w", startTime) as week_day, t
 
 async function settingsPost(request, response) {
     let postBody = parseURLEncoded(await receiveBody(request));
-
-    let wantedStoreId = assertAdminAccess(request, request.query, response);
+    let wantedStoreId = assertAdminAccess(request, postBody, response);
     if (wantedStoreId == null) {
         return;
     }
 
     for (day of DAYS_OF_WEEK) {
-        let openTime = postBody[`${day}-open`];
-        let closeTime = postBody[`${day}-close`];
+        if (postBody[`${day}`] != undefined) {
+            if (postBody[`${day}`]){
+                openTime = closeTime = postBody[`${day}-open`];
+            }
+        } else {
+            openTime = postBody[`${day}-open`];
+            closeTime = postBody[`${day}-close`];
+        }
+
         if (!isValidTime(openTime) || !isValidTime(closeTime)) {
             request.session.settingsError = `time range for ${day} was invalid`;
             response.statusCode = 302
@@ -1430,8 +1439,14 @@ async function settingsPost(request, response) {
 
     let newOpeningTime = {};
     for (day of DAYS_OF_WEEK) {
-        let open = postBody[`${day}-open`];
-        let close = postBody[`${day}-close`];
+        if (postBody[`${day}`] != undefined) {
+            if (postBody[`${day}`]){
+                open = close = postBody[`${day}-open`];
+            }
+        } else {
+            open = postBody[`${day}-open`];
+            close = postBody[`${day}-close`];
+        }
 
         if (open == close) {
             newOpeningTime[day] = [];
@@ -1441,7 +1456,7 @@ async function settingsPost(request, response) {
     }
 
     let now = moment();
-
+    console.log(newOpeningTime);
     await dbRun(db, "UPDATE store SET openingTime=? WHERE id=?",[JSON.stringify(newOpeningTime), wantedStoreId]);
 
     if (postBody["delete-timeslots"] == "on") {

@@ -518,6 +518,7 @@ exports.renderSettings = function renderSettings(store, request, DAYS_OF_WEEK, p
                                     <th style="text-align: left">Day</th>
                                     <th>Open time</th>
                                     <th>Closing time</th>
+                                    <th> Closed </th>
                                 </tr>
                             </thead>
                             <tbody>
@@ -529,8 +530,10 @@ exports.renderSettings = function renderSettings(store, request, DAYS_OF_WEEK, p
                                         <td>${capitalizeFirstLetter(day)}</td>
                                         <td><input name="${day}-open" type="time" value="${parsedOpeningTime[day][0]}" step="1"></td>
                                         <td><input name="${day}-close" type="time" value="${parsedOpeningTime[day][1]}" step="1"></td>
+                                        <td> <input type="checkbox" name="${day}" value="closed"></td>
                                     </tr>`;
                                 }).join("\n")}
+                                <input type="hidden" name="storeid" value="${store.id}">
                             </tbody>
                         </table>
                         <label for="delete-timeslots">Delete existing timeslots outside of opening times: </label>
