@@ -13,10 +13,25 @@ body {
     margin-bottom: 2em;
 }
 
+.message {
+    padding: 5px;
+    border: solid 2px black;
+    display: block;
+    margin: 1em 0;
+}
+
 .success-message {
     color: green;
-    padding: 0.5em;
+    padding: 5px;
     border: solid 2px green;
+    display: block;
+    margin: 1em 0;
+}
+
+.error-message {
+    color: red;
+    padding: 5px;
+    border: solid 2px red;
     display: block;
     margin: 1em 0;
 }

@@ -340,10 +340,12 @@ function errorResponse(request, response, err) {
     response.end();
 }
 
-async function loginGet(request, response, error) {
+async function loginGet(request, response) {
+    let error = request.session.statusText;
     response.statusCode = error == null ? 200 : 401;
     response.setHeader('Content-Type', 'text/html');
-    response.write(renderLogin(error));
+    response.write(renderLogin(error, request));
+    request.session.statusText = undefined;
     response.end();
 }
 
@@ -351,6 +353,7 @@ const HASHING_ITERATIONS = 100000;
 const HASHING_KEYLEN = 64;
 const HASHING_ALGO = "sha512";
 const HASHING_HASH_ENCODING = "hex";
+
 async function loginPost(request, response) {
     /* Read the post body */
     let postBody = await receiveBody(request);
@@ -359,7 +362,10 @@ async function loginPost(request, response) {
 
     /* Make sure that we got the right parameters */
     if (!(typeof postParameters["username"] == "string" && typeof postParameters["password"] == "string")) {
-        loginGet(request, response, "You didn't enter username and/or password");
+        request.session.statusText = "You didn't enter username and/or password";
+        response.setHeader('Location', '/login');
+        response.statusCode = 302;
+        response.end();
         return;
     }
     postParameters["username"] = postParameters["username"].toLowerCase();
@@ -368,7 +374,11 @@ async function loginPost(request, response) {
 
     if (user == null) {
         /* Wrong username */
-        loginGet(request, response, "Wrong username")
+        request.session.statusText = "Wrong username";
+        request.session.username = postParameters["username"];
+        response.setHeader('Location', '/login');
+        response.statusCode = 302;
+        response.end();
         return;
     }
 
@@ -399,7 +409,11 @@ async function loginPost(request, response) {
         response.end();
     } else {
         /* Wrong password */
-        loginGet(request, response, "Wrong password");
+        request.session.statusText = "Wrong password";
+        request.session.username = postParameters["username"];
+        response.setHeader('Location', '/login');
+        response.statusCode = 302;
+        response.end();
     }
 
 }
@@ -746,7 +760,8 @@ async function queueList(request, response) {
 
     response.statusCode = 200;
     response.setHeader('Content-Type', 'text/html');
-    response.write(renderQueueList(store, queues));
+    response.write(renderQueueList(request, store, queues));
+    request.session.statusText = null;
     response.end();
 }
 
@@ -787,9 +802,15 @@ async function queueAdd(request, response) {
         !isStringInt(postParameters.size) || 
         !isStringNumber(postParameters.latitude) ||
         !isStringNumber(postParameters.longitude) ||
+        postParameters.latitude == 0 ||
+        postParameters.longitude == 0 ||
         typeof(postParameters.queueName) != "string"
     ){
-        invalidParameters(response, "size, latitude, longitude or name malformed", `/admin/queues?storeid=${wantedStoreId}`, "Back to queue list");
+        //invalidParameters(response, "size, latitude, longitude or name malformed", `/admin/queues?storeid=${wantedStoreId}`, "Back to queue list");
+        request.session.statusText = "Size, latitude, longitude or name malformed";
+        response.statusCode = 302;
+        response.setHeader("Location", "/admin/queues?storeid=" + wantedStoreId.toString());
+        response.end();
         return;
     }
 
@@ -800,6 +821,7 @@ async function queueAdd(request, response) {
 
     await dbRun(db, "INSERT INTO queue (latitude, longitude, size, storeId, queueName) VALUES (?, ?, ?, ?, ?)", [wantedLatitude, wantedLongitude, wantedSize, wantedStoreId, wantedName]);
 
+    request.session.statusText = "Succes! Added new queue";
     response.statusCode = 302;
     response.setHeader("Location", "/admin/queues?storeid=" + wantedStoreId.toString());
     response.end();
@@ -813,10 +835,12 @@ async function storeScan(request, response) {
     }
 
     let store = await storeIdToStore(wantedStoreId);
+    console.log("error: " + request.session.statusText);
     
     response.statusCode = 200;
     response.setHeader("Content-Type", "text/html");
     response.write(renderStoreScan(store));
+    request.session.statusText = null;
     response.end();
 }
 
@@ -1040,7 +1064,7 @@ async function addEmployeePost(request, response){
     let usernameUnique = (await dbGet(db, "SELECT id FROM user WHERE username=?", [postParameters["username"]])) == null;
     
     if (usernameUnique) {
-        request.session.lastError = "User succesfully added to database";
+        request.session.lastError = "User successfully added to database";
         let salt = crypto.randomBytes(16).toString(HASHING_HASH_ENCODING);
         let hashed = await new Promise((resolve, reject) => {
             crypto.pbkdf2(postParameters["password"], salt, HASHING_ITERATIONS, HASHING_KEYLEN, HASHING_ALGO, (err, derivedKey) => {

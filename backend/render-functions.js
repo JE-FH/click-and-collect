@@ -131,7 +131,21 @@ function renderQueues(queues) {
     return html;
 }
 
-exports.renderQueueList = function renderQueueList(store, queues) {
+exports.renderQueueList = function renderQueueList(request, store, queues) {
+    let statusText = request.session.statusText;
+    let message;
+
+    switch(statusText) {
+        case "Size, latitude, longitude or name malformed":
+            message = `<p class="error-message">${statusText}</p>`
+            break;
+        case "Succes! Added new queue":
+            message = `<p class="success-message">${statusText}</p>`
+            break;
+        default:
+            break;
+    }
+
     let page = `
         <html>
             <head>
@@ -153,6 +167,7 @@ exports.renderQueueList = function renderQueueList(store, queues) {
     page += `
                 <div class="main-body">
                     <h1>Queues for ${store.name}</h1>
+                    ${message ? message : ""}
                     <div class="queue-list">
                         ${renderQueues(queues)}
                     </div>
@@ -272,6 +287,34 @@ function renderListOfEmployees(list, storeId) {
 }
 
 exports.employeeListPage = function employeeListPage(store, employeeList, error) {
+    let message;
+
+    switch(error) {
+        case "The user was edited.":
+            message = `<p class="success-message">${error}</p>`;
+            break;
+        case "User deleted":
+            message = `<p class="success-message">${error}</p>`;
+            break;
+        case "Nothing was changed.":
+            message = `<p class="message">${error}</p>`;
+            break;
+        case "No changes were made.":
+            message = `<p class="message">${error}</p>`;
+            break;
+        case "User not found":
+            message = `<p class="error-message">${error}</p>`;
+            break;
+        case "You can not remove the last superuser.":
+            message = `<p class="error-message">${error}</p>`;
+            break;
+        case "You can't delete your own user":
+            message = `<p class="error-message">${error}</p>`;
+            break;
+        default:
+            break;
+    }
+
     let page = `
         <html>
             <head>
@@ -285,7 +328,7 @@ exports.employeeListPage = function employeeListPage(store, employeeList, error)
     page += `
             <div class="main-body">
                 <h1>Employee list</h1>
-                ${error ? `<p>${error}</p>` : ""}
+                ${message ? message : ""}
                 <div class="employee-list">
                     ${renderListOfEmployees(employeeList, store.id)}
                 </div>
@@ -299,6 +342,21 @@ exports.employeeListPage = function employeeListPage(store, employeeList, error)
 }
 
 exports.addEmployeePage = function addEmployeePage(store, error) {
+    let message;
+
+    console.log(error);
+
+    switch(error) {
+        case "User successfully added to database":
+            message = `<p class="success-message">${error}</p>`;
+            break;
+        case "Username already exists":
+            message = `<p class="error-message">${error}</p>`;
+            break;
+        default:
+            break;
+    }
+
     let page = `
         <html>
             <head>
@@ -342,7 +400,7 @@ exports.addEmployeePage = function addEmployeePage(store, error) {
                     
                         <input type="submit" id="submit" value="Create user" disabled>
                     </form>
-                    ${error ? `<p class="success-message">${error}</p>` : ""}
+                    ${message ? message : ""}
                     <a href="/admin/employees?storeid=${store.id}" class="knap">Back</a>
                 </div>
                 <script>
@@ -711,7 +769,20 @@ exports.renderPackageOverview = function renderPackageOverview(store, package) {
     return page;
 }
 
-exports.renderLogin = function renderLogin(error) {
+exports.renderLogin = function renderLogin(error, request) {
+    let message = null;
+
+    switch(error) {
+        case 'Wrong username':
+            message = `<p class="error-message">Wrong username</p>`;
+            break;
+        case 'Wrong password':
+            message = `<p class="error-message">Wrong password</p>`;
+            break;
+        default:
+            message = null;
+    }
+
     let page = `
         <html>
             <head>
@@ -723,16 +794,16 @@ exports.renderLogin = function renderLogin(error) {
             </head>
 
             <body>
-                ${error ? `<p>${error}</p>` : ""}
                 <form action="/login" method="POST">
                     <label for="username">Username: </label>
-                    <input type="text" name="username" placeholder="username" required><br>
+                    <input type="text" name="username" placeholder="username" value="${request.session.username == undefined ? "" : request.session.username}" required><br>
                     <label for="password"> Password:     </label>
                         <div class="container">
                             <input type="password" name="password" placeholder="password" id="password" required>
                             <i class="fas fa-eye" id="togglePassword"> </i>
                         </div>
                     <input type="submit" value="login">
+                    ${message ? `${message}` : ""}
                 </form>
 
                 <script>
