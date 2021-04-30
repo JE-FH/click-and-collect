@@ -3,11 +3,11 @@ const sqlite3 = require("sqlite3");
 const fs = require("fs/promises");
 const crypto = require("crypto");
 const moment = require("moment");
-const {toISODateTimeString, isStringInt, isStringNumber, receiveBody, parseURLEncoded, assertAdminAccess, assertEmployeeAccess, setupEmail, sendEmail, sanitizeFullName, sanitizeEmailAddress, fromISOToDate, fromISOToHHMM, deleteTimeslotsWithId, readyStateToReadableString, ReadyState} = require("./helpers");
+const {toISODateTimeString, formatMomentAsISO, isStringInt, isStringNumber, receiveBody, parseURLEncoded, assertAdminAccess, assertEmployeeAccess, setupEmail, sendEmail, sanitizeFullName, sanitizeEmailAddress, fromISOToDate, fromISOToHHMM, deleteTimeslotsWithId, readyStateToReadableString, ReadyState} = require("./helpers");
 const {queryMiddleware, sessionMiddleware, createUserMiddleware} = require("./middleware");
 const {adminNoAccess, invalidParameters, invalidCustomerParameters} = require("./generic-responses");
 const {dbAll, dbGet, dbRun, dbExec} = require("./db-helpers");
-const {renderAdmin, renderQueueList, renderPackageForm, manageEmployees, employeeListPage, addEmployeePage, renderStoreMenu, renderPackageList, renderSettings, renderStoreScan, renderPackageOverview, render404, renderLogin, render500, renderEditEmployee, renderTimeSlots, renderTimeSlotStatus} = require("./render-functions");
+const {renderAdmin, renderQueueList, renderPackageForm, manageEmployees, employeeListPage, addEmployeePage, renderStoreMenu, renderPackageList, renderSettings, renderStoreScan, renderPackageOverview, render404, renderLogin, render500, renderEditEmployee, renderTimeSlots, renderTimeSlotStatus, renderUnpackedPackages} = require("./render-functions");
 const QRCode = require("qrcode");
 const {RequestHandler} = require("./request-handler");
 
@@ -406,16 +406,36 @@ async function packageList(request,response){
     let wantedStoreId = assertEmployeeAccess(request, request.query, response);
     if (wantedStoreId == null) {
         return;
-    }
-    else{
-
-        let nonDeliveredPackagesWithTime = await dbAll(db,"SELECT * FROM package p LEFT JOIN timeSlot t ON t.id = p.bookedTimeId WHERE p.storeId=? AND p.delivered=0 AND bookedTimeId is not NULL ORDER BY t.startTime",[wantedStoreId]);
-        let nonDeliveredPackagesWithoutTime = await dbAll(db,"SELECT * FROM package WHERE storeId=? AND delivered=0 AND bookedTimeId is NULL ORDER BY creationDate", [wantedStoreId]);
+    } else {
+        let nonDeliveredPackagesWithTime = await dbAll(db,
+            `SELECT * FROM package p 
+            LEFT JOIN timeSlot t ON t.id = p.bookedTimeId 
+            WHERE p.storeId=? AND p.readyState=? AND bookedTimeId is not NULL 
+            ORDER BY t.startTime`,
+            [wantedStoreId, ReadyState.NotDelivered]
+        );
+        let nonDeliveredPackagesWithoutTime = await dbAll(db,
+            `SELECT * FROM package 
+            WHERE storeId=? AND readyState=? AND bookedTimeId is NULL 
+            ORDER BY creationDate`, 
+            [wantedStoreId, ReadyState.NotDelivered]
+        );
         let nonDeliveredPackages = nonDeliveredPackagesWithTime.concat(nonDeliveredPackagesWithoutTime);
         
         // Medtager ikke pakker der blev leveret for mere end en uge siden.
-        let deliveredPackagesWithTime = await dbAll(db,"SELECT * FROM package p LEFT JOIN timeSlot t ON t.id = p.bookedTimeId WHERE p.storeId=? AND t.endTime >=? AND p.delivered=1 AND bookedTimeId is not NULL ORDER BY t.startTime",[wantedStoreId, formatMomentAsISO(moment().subtract(7, 'days'))]);
-        let deliveredPackagesWithoutTime = await dbAll(db,"SELECT * FROM package WHERE storeId=? AND creationDate >=? AND delivered=1 AND bookedTimeId is NULL ORDER BY creationDate", [wantedStoreId, formatMomentAsISO(moment().subtract(10, 'days'))]);
+        let deliveredPackagesWithTime = await dbAll(db,
+            `SELECT * FROM package p 
+            LEFT JOIN timeSlot t ON t.id = p.bookedTimeId 
+            WHERE p.storeId=? AND t.endTime >=? AND p.readyState=? AND bookedTimeId is not NULL 
+            ORDER BY t.startTime`,
+            [wantedStoreId, formatMomentAsISO(moment().subtract(7, 'days')), ReadyState.Delivered]
+        );
+        let deliveredPackagesWithoutTime = await dbAll(db,
+            `SELECT * FROM package 
+            WHERE storeId=? AND creationDate >=? AND readyState=? AND bookedTimeId is NULL 
+            ORDER BY creationDate`, 
+            [wantedStoreId, formatMomentAsISO(moment().subtract(10, 'days')), ReadyState.Delivered]
+        );
         let deliveredPackages = deliveredPackagesWithTime.concat(deliveredPackagesWithoutTime);
         
         let nonDeliveredPackageTable = `<div id="nonDeliveredPackages" class="packages">
@@ -496,6 +516,40 @@ async function packageList(request,response){
     }
 }
 
+async function unpackedPackageList(request, response) {
+    let wantedStoreId = assertEmployeeAccess(request, request.query, response);
+    if (wantedStoreId == null) {
+        return;
+    }
+    
+    let unpackaged_packages = await dbAll(db, "SELECT * FROM package WHERE storeId=? AND readyState=?", [wantedStoreId, ReadyState.NotPackedYet]);
+
+    let store = await dbGet(db, "select * from store where id=?", [wantedStoreId]);
+
+    response.statusCode = 200;
+    response.write(renderUnpackedPackages(store, unpackaged_packages));
+    response.end();
+}
+
+async function markPackageAsPacked(request, response) {
+    let postData = parseURLEncoded(await receiveBody(request));
+    console.log(postData);
+    let wantedStoreId = assertEmployeeAccess(request, postData, response);
+    if (wantedStoreId == null) {
+        return;
+    }
+
+    if (postData.packageid == null || !isStringInt(postData.packageid)) {
+        invalidParameters(response, "packageid was malformed", `/store/unpackedpackages?storeid=${wantedStoreId}`, "unpacked packages list");
+        return;
+    }
+
+    await dbRun(db, "UPDATE package SET readyState=? WHERE id=? AND storeId=?", [ReadyState.NotDelivered, Number(postData.packageid), wantedStoreId]);
+    response.statusCode = 302;
+    response.setHeader("Location", `/store/unpackedpackages?storeid=${wantedStoreId}`);
+    response.end();
+}
+
 async function packageListPost(request,response){
     let postParameters = await receiveBody(request);
     postParameters = parseURLEncoded(postParameters);
@@ -504,13 +558,35 @@ async function packageListPost(request,response){
     if (wantedStoreId == null) {
         return;
     }else{
-        let nonDeliveredPackagesWithTime = await dbAll(db,"SELECT * FROM package p LEFT JOIN timeSlot t ON t.id = p.bookedTimeId WHERE p.storeId=? AND p.delivered=0 AND customerName like ? AND bookedTimeId is not NULL ORDER BY t.startTime",[wantedStoreId, '%' + postParameters.customerName + '%']);
-        let nonDeliveredPackagesWithoutTime = await dbAll(db,"SELECT * FROM package WHERE storeId=? AND delivered=0 AND bookedTimeId is NULL AND customerName like ? ORDER BY creationDate", [wantedStoreId, '%' + postParameters.customerName + '%']);
+        let nonDeliveredPackagesWithTime = await dbAll(db, 
+            `SELECT * FROM package p 
+            LEFT JOIN timeSlot t ON t.id = p.bookedTimeId 
+            WHERE p.storeId=? AND p.readyState=? AND customerName like ? AND bookedTimeId is not NULL 
+            ORDER BY t.startTime`,
+            [wantedStoreId, ReadyState.NotDelivered, '%' + postParameters.customerName + '%']
+        );
+        let nonDeliveredPackagesWithoutTime = await dbAll(db,
+            `SELECT * FROM package 
+            WHERE storeId=? AND readyState=? AND bookedTimeId is NULL AND customerName like ? 
+            ORDER BY creationDate`, 
+            [wantedStoreId, ReadyState.NotDelivered, '%' + postParameters.customerName + '%']
+        );
         let nonDeliveredPackages = nonDeliveredPackagesWithTime.concat(nonDeliveredPackagesWithoutTime);
 
         // Medtager pakker der blev leveret for mere end en uge siden.
-        let deliveredPackagesWithTime = await dbAll(db,"SELECT * FROM package p LEFT JOIN timeSlot t ON t.id = p.bookedTimeId WHERE p.storeId=? AND p.delivered=1 AND customerName like ? AND bookedTimeId is not NULL ORDER BY t.startTime IS NULL, t.startTime",[wantedStoreId, '%' + postParameters.customerName + '%']);
-        let deliveredPackagesWithoutTime = await dbAll(db,"SELECT * FROM package WHERE storeId=? AND delivered=1 AND bookedTimeId is NULL AND customerName like ? ORDER BY creationDate", [wantedStoreId, '%' + postParameters.customerName + '%']);
+        let deliveredPackagesWithTime = await dbAll(db,
+            `SELECT * FROM package p 
+            LEFT JOIN timeSlot t ON t.id = p.bookedTimeId 
+            WHERE p.storeId=? AND p.readyState=? AND customerName like ? AND bookedTimeId is not NULL 
+            ORDER BY t.startTime IS NULL, t.startTime`,
+            [wantedStoreId, ReadyState.Delivered, '%' + postParameters.customerName + '%']
+        );
+        let deliveredPackagesWithoutTime = await dbAll(db,
+            `SELECT * FROM package 
+            WHERE storeId=? AND readyState=? AND bookedTimeId is NULL AND customerName like ? 
+            ORDER BY creationDate`, 
+            [wantedStoreId, ReadyState.Delivered, '%' + postParameters.customerName + '%']
+        );
         let deliveredPackages = deliveredPackagesWithTime.concat(deliveredPackagesWithoutTime);
         
         let nonDeliveredPackageTable = `<div id="nonDeliveredPackages" class="packages">
@@ -789,6 +865,10 @@ async function main() {
     /* Execute the database creation commands */
     await dbExec(db, databaseCreationCommand);
 
+    db.on("trace", (sql) => {
+        console.log(sql);
+    })
+
     console.log("Database correctly configured");
 
     await setupEmail();
@@ -811,7 +891,7 @@ async function main() {
 
     requestHandler.addEndpoint("GET", "/", loginGet);
     requestHandler.addEndpoint("GET", "/login", loginGet);
-    requestHandler.addEndpoint("GET", "/admin/employees/add", (req, res) => addEmployee(req, res, ""));
+    requestHandler.addEndpoint("GET", "/admin/employees/add", addEmployee);
     requestHandler.addEndpoint("GET", "/admin/employees/edit", editEmployee);
     requestHandler.addEndpoint("GET", "/admin/queues", queueList);
     requestHandler.addEndpoint("GET", "/admin", adminGet);
@@ -824,6 +904,7 @@ async function main() {
     requestHandler.addEndpoint("GET", "/package", timeSlotSelector);
     requestHandler.addEndpoint("GET", "/store/scan", storeScan);
     requestHandler.addEndpoint("GET", "/admin/settings", openingTime);
+    requestHandler.addEndpoint("GET", "/store/unpackedpackages", unpackedPackageList);
     requestHandler.addEndpoint("GET", "/static/css/style.css", (response) => 
         serveFile(response, __dirname + "/../frontend/css/style.css", "text/css")
     );
@@ -860,6 +941,7 @@ async function main() {
     requestHandler.addEndpoint("POST", "/package/cancel", cancelTimeSlot);
     requestHandler.addEndpoint("POST", "/store/packages", packageListPost);
     requestHandler.addEndpoint("POST", "/admin/settings", settingsPost);
+    requestHandler.addEndpoint("POST", "/store/package/readyfordelivery", markPackageAsPacked);
 
     const server = http.createServer((request, response) => requestHandler.handleRequest(request, response));
 
@@ -1397,7 +1479,7 @@ async function openingTime(request, response) {
     response.end();
 }
 //Mangler at tjekke hvornår de begynder
-const CRAZY_QUERY = query = `SELECT id, strftime("%w", startTime) as week_day, time(startTime) as sTime, time(endTime) as eTime FROM timeSlot WHERE startTime > ? AND
+const CLOSED_TIMESLOT_SELECTION = query = `SELECT id, strftime("%w", startTime) as week_day, time(startTime) as sTime, time(endTime) as eTime FROM timeSlot WHERE startTime > ? AND
 (${DAYS_OF_WEEK.map((day, i) => {
     return `(week_day == "${i}" AND (sTime < ? OR eTime > ?))`;
 }).join(" OR\n")})`;
@@ -1453,7 +1535,7 @@ async function settingsPost(request, response) {
 
     if (postBody["delete-timeslots"] == "on") {
         /*Bruger ikke nogen bruger bestemte variabler så det her er okay*/
-        let yep = await dbAll(db, CRAZY_QUERY, [toISODateTimeString(now)].concat(DAYS_OF_WEEK.map((day) => {
+        let yep = await dbAll(db, CLOSED_TIMESLOT_SELECTION, [toISODateTimeString(now)].concat(DAYS_OF_WEEK.map((day) => {
             if (newOpeningTime[day].length == 0) {
                 return ["24:00:00", "00:00:00"];
             }

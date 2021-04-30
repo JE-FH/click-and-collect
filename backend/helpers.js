@@ -270,7 +270,7 @@ const ReadyState = {
     1: "NotDelivered",
     2: "Delivered",
     "NotPackedYet": 0,
-    "NotDelivered": 0,
+    "NotDelivered": 1,
     "Delivered": 2
 };
 exports.ReadyState = ReadyState;
