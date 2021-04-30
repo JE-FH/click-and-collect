@@ -43,7 +43,7 @@ async function sendReminder(package) {
 
     if(creationDelta >= msPerDay*days) {
         console.log('Sending reminder to: ' + package.customerEmail + ' (3 days has passed)');
-        sendEmail(package.customerEmail, package.customerName, "Reminder: no time slot booked", `Link: ${HOST}/package?guid=${package.guid}`, await reminderHTML(package));
+        await sendEmail(package.customerEmail, package.customerName, "Reminder: no time slot booked", `Link: ${HOST}/package?guid=${package.guid}`, await reminderHTML(package));
         /* Increment package.remindersSent in database */
         await dbRun(db, "UPDATE package SET remindersSent=1 WHERE id=?", [package.id]);
     } else {
@@ -61,7 +61,7 @@ async function remindStoreOwner(package) {
 
     if(creationDelta >= msPerDay*days) {
         console.log('Sending reminder to store owner: ' + store.storeEmail + ' (14 days has passed - order: ' + package.externalOrderId + ')');
-        sendEmail(store.storeEmail, store.name, "Reminder: no time slot booked", `Order: ${package.externalOrderId}`, await reminderStoreHTML(package));
+        await sendEmail(store.storeEmail, store.name, "Reminder: no time slot booked", `Order: ${package.externalOrderId}`, await reminderStoreHTML(package));
         /* Increment package.remindersSent in database */
         await dbRun(db, "UPDATE package SET remindersSent=2 WHERE id=?", [package.id]);
     } else {
