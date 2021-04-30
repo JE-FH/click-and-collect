@@ -7,7 +7,7 @@ const {toISODateTimeString, formatMomentAsISO, isStringInt, isStringNumber, rece
 const {queryMiddleware, sessionMiddleware, createUserMiddleware} = require("./middleware");
 const {adminNoAccess, invalidParameters, invalidCustomerParameters} = require("./generic-responses");
 const {dbAll, dbGet, dbRun, dbExec} = require("./db-helpers");
-const {renderAdmin, renderQueueList, renderPackageForm, manageEmployees, employeeListPage, addEmployeePage, renderStoreMenu, renderPackageList, renderSettings, renderStoreScan, renderPackageOverview, render404, renderLogin, render500, renderEditEmployee, renderTimeSlots, renderTimeSlotStatus, renderUnpackedPackages, renderOrderProcessingMail} = require("./render-functions");
+const {renderAdmin, renderQueueList, renderMissedTimeSlot, renderPackageForm, manageEmployees, employeeListPage, addEmployeePage, renderStoreMenu, renderPackageList, renderSettings, renderStoreScan, renderPackageOverview, render404, renderLogin, render500, renderEditEmployee, renderTimeSlots, renderTimeSlotStatus, renderUnpackedPackages, renderOrderProcessingMail} = require("./render-functions");
 const QRCode = require("qrcode");
 const {RequestHandler} = require("./request-handler");
 
@@ -20,7 +20,7 @@ let db;
 async function sendReminders() {
     let unbookedPackages = await getUnbookedPackages();
 
-    for await (let package of unbookedPackages) {
+    for (let package of unbookedPackages) {
         switch(package.remindersSent) {
             case 0:
                 await sendReminder(package);
@@ -32,6 +32,23 @@ async function sendReminders() {
                 break;
         }
     }
+    
+    let late_time = moment().add(15, "minute");
+
+    let late_packages = await dbAll(db, "SELECT p.*, s.name as storeName FROM package p LEFT JOIN timeSlot t ON t.id = p.bookedTimeId LEFT JOIN store s ON s.id = p.storeId WHERE t.endTime > ? AND p.readyState=?", [formatMomentAsISO(late_time), ReadyState.NotDelivered]);
+
+    await dbRun("UPDATE package SET p.bookedTimeIds")
+    let link = `${HOST}/package?guid=${package.guid}`;
+    await Promise.all(late_packages.map(async (package) => {
+        await sendEmail(
+            package.customerEmail, package.customerName, 
+            `${package.storeName}: You have missed the pickup time for your package!`, 
+            "You have missed the time slot you chose for picking up your package\r\n" +
+            "Please go to this link and pick another time and show up within the select time\r\n" +
+            `${link}`,
+            renderMissedTimeSlot(store, package, link)
+        );
+    }));
 }
 
 /* Sends a reminder to the customer associated with the package if it is more than 3 days old and isn't booked for pickup yet */

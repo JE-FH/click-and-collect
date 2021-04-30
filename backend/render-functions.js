@@ -973,3 +973,20 @@ exports.renderOrderProcessingMail = function renderOrderProcessingMail(store, pa
         </html>
     `;
 }
+
+exports.renderMissedTimeSlot = function renderMissedTimeSlot(store, package, unique_url) {
+    return `
+        <html>
+            <head>
+                <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+                <title>Choose pickup</title>
+            </head>
+            <body>
+                <h1>You have missed the timeslot for your package pick up</h1>
+                <p>Hello ${package.customerName}. You have ordered items from ${store.name} but you didnt pick your package up within your time slot.</p>
+                <p>Please pick another time on this link and pick it up with that time slot</p>
+                <p>Link: <a href="${unique_url}">${unique_url}</a></p>
+            </body>
+        </html>
+    `;
+}
