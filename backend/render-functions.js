@@ -417,10 +417,10 @@ exports.renderPackageList = function renderPackageList(store, nonDeliveredPackag
                         <input type="hidden" value="${store.id}" name="storeid">
                         <input type="submit" id="submit" value="Search">
                     </form>
-                    ${nonDeliveredPackageTable}
-                    ${deliveredPackageTable}
                     <a class="knap" id="showButton" onclick="toggleShowDelivered()"> Show delivered packages </a>
                     <a class="knap" id="toggleTimeslots"onclick="toggleTimeSlotChosen()"> Hide packages without an assigned timeslot </a>
+                    ${nonDeliveredPackageTable}
+                    ${deliveredPackageTable}
                     <a href="/store?storeid=${store.id}" class="knap">Back</a>
                 </div>
             </body>
@@ -602,14 +602,14 @@ exports.renderPackageOverview = function renderPackageOverview(store, package) {
     page += `
                 <div class="main-body">
                     <h1>Package details</h1>
-                    <p style="display: inline">status: </p><span style="color: ${package.delivered ? "green" : "red"}">${package.delivered ? "DELIVERED" : "NOT DELIVERED"}</span>
-                    <p>guid: ${package.guid}</p>
-                    <p>bookedTimeId: ${package.bookedTimeId}</p>
-                    <p>verification code: ${package.verificationCode}</p>
-                    <p>customerEmail: ${package.customerEmail}</p>
-                    <p>customerName: ${package.customerName}</p>
-                    <p>externalOrderId: ${package.externalOrderId}</p>
-                    <p>creationDate: ${package.creationDate}</p>
+                    <p style="display: inline">Status: </p><span style="color: ${package.delivered ? "green" : "red"}">${package.delivered ? "DELIVERED" : "NOT DELIVERED"}</span>
+                    <p>Guid: ${package.guid}</p>
+                    <p>Booked timeslot id: ${package.bookedTimeId}</p>
+                    <p>Verification code: ${package.verificationCode}</p>
+                    <p>Customer Email: ${package.customerEmail}</p>
+                    <p>Customer name: ${package.customerName}</p>
+                    <p>External order id: ${package.externalOrderId}</p>
+                    <p>Creation date: ${fromISOToDate(package.creationDate)} ${fromISOToHHMM(package.creationDate)}</p>
                     <h2>Actions</h2>
                     <form action="/store/package/${package.delivered == 0 ? "confirm" : "undeliver"}" method="POST">
                         <input type="hidden" value="${store.id}" name="storeid">
