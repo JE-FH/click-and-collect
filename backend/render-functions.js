@@ -412,7 +412,7 @@ exports.renderStoreMenu = function renderStoreMenu(store, request) {
     return page;
 }
 
-exports.renderPackageList = function renderPackageList(store, packageTable) {
+exports.renderPackageList = function renderPackageList(store, nonDeliveredPackageTable, deliveredPackageTable ) {
     let page = `
         <html>
             <head>
@@ -424,12 +424,63 @@ exports.renderPackageList = function renderPackageList(store, packageTable) {
 
     page += `${renderEmployeeNav(store)}`;
     page += `
-                <h1 style="text-align: center">Package Overview</h1>
-                <div class="main-body" id="packageOverview">
-                    ${packageTable}
+                <div class="main-body">
+                    <h1>Package Overview</h1>
+                    <form action="/store/packages" method="POST">
+                        <label for="customerName"> Search for customer name: </label>
+                        <input type="text" name="customerName" required>
+                        <input type="hidden" value="${store.id}" name="storeid">
+                        <input type="submit" id="submit" value="Search">
+                    </form>
+                    <a class="knap" id="showButton" onclick="toggleShowDelivered()"> Show delivered packages </a>
+                    <a class="knap" id="toggleTimeslots"onclick="toggleTimeSlotChosen()"> Hide packages without an assigned timeslot </a>
+                    ${nonDeliveredPackageTable}
+                    ${deliveredPackageTable}
                     <a href="/store?storeid=${store.id}" class="knap">Back</a>
                 </div>
             </body>
+            <script>
+            let showToggle = 1;
+            function toggleShowDelivered(){
+                table = document.getElementById('deliveredPackages');
+                console.log(table);
+                
+                if (table.style.display === "none"){
+                    table.style.display = "initial";
+                    console.log(table.style.display);
+                } else{
+                    table.style.display = "none";    
+                }
+                console.log(table.style.display);
+                button = document.getElementById('showButton');
+                if (table.style.display === "none"){
+                    button.innerText = "Show delivered packages";
+                }
+                else{
+                    button.innerText = "Hide delivered packages";
+                }
+            }
+            function toggleTimeSlotChosen(){
+                table = document.getElementById('nonDeliveredPackages');
+
+                elements = table.getElementsByTagName('div');
+                
+                button = document.getElementById('toggleTimeslots');
+
+                for (i = 0; i < elements.length; i++){
+                    if (elements[i].classList.contains('noTimeSlot')){
+                        elements[i].hidden = !elements[i].hidden;
+                    }
+                }
+                if (showToggle == 1){
+                    showToggle = 0;
+                    button.innerText = "Show packages without an assigned timeslot";
+                }else{
+                    showToggle = 1;
+                    button.innerText = "Hide packages without an assigned timeslot";
+                }
+            }
+            </script>
         </html>
     `;
 
@@ -569,14 +620,14 @@ exports.renderPackageOverview = function renderPackageOverview(store, package) {
     page += `
                 <div class="main-body">
                     <h1>Package details</h1>
-                    <p style="display: inline">status: </p><span style="color: ${package.delivered ? "green" : "red"}">${package.delivered ? "DELIVERED" : "NOT DELIVERED"}</span>
-                    <p>guid: ${package.guid}</p>
-                    <p>bookedTimeId: ${package.bookedTimeId}</p>
-                    <p>verification code: ${package.verificationCode}</p>
-                    <p>customerEmail: ${package.customerEmail}</p>
-                    <p>customerName: ${package.customerName}</p>
-                    <p>externalOrderId: ${package.externalOrderId}</p>
-                    <p>creationDate: ${package.creationDate}</p>
+                    <p style="display: inline">Status: </p><span style="color: ${package.delivered ? "green" : "red"}">${package.delivered ? "DELIVERED" : "NOT DELIVERED"}</span>
+                    <p>Guid: ${package.guid}</p>
+                    <p>Booked timeslot id: ${package.bookedTimeId}</p>
+                    <p>Verification code: ${package.verificationCode}</p>
+                    <p>Customer Email: ${package.customerEmail}</p>
+                    <p>Customer name: ${package.customerName}</p>
+                    <p>External order id: ${package.externalOrderId}</p>
+                    <p>Creation date: ${fromISOToDate(package.creationDate)} ${fromISOToHHMM(package.creationDate)}</p>
                     <h2>Actions</h2>
                     <form action="/store/package/${package.delivered == 0 ? "confirm" : "undeliver"}" method="POST">
                         <input type="hidden" value="${store.id}" name="storeid">

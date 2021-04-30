@@ -104,16 +104,7 @@ async function reminderHTML(package) {
 }
 
 async function getUnbookedPackages() {
-    let packages = await new Promise((resolve, reject) => {
-       db.all("SELECT * FROM package WHERE bookedTimeId IS NULL", (err, rows) => {
-           if(err) {
-               reject(err);
-           } else {
-               resolve(rows);
-           }
-       }) 
-    })
-
+    let packages = await dbAll(db, "SELECT * FROM package WHERE bookedTimeId IS NULL", []);
     return packages;
 }
 
@@ -150,31 +141,13 @@ async function apiPost(request, response) {
 
 /* Returns the associated store from a given API key */
 async function apiKeyToStore(apiKey) {
-    let store = await new Promise((resolve, reject) => {
-        db.get("SELECT * FROM store WHERE apiKey=?", [apiKey], (err, row) => {
-            if(err) {
-                reject(err);
-            } else {
-                resolve(row);
-            }
-        });
-    })
-
+    let store = await dbGet(db, "SELECT * FROM store WHERE apiKey=?", [apiKey]);
     return store;
 }
 
 /* Returns the associated store from a given store id */
 async function storeIdToStore(storeId) {
-    let store = await new Promise((resolve, reject) => {
-        db.get("SELECT * FROM store WHERE id=?", [storeId], (err, row) => {
-            if(err) {
-                reject(err);
-            } else {
-                resolve(row);
-            }
-        });
-    })
-
+    let store = await dbGet(db, "SELECT * FROM store WHERE id=?", [storeId]);
     return store;
 }
 
@@ -237,21 +210,14 @@ async function addPackage(storeId, customerEmail, customerName, externalOrderId)
     bookedTimeId = null;
     creationDate = moment();
     verificationCode = generateVerification();
-    let existingOrder = await new Promise((resolve, reject) => {
-        db.get("SELECT * FROM package WHERE externalOrderId=?", [externalOrderId], (err, row) => {
-            if(err) {
-                reject(err);
-            } else {
-                resolve(row);
-            }
-        });
-    }) /* Vi tjekker om en pakke med samme ordre id eksisterer og gør ikke så meget ved det*/
+    let existingOrder = await dbGet(db, "SELECT * FROM package WHERE externalOrderId=?", [externalOrderId]);
+     /* Vi tjekker om en pakke med samme ordre id eksisterer og gør ikke så meget ved det*/
     if (existingOrder != null){
         console.log(`An order with this id already exists: ${externalOrderId}`);
     }
     let query = 'INSERT INTO package (guid, storeId, bookedTimeId, verificationCode, customerEmail, customerName, externalOrderId, creationDate) VALUES (?, ?, ?, ?, ?, ?, ?, ?)';
 
-    db.run(query, [guid, storeId, bookedTimeId, verificationCode, sanitizeEmailAddress(customerEmail), sanitizeFullName(customerName), externalOrderId, creationDate.format("YYYY-MM-DDTHH:mm:ss")]);
+    dbRun(db, query, [guid, storeId, bookedTimeId, verificationCode, sanitizeEmailAddress(customerEmail), sanitizeFullName(customerName), externalOrderId, creationDate.format("YYYY-MM-DDTHH:mm:ss")]);
 
     console.log('Package added for: ' + customerName);
 
@@ -435,54 +401,191 @@ async function storeMenu(request, response){
     response.end();
 }
 
-async function packageList(request,response, error){
-   
+async function packageList(request,response){
+    
     let wantedStoreId = assertEmployeeAccess(request, request.query, response);
     if (wantedStoreId == null) {
         return;
     }
     else{
-        let packages = await new Promise((resolve, reject) => {
-            let rv = [];
-            db.all("SELECT * FROM package WHERE storeId=? ORDER BY id", [wantedStoreId], (err, rows) => {
-                if (err) {
-                    reject(err);
-                }
-                rows.forEach((row) => {
-                    valueToAdd = row;
-                    rv.push(valueToAdd);
-                });
-                resolve (rv);
-            });
-            
-        });
 
-        let packageTable = `<div class="packages">
-                                <p style="text-align: center">Number of packages: ${packages.length}</p>`;
+        let nonDeliveredPackagesWithTime = await dbAll(db,"SELECT * FROM package p LEFT JOIN timeSlot t ON t.id = p.bookedTimeId WHERE p.storeId=? AND p.delivered=0 AND bookedTimeId is not NULL ORDER BY t.startTime",[wantedStoreId]);
+        let nonDeliveredPackagesWithoutTime = await dbAll(db,"SELECT * FROM package WHERE storeId=? AND delivered=0 AND bookedTimeId is NULL ORDER BY creationDate", [wantedStoreId]);
+        let nonDeliveredPackages = nonDeliveredPackagesWithTime.concat(nonDeliveredPackagesWithoutTime);
+        
+        // Medtager ikke pakker der blev leveret for mere end en uge siden.
+        let deliveredPackagesWithTime = await dbAll(db,"SELECT * FROM package p LEFT JOIN timeSlot t ON t.id = p.bookedTimeId WHERE p.storeId=? AND t.endTime >=? AND p.delivered=1 AND bookedTimeId is not NULL ORDER BY t.startTime",[wantedStoreId, formatMomentAsISO(moment().subtract(7, 'days'))]);
+        let deliveredPackagesWithoutTime = await dbAll(db,"SELECT * FROM package WHERE storeId=? AND creationDate >=? AND delivered=1 AND bookedTimeId is NULL ORDER BY creationDate", [wantedStoreId, formatMomentAsISO(moment().subtract(10, 'days'))]);
+        let deliveredPackages = deliveredPackagesWithTime.concat(deliveredPackagesWithoutTime);
+        
+        let nonDeliveredPackageTable = `<div id="nonDeliveredPackages" class="packages">
+        <p>Number of undelivered packages: ${nonDeliveredPackages.length}</p>`;
+        
+        for (i = 0; i < nonDeliveredPackages.length; i++){
+           
+            let timeSlot = await dbGet(db, "SELECT * FROM timeslot WHERE storeId=? AND id=?", [nonDeliveredPackages[i].storeId,nonDeliveredPackages[i].bookedTimeId]); 
+
+            if (timeSlot != null){
+                queueName = await dbGet(db, "SELECT queueName FROM queue WHERE storeId=? AND id=?", [timeSlot.storeId, timeSlot.queueId]);
+            } else{
+                queueName = null;
+            }
+            //console.log(nonDeliveredPackages[i]);
+            nonDeliveredPackageTable += `
+                        <div class="package${timeSlot == null ? ' noTimeSlot' : ''}">
+                            <h2>Order id: ${nonDeliveredPackages[i].externalOrderId}</h2>
+                            <h3>Customer info:</h3>
+                            <p>Name: ${nonDeliveredPackages[i].customerName}</p>
+                            <p>Mail: ${nonDeliveredPackages[i].customerEmail}</p>
+                            <h3>Creation date:</h3>
+                            <p>${fromISOToDate(nonDeliveredPackages[i].creationDate)} ${fromISOToHHMM(nonDeliveredPackages[i].creationDate)} </p>
+                            <h3> Booked time: </h3>
+                            <p> ${timeSlot == null ? "No timeslot booked" : `${fromISOToDate(timeSlot.startTime)} from ${fromISOToHHMM(timeSlot.startTime)} to ${fromISOToHHMM(timeSlot.endTime)}`}
                             
-        for (i = 0; i < packages.length; i++){
-            packageTable += `
-                            <div class="package">
-                                <h2>${packages[i].externalOrderId}</h2>
-                                <h3>Customer info:</h3>
-                                <p>${packages[i].customerName}</p>
-                                <p>${packages[i].customerEmail}</p>
-                                <h3>Creation date:</h3>
-                                <p>${packages[i].creationDate}</p>
-                                <h3>Status:</h3>
-                                <p style="color: ${packages[i].readyState == ReadyState.Delivered ? "green" : "red"}">${readyStateToReadableString(packages[i].readyState)}</p>
-                                <a href="/store/package?validationKey=${packages[i].verificationCode}&storeid=${packages[i].storeId}" class="knap">Actions</a>
-                            </div>
+                            ${timeSlot == null ? '' : `<h3> Queue: </h3>
+                            ${queueName == null ? `` : `<p> Name: ${queueName.queueName} </p>`}
+                            <p> Id: ${timeSlot.id}`}
+                            <h3>Status:</h3>
+                            <p style="color:red"> NOT DELIVERED </p>
+                            <a href="/store/package?validationKey=${nonDeliveredPackages[i].verificationCode}&storeid=${nonDeliveredPackages[i].storeId}" class="knap">Actions</a>
+                        </div>
+        `;
+        }
+        nonDeliveredPackageTable += `</div>`
+
+        let deliveredPackageTable = `<div id="deliveredPackages" style="display: none" class="packages">
+        <p>Number of delivered packages: ${deliveredPackages.length}</p>`;
+
+        for (i = 0; i < deliveredPackages.length; i++){
+            let timeSlot = await dbGet(db, "SELECT * FROM timeslot WHERE storeId=? AND id=?", [deliveredPackages[i].storeId, deliveredPackages[i].bookedTimeId]);
+            
+            if (timeSlot != null){
+                queueName = await dbGet(db, "SELECT queueName FROM queue WHERE storeId=? AND id=?", [timeSlot.storeId, timeSlot.queueId]);
+            } else{
+                queueName = null;
+            }
+            deliveredPackageTable += `
+                <div class="package">
+                    <h2>Order id: ${deliveredPackages[i].externalOrderId}</h2>
+                    <h3>Customer info:</h3>
+                    <p>Name: ${deliveredPackages[i].customerName}</p>
+                    <p>Mail: ${deliveredPackages[i].customerEmail}</p>
+                    <h3>Creation date:</h3>
+                    <p>${fromISOToDate(deliveredPackages[i].creationDate)} ${fromISOToHHMM(deliveredPackages[i].creationDate)} </p>
+                    <h3> Booked time: </h3>
+                    <p> ${timeSlot == null ? "No timeslot booked" : `${fromISOToDate(timeSlot.startTime)} from ${fromISOToHHMM(timeSlot.startTime)} to ${fromISOToHHMM(timeSlot.endTime)}`}
+                    
+                    ${timeSlot == null ? '' : `<h3> Queue: </h3>
+                    ${queueName == null ? `` : `<p> Name: ${queueName.queueName} </p>`}
+                    <p> Id: ${timeSlot.id}`}
+                    <h3>Status:</h3>
+                    <p style="color:green"> DELIVERED </p>
+                    <a href="/store/package?validationKey=${deliveredPackages[i].verificationCode}&storeid=${deliveredPackages[i].storeId}" class="knap">Actions</a>
+                </div>
             `;
         }
-
-        packageTable += `</div>`
+        deliveredPackageTable += `</div>`
 
         let store = await storeIdToStore(request.user.storeId);
 
         response.statusCode = 200;
 
-        response.write(renderPackageList(store, packageTable));
+        response.write(renderPackageList(store, nonDeliveredPackageTable, deliveredPackageTable));
+        
+        response.end();
+    }
+}
+
+async function packageListPost(request,response){
+    let postParameters = await receiveBody(request);
+    postParameters = parseURLEncoded(postParameters);
+
+    let wantedStoreId = assertAdminAccess(request, postParameters, response);
+    if (wantedStoreId == null) {
+        return;
+    }else{
+        let nonDeliveredPackagesWithTime = await dbAll(db,"SELECT * FROM package p LEFT JOIN timeSlot t ON t.id = p.bookedTimeId WHERE p.storeId=? AND p.delivered=0 AND customerName like ? AND bookedTimeId is not NULL ORDER BY t.startTime",[wantedStoreId, '%' + postParameters.customerName + '%']);
+        let nonDeliveredPackagesWithoutTime = await dbAll(db,"SELECT * FROM package WHERE storeId=? AND delivered=0 AND bookedTimeId is NULL AND customerName like ? ORDER BY creationDate", [wantedStoreId, '%' + postParameters.customerName + '%']);
+        let nonDeliveredPackages = nonDeliveredPackagesWithTime.concat(nonDeliveredPackagesWithoutTime);
+
+        // Medtager pakker der blev leveret for mere end en uge siden.
+        let deliveredPackagesWithTime = await dbAll(db,"SELECT * FROM package p LEFT JOIN timeSlot t ON t.id = p.bookedTimeId WHERE p.storeId=? AND p.delivered=1 AND customerName like ? AND bookedTimeId is not NULL ORDER BY t.startTime IS NULL, t.startTime",[wantedStoreId, '%' + postParameters.customerName + '%']);
+        let deliveredPackagesWithoutTime = await dbAll(db,"SELECT * FROM package WHERE storeId=? AND delivered=1 AND bookedTimeId is NULL AND customerName like ? ORDER BY creationDate", [wantedStoreId, '%' + postParameters.customerName + '%']);
+        let deliveredPackages = deliveredPackagesWithTime.concat(deliveredPackagesWithoutTime);
+        
+        let nonDeliveredPackageTable = `<div id="nonDeliveredPackages" class="packages">
+        <p>Number of undelivered packages: ${nonDeliveredPackages.length}</p>`;
+                            
+        for (i = 0; i < nonDeliveredPackages.length; i++){
+           
+            let timeSlot = await dbGet(db, "SELECT * FROM timeslot WHERE storeId=? AND id=?", [nonDeliveredPackages[i].storeId,nonDeliveredPackages[i].bookedTimeId]);
+            
+            if (timeSlot != null){
+                queueName = await dbGet(db, "SELECT queueName FROM queue WHERE storeId=? AND id=?", [timeSlot.storeId, timeSlot.queueId]);
+            } else{
+                queueName = null;
+            }
+            
+            nonDeliveredPackageTable += `
+                        <div class="package${timeSlot == null ? ' noTimeSlot' : ''}">
+                            <h2>Order id: ${nonDeliveredPackages[i].externalOrderId}</h2>
+                            <h3>Customer info:</h3>
+                            <p>Name: ${nonDeliveredPackages[i].customerName}</p>
+                            <p>Mail: ${nonDeliveredPackages[i].customerEmail}</p>
+                            <h3>Creation date:</h3>
+                            <p>${fromISOToDate(nonDeliveredPackages[i].creationDate)} ${fromISOToHHMM(nonDeliveredPackages[i].creationDate)} </p>
+                            <h3> Booked time: </h3>
+                            <p> ${timeSlot == null ? "No timeslot booked" : `${fromISOToDate(timeSlot.startTime)} from ${fromISOToHHMM(timeSlot.startTime)} to ${fromISOToHHMM(timeSlot.endTime)}`}
+                            
+                            ${timeSlot == null ? '' : `<h3> Queue: </h3>
+                            ${queueName == null ? `` : `<p> Name: ${queueName.queueName} </p>`}
+                            <p> Id: ${timeSlot.id}`}
+                            <h3>Status:</h3>
+                            <p style="color:red"> NOT DELIVERED </p>
+                            <a href="/store/package?validationKey=${nonDeliveredPackages[i].verificationCode}&storeid=${nonDeliveredPackages[i].storeId}" class="knap">Actions</a>
+                        </div>
+        `;
+        }
+        nonDeliveredPackageTable += `</div>`
+
+        let deliveredPackageTable = `<div id="deliveredPackages" class="packages">
+        <p>Number of delivered packages: ${deliveredPackages.length}</p>`;
+
+        for (i = 0; i < deliveredPackages.length; i++){
+            let timeSlot = await dbGet(db, "SELECT * FROM timeslot WHERE storeId=? AND id=?", [deliveredPackages[i].storeId, deliveredPackages[i].bookedTimeId]);
+            
+            if (timeSlot != null){
+                queueName = await dbGet(db, "SELECT queueName FROM queue WHERE storeId=? AND id=?", [timeSlot.storeId, timeSlot.queueId]);
+            } else{
+                queueName = null;
+            }
+            deliveredPackageTable += `
+                <div class="package">
+                    <h2>Order id: ${deliveredPackages[i].externalOrderId}</h2>
+                    <h3>Customer info:</h3>
+                    <p>Name: ${deliveredPackages[i].customerName}</p>
+                    <p>Mail: ${deliveredPackages[i].customerEmail}</p>
+                    <h3>Creation date:</h3>
+                    <p>${fromISOToDate(deliveredPackages[i].creationDate)} ${fromISOToHHMM(deliveredPackages[i].creationDate)} </p>
+                    <h3> Booked time: </h3>
+                    <p> ${timeSlot == null ? "No timeslot booked" : `${fromISOToDate(timeSlot.startTime)} from ${fromISOToHHMM(timeSlot.startTime)} to ${fromISOToHHMM(timeSlot.endTime)}`}
+                    
+                    ${timeSlot == null ? '' : `<h3> Queue: </h3>
+                    ${queueName == null ? `` : `<p> Name: ${queueName.queueName} </p>`}
+                    <p> Id: ${timeSlot.id}`}
+                    <h3>Status:</h3>
+                    <p style="color:green"> DELIVERED </p>
+                    <a href="/store/package?validationKey=${deliveredPackages[i].verificationCode}&storeid=${deliveredPackages[i].storeId}" class="knap">Actions</a>
+                </div>
+            `;
+    }
+        deliveredPackageTable += `</div>`
+
+        let store = await storeIdToStore(request.user.storeId);
+
+        response.statusCode = 200;
+
+        response.write(renderPackageList(store, nonDeliveredPackageTable, deliveredPackageTable));
         
         response.end();
     }
@@ -716,12 +819,11 @@ async function main() {
     requestHandler.addEndpoint("GET", "/admin/employees/employee_list", employeeList);
     requestHandler.addEndpoint("GET", "/admin/package_form", packageFormGet);
     requestHandler.addEndpoint("GET", "/store", storeMenu);
-    requestHandler.addEndpoint("GET", "/store/packages", (req, res) => packageList(req, res, ""));
+    requestHandler.addEndpoint("GET", "/store/packages", packageList);
     requestHandler.addEndpoint("GET", "/store/package", packageStoreView);
     requestHandler.addEndpoint("GET", "/package", timeSlotSelector);
     requestHandler.addEndpoint("GET", "/store/scan", storeScan);
     requestHandler.addEndpoint("GET", "/admin/settings", openingTime);
-
     requestHandler.addEndpoint("GET", "/static/css/style.css", (response) => 
         serveFile(response, __dirname + "/../frontend/css/style.css", "text/css")
     );
@@ -756,6 +858,7 @@ async function main() {
     requestHandler.addEndpoint("POST", "/admin/queues/add", queueAdd);
     requestHandler.addEndpoint("POST", "/package/select_time", selectTimeSlot);
     requestHandler.addEndpoint("POST", "/package/cancel", cancelTimeSlot);
+    requestHandler.addEndpoint("POST", "/store/packages", packageListPost);
     requestHandler.addEndpoint("POST", "/admin/settings", settingsPost);
 
     const server = http.createServer((request, response) => requestHandler.handleRequest(request, response));
@@ -822,7 +925,7 @@ async function addEmployeePost(request, response){
             });
         });
         console.log("Bruger indsat i databasen");
-        db.run("INSERT INTO user (name, username, superuser, storeid, password, salt) VALUES (?, ?, ?, ?, ?, ?)", [[postParameters["employeeName"]],[postParameters["username"]], [postParameters["superuser"]], request.user.storeId, hashed.toString(HASHING_HASH_ENCODING), salt]);
+        dbRun(db, "INSERT INTO user (name, username, superuser, storeid, password, salt) VALUES (?, ?, ?, ?, ?, ?)", [[postParameters["employeeName"]],[postParameters["username"]], [postParameters["superuser"]], request.user.storeId, hashed.toString(HASHING_HASH_ENCODING), salt]);
     } else {
         request.session.lastError = "Username already exists";
     }
