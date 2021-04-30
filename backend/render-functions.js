@@ -580,7 +580,7 @@ exports.renderStoreScan = function renderStoreScan(store) {
                         <form action="/store/package" method="GET">
                             <label for="validationKey">Validation key:</label><br>
                             <div class="input-container">
-                                <input id="validation-key-input" type="text" name="validationKey" disabled="true" value="">
+                                <input id="validation-key-input" type="text" name="validationKey" readonly value="">
                                 <i id="input-toggle" class="fas fa-unlock" onclick="toggleValidationInput()"> </i> <br>
                             </div>
                             <input type="hidden" value="${store.id}" name="storeid">
@@ -596,7 +596,7 @@ exports.renderStoreScan = function renderStoreScan(store) {
                 <script>
                     function toggleValidationInput(){
                         elm = document.getElementById('validation-key-input');
-                        elm.disabled ? elm.disabled = false : elm.disabled = true;
+                        elm.readOnly ? elm.readOnly = false : elm.readOnly = true;
                     }
                 </script>
             </body>
