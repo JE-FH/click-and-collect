@@ -443,20 +443,18 @@ async function packageList(request,response){
     }
     else{
 
-        let nonDeliveredPackagesWithTime = await dbAll(db,"SELECT * FROM package p LEFT JOIN timeSlot t ON t.id = p.bookedTimeId WHERE p.storeId=? AND p.delivered=0 and bookedTimeId is not NULL ORDER BY t.startTime IS NULL, t.startTime",[wantedStoreId]);
+        let nonDeliveredPackagesWithTime = await dbAll(db,"SELECT * FROM package p LEFT JOIN timeSlot t ON t.id = p.bookedTimeId WHERE p.storeId=? AND p.delivered=0 AND bookedTimeId is not NULL ORDER BY t.startTime",[wantedStoreId]);
         let nonDeliveredPackagesWithoutTime = await dbAll(db,"SELECT * FROM package WHERE storeId=? AND delivered=0 AND bookedTimeId is NULL ORDER BY creationDate", [wantedStoreId]);
         let nonDeliveredPackages = nonDeliveredPackagesWithTime.concat(nonDeliveredPackagesWithoutTime);
         
         // Medtager ikke pakker der blev leveret for mere end en uge siden.
-        let deliveredPackagesWithTime = await dbAll(db,"SELECT * FROM package p LEFT JOIN timeSlot t ON t.id = p.bookedTimeId WHERE p.storeId=? AND t.endTime >=? AND p.delivered=1 AND bookedTimeId is not NULL ORDER BY t.startTime IS NULL, t.startTime",[wantedStoreId, formatMomentAsISO(moment().subtract(7, 'days'))]);
+        let deliveredPackagesWithTime = await dbAll(db,"SELECT * FROM package p LEFT JOIN timeSlot t ON t.id = p.bookedTimeId WHERE p.storeId=? AND t.endTime >=? AND p.delivered=1 AND bookedTimeId is not NULL ORDER BY t.startTime",[wantedStoreId, formatMomentAsISO(moment().subtract(7, 'days'))]);
         let deliveredPackagesWithoutTime = await dbAll(db,"SELECT * FROM package WHERE storeId=? AND creationDate >=? AND delivered=1 AND bookedTimeId is NULL ORDER BY creationDate", [wantedStoreId, formatMomentAsISO(moment().subtract(10, 'days'))]);
         let deliveredPackages = deliveredPackagesWithTime.concat(deliveredPackagesWithoutTime);
         
         let nonDeliveredPackageTable = `<div id="nonDeliveredPackages" class="packages">
         <p>Number of undelivered packages: ${nonDeliveredPackages.length}</p>`;
         
-        //console.log(nonDeliveredPackagesWithoutTime);
-        console.log(nonDeliveredPackages);
         for (i = 0; i < nonDeliveredPackages.length; i++){
            
             let timeSlot = await new Promise((resolve, reject) => {
@@ -572,10 +570,14 @@ async function packageListPost(request,response){
     if (wantedStoreId == null) {
         return;
     }else{
-        let nonDeliveredPackages = await dbAll(db,"SELECT * FROM package p LEFT JOIN timeSlot t ON t.id = p.bookedTimeId WHERE p.storeId=? AND p.delivered=0 AND customerName like ? ORDER BY t.startTime IS NULL, t.startTime",[wantedStoreId, '%' + postParameters.customerName + '%']);
-        // Medtager pakker der blev leveret for mere end en uge siden.
-        let deliveredPackages = await dbAll(db,"SELECT * FROM package p LEFT JOIN timeSlot t ON t.id = p.bookedTimeId WHERE p.storeId=? AND p.delivered=1 AND customerName like ? ORDER BY t.startTime IS NULL, t.startTime",[wantedStoreId, '%' + postParameters.customerName + '%']);
+        let nonDeliveredPackagesWithTime = await dbAll(db,"SELECT * FROM package p LEFT JOIN timeSlot t ON t.id = p.bookedTimeId WHERE p.storeId=? AND p.delivered=0 AND customerName like ? AND bookedTimeId is not NULL ORDER BY t.startTime",[wantedStoreId, '%' + postParameters.customerName + '%']);
+        let nonDeliveredPackagesWithoutTime = await dbAll(db,"SELECT * FROM package WHERE storeId=? AND delivered=0 AND bookedTimeId is NULL AND customerName like ? ORDER BY creationDate", [wantedStoreId, '%' + postParameters.customerName + '%']);
+        let nonDeliveredPackages = nonDeliveredPackagesWithTime.concat(nonDeliveredPackagesWithoutTime);
 
+        // Medtager pakker der blev leveret for mere end en uge siden.
+        let deliveredPackagesWithTime = await dbAll(db,"SELECT * FROM package p LEFT JOIN timeSlot t ON t.id = p.bookedTimeId WHERE p.storeId=? AND p.delivered=1 AND customerName like ? AND bookedTimeId is not NULL ORDER BY t.startTime IS NULL, t.startTime",[wantedStoreId, '%' + postParameters.customerName + '%']);
+        let deliveredPackagesWithoutTime = await dbAll(db,"SELECT * FROM package WHERE storeId=? AND delivered=1 AND bookedTimeId is NULL AND customerName like ? ORDER BY creationDate", [wantedStoreId, '%' + postParameters.customerName + '%']);
+        let deliveredPackages = deliveredPackagesWithTime.concat(deliveredPackagesWithoutTime);
         
         let nonDeliveredPackageTable = `<div id="nonDeliveredPackages" class="packages">
         <p>Number of undelivered packages: ${nonDeliveredPackages.length}</p>`;
