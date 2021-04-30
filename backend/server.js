@@ -350,10 +350,13 @@ function errorResponse(request, response, err) {
     response.end();
 }
 
-async function loginGet(request, response, error) {
+async function loginGet(request, response) {
+    let error = request.session.statusText;
+    console.log(error);
     response.statusCode = error == null ? 200 : 401;
     response.setHeader('Content-Type', 'text/html');
-    response.write(renderLogin(error));
+    response.write(renderLogin(error, request));
+    request.session.statusText = undefined;
     response.end();
 }
 
@@ -361,6 +364,7 @@ const HASHING_ITERATIONS = 100000;
 const HASHING_KEYLEN = 64;
 const HASHING_ALGO = "sha512";
 const HASHING_HASH_ENCODING = "hex";
+
 async function loginPost(request, response) {
     /* Read the post body */
     let postBody = await receiveBody(request);
@@ -369,7 +373,10 @@ async function loginPost(request, response) {
 
     /* Make sure that we got the right parameters */
     if (!(typeof postParameters["username"] == "string" && typeof postParameters["password"] == "string")) {
-        loginGet(request, response, "You didn't enter username and/or password");
+        request.session.statusText = "You didn't enter username and/or password";
+        response.setHeader('Location', '/login');
+        response.statusCode = 302;
+        response.end();
         return;
     }
 
@@ -378,7 +385,11 @@ async function loginPost(request, response) {
 
     if (user == null) {
         /* Wrong username */
-        loginGet(request, response, "Wrong username")
+        request.session.statusText = "Wrong username";
+        request.session.username = postParameters["username"];
+        response.setHeader('Location', '/login');
+        response.statusCode = 302;
+        response.end();
         return;
     }
 
@@ -409,7 +420,11 @@ async function loginPost(request, response) {
         response.end();
     } else {
         /* Wrong password */
-        loginGet(request, response, "Wrong password");
+        request.session.statusText = "Wrong password";
+        request.session.username = postParameters["username"];
+        response.setHeader('Location', '/login');
+        response.statusCode = 302;
+        response.end();
     }
 
 }

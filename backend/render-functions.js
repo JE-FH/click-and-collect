@@ -578,7 +578,7 @@ exports.renderPackageOverview = function renderPackageOverview(store, package) {
     return page;
 }
 
-exports.renderLogin = function renderLogin(error) {
+exports.renderLogin = function renderLogin(error, request) {
     let message = null;
 
     switch(error) {
@@ -604,7 +604,7 @@ exports.renderLogin = function renderLogin(error) {
             <body>
                 <form action="/login" method="POST">
                     <label for="username">Username: </label>
-                    <input type="text" name="username" placeholder="username" required><br>
+                    <input type="text" name="username" placeholder="username" value="${request.session.username == undefined ? "" : request.session.username}" required><br>
                     <label for="password"> Password:     </label>
                         <div class="container">
                             <input type="password" name="password" placeholder="password" id="password" required>
