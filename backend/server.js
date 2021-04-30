@@ -714,10 +714,12 @@ async function storeScan(request, response) {
     }
 
     let store = await storeIdToStore(wantedStoreId);
+    console.log("error: " + request.session.statusText);
     
     response.statusCode = 200;
     response.setHeader("Content-Type", "text/html");
     response.write(renderStoreScan(store));
+    request.session.statusText = null;
     response.end();
 }
 

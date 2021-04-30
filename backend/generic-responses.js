@@ -58,13 +58,15 @@ exports.invalidParameters = function invalidParameters(response, errorMessage, r
     <html>
         <head>
             <title>Invalid request</title>
+            <link rel="stylesheet" href="/static/css/style.css">
         </head>
 
         <body>
-            <div class="main-body">
+            <div class="main-body" style="margin-top: 2em">
                 You submitted an invalid request, ${errorMessage}
                 <br>
-                <a href="${redirection}">Go to ${redirectText}</a>
+                <br>
+                <a href="${redirection}" class="knap">Go to ${redirectText}</a>
             </div>
         </body>
     </html>
