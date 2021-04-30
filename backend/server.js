@@ -3,7 +3,7 @@ const sqlite3 = require("sqlite3");
 const fs = require("fs/promises");
 const crypto = require("crypto");
 const moment = require("moment");
-const {toISODateTimeString, isStringInt, isStringNumber, receiveBody, parseURLEncoded, assertAdminAccess, assertEmployeeAccess, setupEmail, sendEmail, sanitizeFullName, sanitizeEmailAddress, fromISOToDate, fromISOToHHMM, deleteTimeslotsWithId} = require("./helpers");
+const {toISODateTimeString, isStringInt, isStringNumber, receiveBody, parseURLEncoded, assertAdminAccess, assertEmployeeAccess, setupEmail, sendEmail, sanitizeFullName, sanitizeEmailAddress, formatMomentAsISO, fromISOToDate, fromISOToHHMM, deleteTimeslotsWithId, } = require("./helpers");
 const {queryMiddleware, sessionMiddleware, createUserMiddleware} = require("./middleware");
 const {adminNoAccess, invalidParameters, invalidCustomerParameters} = require("./generic-responses");
 const {dbAll, dbGet, dbRun, dbExec} = require("./db-helpers");
@@ -43,9 +43,9 @@ async function sendReminder(package) {
 
     if(creationDelta >= msPerDay*days) {
         console.log('Sending reminder to: ' + package.customerEmail + ' (3 days has passed)');
-        sendEmail(package.customerEmail, package.customerName, "Reminder: no time slot booked", `Link: ${HOST}/package?guid=${package.guid}`, await reminderHTML(package));
+        await sendEmail(package.customerEmail, package.customerName, "Reminder: no time slot booked", `Link: ${HOST}/package?guid=${package.guid}`, await reminderHTML(package));
         /* Increment package.remindersSent in database */
-        db.run("UPDATE package SET remindersSent=1 WHERE id=?", [package.id]);
+        await dbRun(db, "UPDATE package SET remindersSent=1 WHERE id=?", [package.id]);
     } else {
         return;
     }
@@ -61,9 +61,9 @@ async function remindStoreOwner(package) {
 
     if(creationDelta >= msPerDay*days) {
         console.log('Sending reminder to store owner: ' + store.storeEmail + ' (14 days has passed - order: ' + package.externalOrderId + ')');
-        sendEmail(store.storeEmail, store.name, "Reminder: no time slot booked", `Order: ${package.externalOrderId}`, await reminderStoreHTML(package));
+        await sendEmail(store.storeEmail, store.name, "Reminder: no time slot booked", `Order: ${package.externalOrderId}`, await reminderStoreHTML(package));
         /* Increment package.remindersSent in database */
-        db.run("UPDATE package SET remindersSent=2 WHERE id=?", [package.id]);
+        await dbRun(db, "UPDATE package SET remindersSent=2 WHERE id=?", [package.id]);
     } else {
         return;
     }
@@ -104,16 +104,7 @@ async function reminderHTML(package) {
 }
 
 async function getUnbookedPackages() {
-    let packages = await new Promise((resolve, reject) => {
-       db.all("SELECT * FROM package WHERE bookedTimeId IS NULL", (err, rows) => {
-           if(err) {
-               reject(err);
-           } else {
-               resolve(rows);
-           }
-       }) 
-    })
-
+    let packages = await dbAll(db, "SELECT * FROM package WHERE bookedTimeId IS NULL", []);
     return packages;
 }
 
@@ -150,31 +141,13 @@ async function apiPost(request, response) {
 
 /* Returns the associated store from a given API key */
 async function apiKeyToStore(apiKey) {
-    let store = await new Promise((resolve, reject) => {
-        db.get("SELECT * FROM store WHERE apiKey=?", [apiKey], (err, row) => {
-            if(err) {
-                reject(err);
-            } else {
-                resolve(row);
-            }
-        });
-    })
-
+    let store = await dbGet(db, "SELECT * FROM store WHERE apiKey=?", [apiKey]);
     return store;
 }
 
 /* Returns the associated store from a given store id */
 async function storeIdToStore(storeId) {
-    let store = await new Promise((resolve, reject) => {
-        db.get("SELECT * FROM store WHERE id=?", [storeId], (err, row) => {
-            if(err) {
-                reject(err);
-            } else {
-                resolve(row);
-            }
-        });
-    })
-
+    let store = await dbGet(db, "SELECT * FROM store WHERE id=?", [storeId]);
     return store;
 }
 
@@ -237,21 +210,14 @@ async function addPackage(storeId, customerEmail, customerName, externalOrderId)
     bookedTimeId = null;
     creationDate = moment();
     verificationCode = generateVerification();
-    let existingOrder = await new Promise((resolve, reject) => {
-        db.get("SELECT * FROM package WHERE externalOrderId=?", [externalOrderId], (err, row) => {
-            if(err) {
-                reject(err);
-            } else {
-                resolve(row);
-            }
-        });
-    }) /* Vi tjekker om en pakke med samme ordre id eksisterer og gør ikke så meget ved det*/
+    let existingOrder = await dbGet(db, "SELECT * FROM package WHERE externalOrderId=?", [externalOrderId]);
+     /* Vi tjekker om en pakke med samme ordre id eksisterer og gør ikke så meget ved det*/
     if (existingOrder != null){
         console.log(`An order with this id already exists: ${externalOrderId}`);
     }
     let query = 'INSERT INTO package (guid, storeId, bookedTimeId, verificationCode, customerEmail, customerName, externalOrderId, creationDate) VALUES (?, ?, ?, ?, ?, ?, ?, ?)';
 
-    db.run(query, [guid, storeId, bookedTimeId, verificationCode, sanitizeEmailAddress(customerEmail), sanitizeFullName(customerName), externalOrderId, creationDate.format("YYYY-MM-DDTHH:mm:ss")]);
+    dbRun(db, query, [guid, storeId, bookedTimeId, verificationCode, sanitizeEmailAddress(customerEmail), sanitizeFullName(customerName), externalOrderId, creationDate.format("YYYY-MM-DDTHH:mm:ss")]);
 
     console.log('Package added for: ' + customerName);
 
@@ -378,7 +344,7 @@ async function loginPost(request, response) {
         response.end();
         return;
     }
-
+    postParameters["username"] = postParameters["username"].toLowerCase();
     /* Find the user if it exists */
     let user = await dbGet(db, "SELECT id, password, salt, storeId, superuser FROM user WHERE username=?", postParameters["username"]);
 
@@ -449,54 +415,191 @@ async function storeMenu(request, response){
     response.end();
 }
 
-async function packageList(request,response, error){
-   
+async function packageList(request,response){
+    
     let wantedStoreId = assertEmployeeAccess(request, request.query, response);
     if (wantedStoreId == null) {
         return;
     }
     else{
-        let packages = await new Promise((resolve, reject) => {
-            let rv = [];
-            db.all("SELECT * FROM package WHERE storeId=? ORDER BY id", [wantedStoreId], (err, rows) => {
-                if (err) {
-                    reject(err);
-                }
-                rows.forEach((row) => {
-                    valueToAdd = row;
-                    rv.push(valueToAdd);
-                });
-                resolve (rv);
-            });
-            
-        });
 
-        let packageTable = `<div class="packages">
-                                <p style="text-align: center">Number of packages: ${packages.length}</p>`;
+        let nonDeliveredPackagesWithTime = await dbAll(db,"SELECT * FROM package p LEFT JOIN timeSlot t ON t.id = p.bookedTimeId WHERE p.storeId=? AND p.delivered=0 AND bookedTimeId is not NULL ORDER BY t.startTime",[wantedStoreId]);
+        let nonDeliveredPackagesWithoutTime = await dbAll(db,"SELECT * FROM package WHERE storeId=? AND delivered=0 AND bookedTimeId is NULL ORDER BY creationDate", [wantedStoreId]);
+        let nonDeliveredPackages = nonDeliveredPackagesWithTime.concat(nonDeliveredPackagesWithoutTime);
+        
+        // Medtager ikke pakker der blev leveret for mere end en uge siden.
+        let deliveredPackagesWithTime = await dbAll(db,"SELECT * FROM package p LEFT JOIN timeSlot t ON t.id = p.bookedTimeId WHERE p.storeId=? AND t.endTime >=? AND p.delivered=1 AND bookedTimeId is not NULL ORDER BY t.startTime",[wantedStoreId, formatMomentAsISO(moment().subtract(7, 'days'))]);
+        let deliveredPackagesWithoutTime = await dbAll(db,"SELECT * FROM package WHERE storeId=? AND creationDate >=? AND delivered=1 AND bookedTimeId is NULL ORDER BY creationDate", [wantedStoreId, formatMomentAsISO(moment().subtract(10, 'days'))]);
+        let deliveredPackages = deliveredPackagesWithTime.concat(deliveredPackagesWithoutTime);
+        
+        let nonDeliveredPackageTable = `<div id="nonDeliveredPackages" class="packages">
+        <p>Number of undelivered packages: ${nonDeliveredPackages.length}</p>`;
+        
+        for (i = 0; i < nonDeliveredPackages.length; i++){
+           
+            let timeSlot = await dbGet(db, "SELECT * FROM timeslot WHERE storeId=? AND id=?", [nonDeliveredPackages[i].storeId,nonDeliveredPackages[i].bookedTimeId]); 
+
+            if (timeSlot != null){
+                queueName = await dbGet(db, "SELECT queueName FROM queue WHERE storeId=? AND id=?", [timeSlot.storeId, timeSlot.queueId]);
+            } else{
+                queueName = null;
+            }
+            //console.log(nonDeliveredPackages[i]);
+            nonDeliveredPackageTable += `
+                        <div class="package${timeSlot == null ? ' noTimeSlot' : ''}">
+                            <h2>Order id: ${nonDeliveredPackages[i].externalOrderId}</h2>
+                            <h3>Customer info:</h3>
+                            <p>Name: ${nonDeliveredPackages[i].customerName}</p>
+                            <p>Mail: ${nonDeliveredPackages[i].customerEmail}</p>
+                            <h3>Creation date:</h3>
+                            <p>${fromISOToDate(nonDeliveredPackages[i].creationDate)} ${fromISOToHHMM(nonDeliveredPackages[i].creationDate)} </p>
+                            <h3> Booked time: </h3>
+                            <p> ${timeSlot == null ? "No timeslot booked" : `${fromISOToDate(timeSlot.startTime)} from ${fromISOToHHMM(timeSlot.startTime)} to ${fromISOToHHMM(timeSlot.endTime)}`}
                             
-        for (i = 0; i < packages.length; i++){
-            packageTable += `
-                            <div class="package">
-                                <h2>${packages[i].externalOrderId}</h2>
-                                <h3>Customer info:</h3>
-                                <p>${packages[i].customerName}</p>
-                                <p>${packages[i].customerEmail}</p>
-                                <h3>Creation date:</h3>
-                                <p>${packages[i].creationDate}</p>
-                                <h3>Status:</h3>
-                                <p style="color: ${packages[i].delivered ? "green" : "red"}">${packages[i].delivered ? "DELIVERED" : "NOT DELIVERED"}</p>
-                                <a href="/store/package?validationKey=${packages[i].verificationCode}&storeid=${packages[i].storeId}" class="knap">Actions</a>
-                            </div>
+                            ${timeSlot == null ? '' : `<h3> Queue: </h3>
+                            ${queueName == null ? `` : `<p> Name: ${queueName.queueName} </p>`}
+                            <p> Id: ${timeSlot.id}`}
+                            <h3>Status:</h3>
+                            <p style="color:red"> NOT DELIVERED </p>
+                            <a href="/store/package?validationKey=${nonDeliveredPackages[i].verificationCode}&storeid=${nonDeliveredPackages[i].storeId}" class="knap">Actions</a>
+                        </div>
+        `;
+        }
+        nonDeliveredPackageTable += `</div>`
+
+        let deliveredPackageTable = `<div id="deliveredPackages" style="display: none" class="packages">
+        <p>Number of delivered packages: ${deliveredPackages.length}</p>`;
+
+        for (i = 0; i < deliveredPackages.length; i++){
+            let timeSlot = await dbGet(db, "SELECT * FROM timeslot WHERE storeId=? AND id=?", [deliveredPackages[i].storeId, deliveredPackages[i].bookedTimeId]);
+            
+            if (timeSlot != null){
+                queueName = await dbGet(db, "SELECT queueName FROM queue WHERE storeId=? AND id=?", [timeSlot.storeId, timeSlot.queueId]);
+            } else{
+                queueName = null;
+            }
+            deliveredPackageTable += `
+                <div class="package">
+                    <h2>Order id: ${deliveredPackages[i].externalOrderId}</h2>
+                    <h3>Customer info:</h3>
+                    <p>Name: ${deliveredPackages[i].customerName}</p>
+                    <p>Mail: ${deliveredPackages[i].customerEmail}</p>
+                    <h3>Creation date:</h3>
+                    <p>${fromISOToDate(deliveredPackages[i].creationDate)} ${fromISOToHHMM(deliveredPackages[i].creationDate)} </p>
+                    <h3> Booked time: </h3>
+                    <p> ${timeSlot == null ? "No timeslot booked" : `${fromISOToDate(timeSlot.startTime)} from ${fromISOToHHMM(timeSlot.startTime)} to ${fromISOToHHMM(timeSlot.endTime)}`}
+                    
+                    ${timeSlot == null ? '' : `<h3> Queue: </h3>
+                    ${queueName == null ? `` : `<p> Name: ${queueName.queueName} </p>`}
+                    <p> Id: ${timeSlot.id}`}
+                    <h3>Status:</h3>
+                    <p style="color:green"> DELIVERED </p>
+                    <a href="/store/package?validationKey=${deliveredPackages[i].verificationCode}&storeid=${deliveredPackages[i].storeId}" class="knap">Actions</a>
+                </div>
             `;
         }
-
-        packageTable += `</div>`
+        deliveredPackageTable += `</div>`
 
         let store = await storeIdToStore(request.user.storeId);
 
         response.statusCode = 200;
 
-        response.write(renderPackageList(store, packageTable));
+        response.write(renderPackageList(store, nonDeliveredPackageTable, deliveredPackageTable));
+        
+        response.end();
+    }
+}
+
+async function packageListPost(request,response){
+    let postParameters = await receiveBody(request);
+    postParameters = parseURLEncoded(postParameters);
+
+    let wantedStoreId = assertEmployeeAccess(request, postParameters, response);
+    if (wantedStoreId == null) {
+        return;
+    }else{
+        let nonDeliveredPackagesWithTime = await dbAll(db,"SELECT * FROM package p LEFT JOIN timeSlot t ON t.id = p.bookedTimeId WHERE p.storeId=? AND p.delivered=0 AND customerName like ? AND bookedTimeId is not NULL ORDER BY t.startTime",[wantedStoreId, '%' + postParameters.customerName + '%']);
+        let nonDeliveredPackagesWithoutTime = await dbAll(db,"SELECT * FROM package WHERE storeId=? AND delivered=0 AND bookedTimeId is NULL AND customerName like ? ORDER BY creationDate", [wantedStoreId, '%' + postParameters.customerName + '%']);
+        let nonDeliveredPackages = nonDeliveredPackagesWithTime.concat(nonDeliveredPackagesWithoutTime);
+
+        // Medtager pakker der blev leveret for mere end en uge siden.
+        let deliveredPackagesWithTime = await dbAll(db,"SELECT * FROM package p LEFT JOIN timeSlot t ON t.id = p.bookedTimeId WHERE p.storeId=? AND p.delivered=1 AND customerName like ? AND bookedTimeId is not NULL ORDER BY t.startTime IS NULL, t.startTime",[wantedStoreId, '%' + postParameters.customerName + '%']);
+        let deliveredPackagesWithoutTime = await dbAll(db,"SELECT * FROM package WHERE storeId=? AND delivered=1 AND bookedTimeId is NULL AND customerName like ? ORDER BY creationDate", [wantedStoreId, '%' + postParameters.customerName + '%']);
+        let deliveredPackages = deliveredPackagesWithTime.concat(deliveredPackagesWithoutTime);
+        
+        let nonDeliveredPackageTable = `<div id="nonDeliveredPackages" class="packages">
+        <p>Number of undelivered packages: ${nonDeliveredPackages.length}</p>`;
+                            
+        for (i = 0; i < nonDeliveredPackages.length; i++){
+           
+            let timeSlot = await dbGet(db, "SELECT * FROM timeslot WHERE storeId=? AND id=?", [nonDeliveredPackages[i].storeId,nonDeliveredPackages[i].bookedTimeId]);
+            
+            if (timeSlot != null){
+                queueName = await dbGet(db, "SELECT queueName FROM queue WHERE storeId=? AND id=?", [timeSlot.storeId, timeSlot.queueId]);
+            } else{
+                queueName = null;
+            }
+            
+            nonDeliveredPackageTable += `
+                        <div class="package${timeSlot == null ? ' noTimeSlot' : ''}">
+                            <h2>Order id: ${nonDeliveredPackages[i].externalOrderId}</h2>
+                            <h3>Customer info:</h3>
+                            <p>Name: ${nonDeliveredPackages[i].customerName}</p>
+                            <p>Mail: ${nonDeliveredPackages[i].customerEmail}</p>
+                            <h3>Creation date:</h3>
+                            <p>${fromISOToDate(nonDeliveredPackages[i].creationDate)} ${fromISOToHHMM(nonDeliveredPackages[i].creationDate)} </p>
+                            <h3> Booked time: </h3>
+                            <p> ${timeSlot == null ? "No timeslot booked" : `${fromISOToDate(timeSlot.startTime)} from ${fromISOToHHMM(timeSlot.startTime)} to ${fromISOToHHMM(timeSlot.endTime)}`}
+                            
+                            ${timeSlot == null ? '' : `<h3> Queue: </h3>
+                            ${queueName == null ? `` : `<p> Name: ${queueName.queueName} </p>`}
+                            <p> Id: ${timeSlot.id}`}
+                            <h3>Status:</h3>
+                            <p style="color:red"> NOT DELIVERED </p>
+                            <a href="/store/package?validationKey=${nonDeliveredPackages[i].verificationCode}&storeid=${nonDeliveredPackages[i].storeId}" class="knap">Actions</a>
+                        </div>
+        `;
+        }
+        nonDeliveredPackageTable += `</div>`
+
+        let deliveredPackageTable = `<div id="deliveredPackages" class="packages">
+        <p>Number of delivered packages: ${deliveredPackages.length}</p>`;
+
+        for (i = 0; i < deliveredPackages.length; i++){
+            let timeSlot = await dbGet(db, "SELECT * FROM timeslot WHERE storeId=? AND id=?", [deliveredPackages[i].storeId, deliveredPackages[i].bookedTimeId]);
+            
+            if (timeSlot != null){
+                queueName = await dbGet(db, "SELECT queueName FROM queue WHERE storeId=? AND id=?", [timeSlot.storeId, timeSlot.queueId]);
+            } else{
+                queueName = null;
+            }
+            deliveredPackageTable += `
+                <div class="package">
+                    <h2>Order id: ${deliveredPackages[i].externalOrderId}</h2>
+                    <h3>Customer info:</h3>
+                    <p>Name: ${deliveredPackages[i].customerName}</p>
+                    <p>Mail: ${deliveredPackages[i].customerEmail}</p>
+                    <h3>Creation date:</h3>
+                    <p>${fromISOToDate(deliveredPackages[i].creationDate)} ${fromISOToHHMM(deliveredPackages[i].creationDate)} </p>
+                    <h3> Booked time: </h3>
+                    <p> ${timeSlot == null ? "No timeslot booked" : `${fromISOToDate(timeSlot.startTime)} from ${fromISOToHHMM(timeSlot.startTime)} to ${fromISOToHHMM(timeSlot.endTime)}`}
+                    
+                    ${timeSlot == null ? '' : `<h3> Queue: </h3>
+                    ${queueName == null ? `` : `<p> Name: ${queueName.queueName} </p>`}
+                    <p> Id: ${timeSlot.id}`}
+                    <h3>Status:</h3>
+                    <p style="color:green"> DELIVERED </p>
+                    <a href="/store/package?validationKey=${deliveredPackages[i].verificationCode}&storeid=${deliveredPackages[i].storeId}" class="knap">Actions</a>
+                </div>
+            `;
+    }
+        deliveredPackageTable += `</div>`
+
+        let store = await storeIdToStore(request.user.storeId);
+
+        response.statusCode = 200;
+
+        response.write(renderPackageList(store, nonDeliveredPackageTable, deliveredPackageTable));
         
         response.end();
     }
@@ -595,7 +698,7 @@ async function queueAdd(request, response) {
     let wantedLongitude = Number(postParameters.longitude);
     let wantedName = postParameters.queueName;
 
-    dbRun(db, "INSERT INTO queue (latitude, longitude, size, storeId, queueName) VALUES (?, ?, ?, ?, ?)", [wantedLatitude, wantedLongitude, wantedSize, wantedStoreId, wantedName]);
+    await dbRun(db, "INSERT INTO queue (latitude, longitude, size, storeId, queueName) VALUES (?, ?, ?, ?, ?)", [wantedLatitude, wantedLongitude, wantedSize, wantedStoreId, wantedName]);
 
     request.session.statusText = "Succes! Added new queue";
     response.statusCode = 302;
@@ -699,7 +802,6 @@ async function packageStoreUnconfirm(request, response) {
 }
 
 async function main() {
-    
 
     db = new sqlite3.Database(__dirname + "/../databasen.sqlite3");
 
@@ -740,12 +842,11 @@ async function main() {
     requestHandler.addEndpoint("GET", "/admin/employees/employee_list", employeeList);
     requestHandler.addEndpoint("GET", "/admin/package_form", packageFormGet);
     requestHandler.addEndpoint("GET", "/store", storeMenu);
-    requestHandler.addEndpoint("GET", "/store/packages", (req, res) => packageList(req, res, ""));
+    requestHandler.addEndpoint("GET", "/store/packages", packageList);
     requestHandler.addEndpoint("GET", "/store/package", packageStoreView);
     requestHandler.addEndpoint("GET", "/package", timeSlotSelector);
     requestHandler.addEndpoint("GET", "/store/scan", storeScan);
     requestHandler.addEndpoint("GET", "/admin/settings", openingTime);
-
     requestHandler.addEndpoint("GET", "/static/css/style.css", (response) => 
         serveFile(response, __dirname + "/../frontend/css/style.css", "text/css")
     );
@@ -767,6 +868,9 @@ async function main() {
     requestHandler.addEndpoint("GET", "/static/js/timeSlotSelection.js", (response) => 
         serveFile(response, __dirname + "/../frontend/js/timeSlotSelection.js", "text/javascript")
     );
+    requestHandler.addEndpoint("GET", "/static/js/settingsScript.js", (response) => 
+        serveFile(response, __dirname + "/../frontend/js/settingsScript.js", "text/javascript")
+    );
 
     requestHandler.addEndpoint("POST", "/login", loginPost);
     requestHandler.addEndpoint("POST", "/api/add_package", apiPost);
@@ -780,6 +884,7 @@ async function main() {
     requestHandler.addEndpoint("POST", "/admin/queues/add", queueAdd);
     requestHandler.addEndpoint("POST", "/package/select_time", selectTimeSlot);
     requestHandler.addEndpoint("POST", "/package/cancel", cancelTimeSlot);
+    requestHandler.addEndpoint("POST", "/store/packages", packageListPost);
     requestHandler.addEndpoint("POST", "/admin/settings", settingsPost);
 
     const server = http.createServer((request, response) => requestHandler.handleRequest(request, response));
@@ -830,25 +935,10 @@ async function addEmployeePost(request, response){
     if (wantedStoreId == null) {
         return;  
     }
-
+    postParameters["username"] = postParameters["username"].toLowerCase();
     /* Find the user if it exists */
-    let usernameUnique = await new Promise((resolve, reject) => {
-        db.serialize(() => {
-            db.get("SELECT id FROM user WHERE username=?", [postParameters["username"]], (err, row) => {
-                if (err) {
-                    resolve(null);
-                } else {
-                    if (row == undefined) {
-                        resolve(true);
-                    } else {
-                        request.session.lastError = "Username already exists";                            
-                        resolve(false);
-                    }
-                }
-            })
-        });
-    });
-
+    let usernameUnique = (await dbGet(db, "SELECT id FROM user WHERE username=?", [postParameters["username"]])) == null;
+    
     if (usernameUnique) {
         request.session.lastError = "User successfully added to database";
         let salt = crypto.randomBytes(16).toString(HASHING_HASH_ENCODING);
@@ -860,14 +950,16 @@ async function addEmployeePost(request, response){
                 resolve(derivedKey);
             });
         });
-        db.run("INSERT INTO user (name, username, superuser, storeid, password, salt) VALUES (?, ?, ?, ?, ?, ?)", [[postParameters["employeeName"]],[postParameters["username"]], [postParameters["superuser"]], request.user.storeId, hashed.toString(HASHING_HASH_ENCODING), salt]);
-        }
-        
+        console.log("Bruger indsat i databasen");
+        dbRun(db, "INSERT INTO user (name, username, superuser, storeid, password, salt) VALUES (?, ?, ?, ?, ?, ?)", [[postParameters["employeeName"]],[postParameters["username"]], [postParameters["superuser"]], request.user.storeId, hashed.toString(HASHING_HASH_ENCODING), salt]);
+    } else {
+        request.session.lastError = "Username already exists";
+    }
 
-        request.session.displayError = true;
-        response.statusCode = 302;
-        response.setHeader('Location','/admin/employees/add?storeid=' + request.session.storeId);
-        response.end()
+    request.session.displayError = true;
+    response.statusCode = 302;
+    response.setHeader('Location','/admin/employees/add?storeid=' + request.session.storeId);
+    response.end()
 }
 
 async function editEmployee(request, response){
@@ -907,80 +999,43 @@ async function editEmployeePost(request, response){
 
     if (wantedStoreId == null) {
         return;  
-    }
-    if (typeof(postParameters["password"]) != "string" || typeof(postParameters["username"]) != "string"
-      || typeof(postParameters["employeeName"]) != "string" || typeof(postParameters["id"]) != "string" || typeof(postParameters["superuser"]) != "number")
-      {
+    } if (typeof(postParameters["password"]) != "string" || typeof(postParameters["username"]) != "string"
+        || typeof(postParameters["employeeName"]) != "string" || typeof(postParameters["id"]) != "string" || typeof(postParameters["superuser"]) != "number")
+        {
         request.session.lastError = "Some input data was invalid";
         request.session.displayError = true;
         response.statusCode = 302;
         response.setHeader('Location','/admin/employees/employee_list?storeid=' + request.session.storeId);
         response.end();
         return;
-      }
+    }
+    postParameters["username"] = postParameters["username"].toLowerCase();
     /* Find the user if it exists */
-    let usernameUnique = await new Promise((resolve, reject) => {
-        db.serialize(() => {
-            db.get("SELECT id FROM user WHERE username=? AND id!=? AND storeId=?", [postParameters["username"],postParameters["id"],wantedStoreId], (err, row) => {
-                if (err) {
-                    resolve(null);
-                } else {
-                    if (row == undefined) {
-                        resolve(true);
-                    } else {
-                        request.session.lastError = "Username already exists";                            
-                        resolve(false);
-                    }
-                }
-            })
-        });
-    });
-    // Giver true hvis den bruger der bliver edited er den sidste superuser
-    let lastAdminCheck = await new Promise((resolve, reject) => {
-        db.serialize(() => {
-            db.get("SELECT id FROM user WHERE superuser=1 AND id!=? AND storeId=?", [postParameters["id"],wantedStoreId], (err, row) => {
-                if (err) {
-                    resolve(null);
-                } else {
-                    if (row == undefined) {
-                        resolve(true);
-                    } else {                        
-                        resolve(false);
-                    }
-                }
-            })
-        });
-    });
+    let usernameUnique = 
+        (await dbGet(db, "SELECT id FROM user WHERE username=? AND id!=? AND storeId=?", [postParameters["username"], postParameters["id"],wantedStoreId])) == null;
 
-    let user = await new Promise((resolve, reject) => {
-        db.serialize(() => {
-            db.get("SELECT * FROM user WHERE id=? AND storeId=?", [postParameters["id"],wantedStoreId], (err, row) => {
-                if (err) {
-                    resolve(null);
-                } else {
-                    if (row == undefined) {
-                        request.session.lastError = "User you are trying to edit doesn't exist";
-                        request.session.displayError = true;
-                        response.statusCode = 302;
-                        response.setHeader('Location','/admin/employees/employee_list?storeid=' + request.session.storeId);
-                        response.end();
-                        return;
-                    } else {
-                        resolve(row);
-                    }
-                }
-            })
-        });
-    });
+    // Giver true hvis den bruger der bliver edited er den sidste superuser
+    let lastAdminCheck = 
+        (await dbGet(db, "SELECT id FROM user WHERE superuser=1 AND id!=? AND storeId=?", [postParameters["id"], wantedStoreId])) == null;
+
+    let user = await dbGet(db, "SELECT * FROM user WHERE id=? AND storeId=?", [postParameters["id"], wantedStoreId]); 
+    if (user == null) {
+        request.session.lastError = "User you are trying to edit doesn't exist";
+        request.session.displayError = true;
+        response.statusCode = 302;
+        response.setHeader('Location','/admin/employees/employee_list?storeid=' + request.session.storeId);
+        response.end();
+        return;
+    }
+
     changeInPassword = postParameters["password"] != "password";
     changeInUsername = postParameters["username"].trim() != user.username.trim();
-    changeInName = postParameters["name"] != user.employeeName;
+    changeInName = postParameters["employeeName"] != user.name;
     changeInSuperuser = postParameters["superuser"] != user.superuser;
 
-    if (changeInSuperuser || changeInUsername || changeInName || changeInPassword){
+    if (changeInSuperuser || changeInUsername || changeInName || changeInPassword) {
         if (!(lastAdminCheck && changeInSuperuser)){
-            if (usernameUnique){    
-    
+            if (usernameUnique) {
                 if (changeInPassword) {
                     let hashed = await new Promise((resolve, reject) => {
                         crypto.pbkdf2(postParameters["password"], user.salt, HASHING_ITERATIONS, HASHING_KEYLEN, HASHING_ALGO, (err, derivedKey) => {
@@ -990,34 +1045,34 @@ async function editEmployeePost(request, response){
                             resolve(derivedKey);
                         });
                     });
-                    
-                    db.run(`update user set password=? where id=? AND storeId=?`,[hashed.toString(HASHING_HASH_ENCODING),user.id, wantedStoreId]);
-                    }
+                    await dbRun(db, `update user set password=? where id=? AND storeId=?`, [hashed.toString(HASHING_HASH_ENCODING),user.id, wantedStoreId]);
+                }
                 if (changeInUsername) {
-                    db.run(`update user set username=? where id=? AND storeId=?`, [postParameters["username"], user.id,wantedStoreId]);
+                    await dbRun(db, `update user set username=? where id=? AND storeId=?`, [postParameters["username"], user.id,wantedStoreId]);
                 }
                 if (changeInName) {
-                    db.run(`update user set name=? where id=? AND storeId=?`,[postParameters["employeeName"], user.id, wantedStoreId]);
+                    await dbRun(db, `update user set name=? where id=? AND storeId=?`, [postParameters["employeeName"], user.id, wantedStoreId]);
                 }
                 if (changeInSuperuser) {
-                    db.run(`update user set superuser=? where id=? AND storeId=?`,[postParameters["superuser"], user.id, wantedStoreId]);
+                    await dbRun(db, `update user set superuser=? where id=? AND storeId=?`, [postParameters["superuser"], user.id, wantedStoreId]);
                 }
                 if (changeInUsername || changeInName || changeInPassword || changeInSuperuser){
                     request.session.lastError = `The user was edited.`;
                 } else{
                     request.session.lastError = `No changes were made.`;
                 }
+            } else {
+                request.session.lastError = "Username already exists";
             }
         } else{
             request.session.lastError = "You can not remove the last superuser.";
         }
-    }
-    else{
+    } else {
         request.session.lastError = "Nothing was changed.";
     }
     request.session.displayError = true;
     response.statusCode = 302;
-    response.setHeader('Location','/admin/employees/employee_list?storeid=' + request.session.storeId);
+    response.setHeader('Location','/admin/employees/employee_list?storeid=' + wantedStoreId);
     response.end()
 }
 
@@ -1030,31 +1085,16 @@ async function removeEmployeePost(request, response){
     if (wantedStoreId == null) {
         return;  
     }
-    
-    let user = await new Promise((resolve, reject) => {
-        db.serialize(() => {
-            db.get("SELECT username, id, password, salt, superuser FROM user WHERE username=? AND storeId=?", [postParameters["username"],request.user.storeId], (err, row) => {
-                if (err) {
-                    resolve(null);
-                } else {
-                    if (row == undefined) {
-                        resolve(null);
-                    } else {
-                        resolve(row);
-                    }
-                }
-            })
-        });
-    });
-    if (user == null){
+    postParameters["username"] = postParameters["username"].toLowerCase();
+    await dbRun(db, "SELECT username, id, password, salt, superuser FROM user WHERE username=? AND storeId=?", [postParameters["username"],request.user.storeId]);
+
+    if (user == null){ 
         request.session.lastError = "User not found";
-    }
-    else if(user.username == request.user.username){
+    } else if (user.username == request.user.username) {
         request.session.lastError = "You can't delete your own user";
-    }
-    else{
+    } else {
         request.session.lastError = "User deleted";
-        db.run("DELETE FROM user WHERE username=? AND storeId=?", [postParameters["username"], request.user.storeId]);
+        await dbRun(db, "DELETE FROM user WHERE username=? AND storeId=?", [postParameters["username"], request.user.storeId]);
     }
     
     request.session.displayError = true;
@@ -1077,41 +1117,23 @@ async function employeesDashboard(request, response){
     
 }
 
-/* Hjælpefunktion til at finde username, name, id og superuser til employee list
-   clunky med den er funktionel ;)
-*/
-
 async function employeeList(request, response){
     let wantedStoreId = assertAdminAccess(request, request.query, response);
 
     if (wantedStoreId == null) {
         return;  
     }
-        let userList = await new Promise((resolve, reject) => {
-            let sql = `SELECT * FROM user WHERE storeId=${request.session.storeId} ORDER BY id`;
-            let rv = [];
-            
-            db.all(sql, [], (err, rows) => {
-                if (err) {
-                    reject(err);
-                }
-                rows.forEach((row) => {
-                    valueToAdd = [ row.id, row.username, row.name,  row.superuser];
-                    rv.push(valueToAdd);               
-                });
-                resolve (rv);
-            });
-        });
+    let userList = await dbAll(db, "SELECT id, username, name, superuser FROM user WHERE storeId=? ORDER BY id", [wantedStoreId]);
 
-        let store = await storeIdToStore(wantedStoreId);
+    let store = await storeIdToStore(wantedStoreId);
 
-        request.session.displayError ? error = request.session.lastError : error = "";
-        request.session.displayError = false;
+    request.session.displayError ? error = request.session.lastError : error = "";
+    request.session.displayError = false;
 
-        response.statusCode = 200;
-        response.write(employeeListPage(store, userList, error));
-        
-        response.end();
+    response.statusCode = 200;
+    response.write(employeeListPage(store, userList, error));
+
+    response.end();
 }
 
 
@@ -1400,15 +1422,21 @@ const CRAZY_QUERY = query = `SELECT id, strftime("%w", startTime) as week_day, t
 
 async function settingsPost(request, response) {
     let postBody = parseURLEncoded(await receiveBody(request));
-
-    let wantedStoreId = assertAdminAccess(request, request.query, response);
+    let wantedStoreId = assertAdminAccess(request, postBody, response);
     if (wantedStoreId == null) {
         return;
     }
 
     for (day of DAYS_OF_WEEK) {
-        let openTime = postBody[`${day}-open`];
-        let closeTime = postBody[`${day}-close`];
+        if (postBody[`${day}`] != undefined) {
+            if (postBody[`${day}`]){
+                openTime = closeTime = postBody[`${day}-open`];
+            }
+        } else {
+            openTime = postBody[`${day}-open`];
+            closeTime = postBody[`${day}-close`];
+        }
+
         if (!isValidTime(openTime) || !isValidTime(closeTime)) {
             request.session.settingsError = `time range for ${day} was invalid`;
             response.statusCode = 302
@@ -1433,8 +1461,14 @@ async function settingsPost(request, response) {
 
     let newOpeningTime = {};
     for (day of DAYS_OF_WEEK) {
-        let open = postBody[`${day}-open`];
-        let close = postBody[`${day}-close`];
+        if (postBody[`${day}`] != undefined) {
+            if (postBody[`${day}`]){
+                open = close = postBody[`${day}-open`];
+            }
+        } else {
+            open = postBody[`${day}-open`];
+            close = postBody[`${day}-close`];
+        }
 
         if (open == close) {
             newOpeningTime[day] = [];
@@ -1444,7 +1478,7 @@ async function settingsPost(request, response) {
     }
 
     let now = moment();
-
+    console.log(newOpeningTime);
     await dbRun(db, "UPDATE store SET openingTime=? WHERE id=?",[JSON.stringify(newOpeningTime), wantedStoreId]);
 
     if (postBody["delete-timeslots"] == "on") {

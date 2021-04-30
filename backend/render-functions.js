@@ -52,10 +52,18 @@ function renderEmployeeNav(store) {
     `;
 }
 
+function generalHeader() {
+    return `
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    `;
+}
+
 exports.render404 = function render404(userId) {
     let page = `
         <html>
             <head>
+                ${generalHeader()}
                 <title>404 page not found</title>
                 <link rel="stylesheet" href="/static/css/style.css">
             </head>
@@ -77,6 +85,7 @@ exports.renderAdmin = function renderAdmin(request, store) {
     let page = `
         <html>
             <head>
+                ${generalHeader()}
                 <link rel="stylesheet" href="/static/css/style.css">
                 <title>Store admin for ${store.name}</title>
             </head>
@@ -90,7 +99,7 @@ exports.renderAdmin = function renderAdmin(request, store) {
                     <ul class="dash">
                         <a href="/store?storeid=${store.id}"><li>Employee dashboard</li></a>
                         <a href="/admin/queues?storeid=${store.id}"><li>Manage queues</li></a>
-                        <a href="/admin/settings?storeid=${store.id}"><li>Change settings</li></a>
+                        <a href="/admin/settings?storeid=${store.id}"><li>Manage opening times</li></a>
                         <a href="/admin/package_form?storeid=${store.id}"><li>Create package manually</li></a>
                         <a href="/admin/employees?storeid=${store.id}"><li>Manage employees</li></a>
                     </ul>
@@ -139,6 +148,7 @@ exports.renderQueueList = function renderQueueList(request, store, queues) {
     let page = `
         <html>
             <head>
+                ${generalHeader()}
                 <title>Queue list for ${store.name}</title>
                 <link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/openlayers/openlayers.github.io@master/en/v6.5.0/css/ol.css" type="text/css">
                 <script src="https://cdn.jsdelivr.net/gh/openlayers/openlayers.github.io@master/en/v6.5.0/build/ol.js"></script>
@@ -189,7 +199,7 @@ exports.renderPackageForm = function renderPackageForm(store, request) {
     let page = `
         <html>
             <head>
-                <meta charset="UTF-8">
+                ${generalHeader()}
                 <title>Add package</title>
                 <link rel="stylesheet" href="/static/css/style.css">
             </head>
@@ -219,6 +229,7 @@ exports.manageEmployees = function manageEmployees(store, request) {
     let page = `
         <html>
             <head>
+                ${generalHeader()}
                 <title>Store admin for ${request.session.storeName}</title>
                 <link rel="stylesheet" href="/static/css/style.css">
             </head>
@@ -247,22 +258,22 @@ function renderListOfEmployees(list, storeId) {
     list.forEach(employee => {
         html += `
             <div>
-                <h2>${employee[2]}</h2>
-                <p>Username: ${employee[1]}</p>
-                <p>Superuser: ${employee[3] == 1 ? "YES" : "NO"}</p>
+                <h2>${employee.name}</h2>
+                <p>Username: ${employee.username}</p>
+                <p>Superuser: ${employee.superuser == 1 ? "YES" : "NO"}</p>
                 <div>
                     <form action="/admin/employees/edit" method="GET">
-                        <input type="hidden" value="${employee[0]}" name="id">   
-                        <input type="hidden" value="${employee[1]}" name="username">
-                        <input type="hidden" value="${employee[2]}" name="name">
-                        <input type="hidden" value="${employee[3]}" name="superuser">     
+                        <input type="hidden" value="${employee.id}" name="id">   
+                        <input type="hidden" value="${employee.username}" name="username">
+                        <input type="hidden" value="${employee.name}" name="name">
+                        <input type="hidden" value="${employee.superuser}" name="superuser">     
                         
                         <input type="hidden" value="${storeId}" name="storeid">   
                         <input type="submit" value="Edit">
                     </form>
 
                     <form action="/admin/employees/remove" method="POST">
-                        <input type="hidden" value="${employee[1]}" name="username">     
+                        <input type="hidden" value="${employee.username}" name="username">     
                         <input type="hidden" value="${storeId}" name="storeid">   
                         <input type="submit" value="Remove">
                     </form>
@@ -306,6 +317,7 @@ exports.employeeListPage = function employeeListPage(store, employeeList, error)
     let page = `
         <html>
             <head>
+                ${generalHeader()}
                 <title>Employee list </title>
                 <link rel="stylesheet" href="/static/css/style.css">
             </head>
@@ -347,6 +359,7 @@ exports.addEmployeePage = function addEmployeePage(store, error) {
     let page = `
         <html>
             <head>
+                ${generalHeader()}
                 <title>Adding new employee </title>
                 <link href="https://maxcdn.bootstrapcdn.com/font-awesome/4.2.0/css/font-awesome.min.css" rel="stylesheet">
                 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.13.0/css/all.min.css">
@@ -432,6 +445,7 @@ exports.renderStoreMenu = function renderStoreMenu(store, request) {
     let page = `
         <html>
             <head>
+                ${generalHeader()}
                 <title>Store menu for ${store.name}</title>
                 <link rel="stylesheet" href="/static/css/style.css">
             </head>
@@ -456,10 +470,11 @@ exports.renderStoreMenu = function renderStoreMenu(store, request) {
     return page;
 }
 
-exports.renderPackageList = function renderPackageList(store, packageTable) {
+exports.renderPackageList = function renderPackageList(store, nonDeliveredPackageTable, deliveredPackageTable ) {
     let page = `
         <html>
             <head>
+                ${generalHeader()}
                 <title>Package overview</title>
                 <link rel="stylesheet" href="/static/css/style.css">
             </head>
@@ -467,12 +482,63 @@ exports.renderPackageList = function renderPackageList(store, packageTable) {
 
     page += `${renderEmployeeNav(store)}`;
     page += `
-                <h1 style="text-align: center">Package Overview</h1>
-                <div class="main-body" id="packageOverview">
-                    ${packageTable}
+                <div class="main-body">
+                    <h1>Package Overview</h1>
+                    <form action="/store/packages" method="POST">
+                        <label for="customerName"> Search for customer name: </label>
+                        <input type="text" name="customerName" required>
+                        <input type="hidden" value="${store.id}" name="storeid">
+                        <input type="submit" id="submit" value="Search">
+                    </form>
+                    <a class="knap" id="showButton" onclick="toggleShowDelivered()"> Show delivered packages </a>
+                    <a class="knap" id="toggleTimeslots"onclick="toggleTimeSlotChosen()"> Hide packages without an assigned timeslot </a>
+                    ${nonDeliveredPackageTable}
+                    ${deliveredPackageTable}
                     <a href="/store?storeid=${store.id}" class="knap">Back</a>
                 </div>
             </body>
+            <script>
+            let showToggle = 1;
+            function toggleShowDelivered(){
+                table = document.getElementById('deliveredPackages');
+                console.log(table);
+                
+                if (table.style.display === "none"){
+                    table.style.display = "initial";
+                    console.log(table.style.display);
+                } else{
+                    table.style.display = "none";    
+                }
+                console.log(table.style.display);
+                button = document.getElementById('showButton');
+                if (table.style.display === "none"){
+                    button.innerText = "Show delivered packages";
+                }
+                else{
+                    button.innerText = "Hide delivered packages";
+                }
+            }
+            function toggleTimeSlotChosen(){
+                table = document.getElementById('nonDeliveredPackages');
+
+                elements = table.getElementsByTagName('div');
+                
+                button = document.getElementById('toggleTimeslots');
+
+                for (i = 0; i < elements.length; i++){
+                    if (elements[i].classList.contains('noTimeSlot')){
+                        elements[i].hidden = !elements[i].hidden;
+                    }
+                }
+                if (showToggle == 1){
+                    showToggle = 0;
+                    button.innerText = "Show packages without an assigned timeslot";
+                }else{
+                    showToggle = 1;
+                    button.innerText = "Hide packages without an assigned timeslot";
+                }
+            }
+            </script>
         </html>
     `;
 
@@ -487,6 +553,7 @@ exports.renderSettings = function renderSettings(store, request, DAYS_OF_WEEK, p
     let page = `
         <html>
             <head>
+                ${generalHeader()}
                 <title>Opening time for ${store.name}</title>
                 <link rel="stylesheet" href="/static/css/style.css">
                 <style>
@@ -500,7 +567,7 @@ exports.renderSettings = function renderSettings(store, request, DAYS_OF_WEEK, p
             page += `${renderNavigation(store)}`;
             page += `
                 <div class="main-body">
-                    <h1>Settings for ${store.name}</h1>
+                    <h1>Opening times for your store: </h1>
                     <p id="error-message" class="${hasError ? "" : "hidden"}">${hasError ? "" : request.session.settingsError}</p>
                     <form method="POST" id="settings-form">
                         <table>
@@ -509,6 +576,7 @@ exports.renderSettings = function renderSettings(store, request, DAYS_OF_WEEK, p
                                     <th style="text-align: left">Day</th>
                                     <th>Open time</th>
                                     <th>Closing time</th>
+                                    <th> Closed </th>
                                 </tr>
                             </thead>
                             <tbody>
@@ -520,11 +588,13 @@ exports.renderSettings = function renderSettings(store, request, DAYS_OF_WEEK, p
                                         <td>${capitalizeFirstLetter(day)}</td>
                                         <td><input name="${day}-open" type="time" value="${parsedOpeningTime[day][0]}" step="1"></td>
                                         <td><input name="${day}-close" type="time" value="${parsedOpeningTime[day][1]}" step="1"></td>
+                                        <td> <input type="checkbox" name="${day}" value="closed"></td>
                                     </tr>`;
                                 }).join("\n")}
+                                <input type="hidden" name="storeid" value="${store.id}">
                             </tbody>
                         </table>
-                        <label for="delete-timeslots">Delete existing timeslots outside of open times: </label>
+                        <label for="delete-timeslots">Delete existing timeslots outside of opening times: </label>
                         <input type="checkbox" name="delete-timeslots"><br>
                         <input type="submit" value="Set new opentime">
                     </form>
@@ -541,6 +611,7 @@ exports.renderStoreScan = function renderStoreScan(store) {
     let page = `
         <html>
             <head>
+                ${generalHeader()}
                 <title>scanner</title>
                 <link rel="stylesheet" href="/static/css/style.css">
                 <link href="https://maxcdn.bootstrapcdn.com/font-awesome/4.2.0/css/font-awesome.min.css" rel="stylesheet">
@@ -564,21 +635,21 @@ exports.renderStoreScan = function renderStoreScan(store) {
                             <button id="start-scanner-btn">Start scanner</button>
                             <button id="stop-scanner-btn">Stop scanner</button>
                         </div>
-                        
+                    </div>
                         <h2>Package details</h2>
                         <p>Validation key is automatically set when a QR code is scanned. Press the lock to manually input package:</p>
                         <form action="/store/package" method="GET">
                             <label for="validationKey">Validation key:</label><br>
                             <div class="input-container">
-                                <input id="validation-key-input" type="text" name="validationKey" disabled="true" value="">
+                                <input id="validation-key-input" style="background-color:grey" type="text" name="validationKey" readonly value="">
                                 <i id="input-toggle" class="fas fa-unlock" onclick="toggleValidationInput()"> </i> <br>
                             </div>
                             <input type="hidden" value="${store.id}" name="storeid">
                             <input type="submit" value="Go to package"><br>
                         </form>
-                    </div>
+                    
                     <a href="/store?storeid=${store.id}" class="knap">Back</a>
-                </div>
+                    </div>
 
                 <!-- Burde måske samles i en script -->
                 <script src="/static/js/external/qr-scanner.umd.min.js"></script>
@@ -586,7 +657,12 @@ exports.renderStoreScan = function renderStoreScan(store) {
                 <script>
                     function toggleValidationInput(){
                         elm = document.getElementById('validation-key-input');
-                        elm.disabled ? elm.disabled = false : elm.disabled = true;
+                        elm.readOnly = !elm.readOnly;
+                        if (elm.readOnly){
+                            elm.style.backgroundColor = "grey";
+                        } else{
+                            elm.style.backgroundColor = "#f0f0f0";
+                        }
                     }
                 </script>
             </body>
@@ -600,6 +676,7 @@ exports.renderPackageOverview = function renderPackageOverview(store, package) {
     let page = `
         <html>
             <head>
+                ${generalHeader()}
                 <title>Package overview</title>
                 <link rel="stylesheet" href="/static/css/style.css">
             </head>
@@ -609,14 +686,14 @@ exports.renderPackageOverview = function renderPackageOverview(store, package) {
     page += `
                 <div class="main-body">
                     <h1>Package details</h1>
-                    <p style="display: inline">status: </p><span style="color: ${package.delivered ? "green" : "red"}">${package.delivered ? "DELIVERED" : "NOT DELIVERED"}</span>
-                    <p>guid: ${package.guid}</p>
-                    <p>bookedTimeId: ${package.bookedTimeId}</p>
-                    <p>verification code: ${package.verificationCode}</p>
-                    <p>customerEmail: ${package.customerEmail}</p>
-                    <p>customerName: ${package.customerName}</p>
-                    <p>externalOrderId: ${package.externalOrderId}</p>
-                    <p>creationDate: ${package.creationDate}</p>
+                    <p style="display: inline">Status: </p><span style="color: ${package.delivered ? "green" : "red"}">${package.delivered ? "DELIVERED" : "NOT DELIVERED"}</span>
+                    <p>Guid: ${package.guid}</p>
+                    <p>Booked timeslot id: ${package.bookedTimeId}</p>
+                    <p>Verification code: ${package.verificationCode}</p>
+                    <p>Customer Email: ${package.customerEmail}</p>
+                    <p>Customer name: ${package.customerName}</p>
+                    <p>External order id: ${package.externalOrderId}</p>
+                    <p>Creation date: ${fromISOToDate(package.creationDate)} ${fromISOToHHMM(package.creationDate)}</p>
                     <h2>Actions</h2>
                     <form action="/store/package/${package.delivered == 0 ? "confirm" : "undeliver"}" method="POST">
                         <input type="hidden" value="${store.id}" name="storeid">
@@ -653,6 +730,7 @@ exports.renderLogin = function renderLogin(error, request) {
     let page = `
         <html>
             <head>
+                ${generalHeader()}
                 <link href="https://maxcdn.bootstrapcdn.com/font-awesome/4.2.0/css/font-awesome.min.css" rel="stylesheet">
                 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.13.0/css/all.min.css">
                 <link rel="stylesheet" href="/static/css/style.css">
@@ -697,6 +775,7 @@ exports.renderEditEmployee = function renderEditEmployee(store, request, error) 
     let page = `
         <html>
             <head>
+                ${generalHeader()}
                 <title> Editing user: ${request.query.username} </title>
                 <link href="https://maxcdn.bootstrapcdn.com/font-awesome/4.2.0/css/font-awesome.min.css" rel="stylesheet">
                 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.13.0/css/all.min.css">
@@ -783,8 +862,8 @@ exports.renderTimeSlots = function renderTimeSlots(selectedWeek, selectedYear, s
     let page = `
         <html>
             <head>
+                ${generalHeader()}
                 <title>Timeslots</title>
-                <meta charset="UTF-8">
                 <link href="/static/css/timeSlotSelection.css" rel="stylesheet">
             </head>
             <body>
@@ -845,6 +924,7 @@ exports.renderTimeSlotStatus = function renderTimeSlotStatus(package, bookedTime
     let page = `
         <html>
             <head>
+                ${generalHeader()}
                 <title>Package status</title>
                 <link rel="stylesheet" href="/static/css/style.css">
             </head>
@@ -877,6 +957,7 @@ exports.render500 = function render500(request) {
     return`<!DOCTYPE html>
     <html>
         <head>
+            ${generalHeader()}
             <title>500 server error</title>
         </head>
         <body>
