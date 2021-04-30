@@ -63,7 +63,7 @@ async function remindStoreOwner(package) {
         console.log('Sending reminder to store owner: ' + store.storeEmail + ' (14 days has passed - order: ' + package.externalOrderId + ')');
         sendEmail(store.storeEmail, store.name, "Reminder: no time slot booked", `Order: ${package.externalOrderId}`, await reminderStoreHTML(package));
         /* Increment package.remindersSent in database */
-        db.run("UPDATE package SET remindersSent=2 WHERE id=?", [package.id]);
+        await dbRun(db, "UPDATE package SET remindersSent=2 WHERE id=?", [package.id]);
     } else {
         return;
     }
