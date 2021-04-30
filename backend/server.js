@@ -1010,23 +1010,8 @@ async function addEmployeePost(request, response){
     }
 
     /* Find the user if it exists */
-    let usernameUnique = await new Promise((resolve, reject) => {
-        db.serialize(() => {
-            db.get("SELECT id FROM user WHERE username=?", [postParameters["username"]], (err, row) => {
-                if (err) {
-                    resolve(null);
-                } else {
-                    if (row == undefined) {
-                        resolve(true);
-                    } else {
-                        request.session.lastError = "Username already exists";                            
-                        resolve(false);
-                    }
-                }
-            })
-        });
-    });
-
+    let usernameUnique = (await dbGet(db, "SELECT id FROM user WHERE username=?", [postParameters["username"]])) == null;
+    
     if (usernameUnique) {
         request.session.lastError = "User succesfully added to database";
         let salt = crypto.randomBytes(16).toString(HASHING_HASH_ENCODING);
@@ -1040,13 +1025,14 @@ async function addEmployeePost(request, response){
         });
         console.log("Bruger indsat i databasen");
         db.run("INSERT INTO user (name, username, superuser, storeid, password, salt) VALUES (?, ?, ?, ?, ?, ?)", [[postParameters["employeeName"]],[postParameters["username"]], [postParameters["superuser"]], request.user.storeId, hashed.toString(HASHING_HASH_ENCODING), salt]);
-        }
-        
+    } else {
+        request.session.lastError = "Username already exists";
+    }
 
-        request.session.displayError = true;
-        response.statusCode = 302;
-        response.setHeader('Location','/admin/employees/add?storeid=' + request.session.storeId);
-        response.end()
+    request.session.displayError = true;
+    response.statusCode = 302;
+    response.setHeader('Location','/admin/employees/add?storeid=' + request.session.storeId);
+    response.end()
 }
 
 async function editEmployee(request, response){
@@ -1088,78 +1074,41 @@ async function editEmployeePost(request, response){
         return;  
     }
     if (typeof(postParameters["password"]) != "string" || typeof(postParameters["username"]) != "string"
-      || typeof(postParameters["employeeName"]) != "string" || typeof(postParameters["id"]) != "string" || typeof(postParameters["superuser"]) != "number")
-      {
+        || typeof(postParameters["employeeName"]) != "string" || typeof(postParameters["id"]) != "string" || typeof(postParameters["superuser"]) != "number")
+        {
         request.session.lastError = "Some input data was invalid";
         request.session.displayError = true;
         response.statusCode = 302;
         response.setHeader('Location','/admin/employees/employee_list?storeid=' + request.session.storeId);
         response.end();
         return;
-      }
+    }
     /* Find the user if it exists */
-    let usernameUnique = await new Promise((resolve, reject) => {
-        db.serialize(() => {
-            db.get("SELECT id FROM user WHERE username=? AND id!=? AND storeId=?", [postParameters["username"],postParameters["id"],wantedStoreId], (err, row) => {
-                if (err) {
-                    resolve(null);
-                } else {
-                    if (row == undefined) {
-                        resolve(true);
-                    } else {
-                        request.session.lastError = "Username already exists";                            
-                        resolve(false);
-                    }
-                }
-            })
-        });
-    });
-    // Giver true hvis den bruger der bliver edited er den sidste superuser
-    let lastAdminCheck = await new Promise((resolve, reject) => {
-        db.serialize(() => {
-            db.get("SELECT id FROM user WHERE superuser=1 AND id!=? AND storeId=?", [postParameters["id"],wantedStoreId], (err, row) => {
-                if (err) {
-                    resolve(null);
-                } else {
-                    if (row == undefined) {
-                        resolve(true);
-                    } else {                        
-                        resolve(false);
-                    }
-                }
-            })
-        });
-    });
+    let usernameUnique = 
+        (await dbGet(db, "SELECT id FROM user WHERE username=? AND id!=? AND storeId=?", [postParameters["username"], postParameters["id"],wantedStoreId])) == null;
 
-    let user = await new Promise((resolve, reject) => {
-        db.serialize(() => {
-            db.get("SELECT * FROM user WHERE id=? AND storeId=?", [postParameters["id"],wantedStoreId], (err, row) => {
-                if (err) {
-                    resolve(null);
-                } else {
-                    if (row == undefined) {
-                        request.session.lastError = "User you are trying to edit doesn't exist";
-                        request.session.displayError = true;
-                        response.statusCode = 302;
-                        response.setHeader('Location','/admin/employees/employee_list?storeid=' + request.session.storeId);
-                        response.end();
-                        return;
-                    } else {
-                        resolve(row);
-                    }
-                }
-            })
-        });
-    });
+    // Giver true hvis den bruger der bliver edited er den sidste superuser
+    let lastAdminCheck = 
+        (await dbGet(db, "SELECT id FROM user WHERE superuser=1 AND id!=? AND storeId=?", [postParameters["id"], wantedStoreId])) == null;
+
+    let user = await dbGet(db, "SELECT * FROM user WHERE id=? AND storeId=?", [postParameters["id"], wantedStoreId]); 
+    if (user == null) {
+        request.session.lastError = "User you are trying to edit doesn't exist";
+        request.session.displayError = true;
+        response.statusCode = 302;
+        response.setHeader('Location','/admin/employees/employee_list?storeid=' + request.session.storeId);
+        response.end();
+        return;
+    }
+
     changeInPassword = postParameters["password"] != "password";
     changeInUsername = postParameters["username"].trim() != user.username.trim();
-    changeInName = postParameters["name"] != user.employeeName;
+    changeInName = postParameters["employeeName"] != user.name;
     changeInSuperuser = postParameters["superuser"] != user.superuser;
 
-    if (changeInSuperuser || changeInUsername || changeInName || changeInPassword){
+    if (changeInSuperuser || changeInUsername || changeInName || changeInPassword) {
         if (!(lastAdminCheck && changeInSuperuser)){
-            if (usernameUnique){    
-    
+            if (usernameUnique) {
                 if (changeInPassword) {
                     let hashed = await new Promise((resolve, reject) => {
                         crypto.pbkdf2(postParameters["password"], user.salt, HASHING_ITERATIONS, HASHING_KEYLEN, HASHING_ALGO, (err, derivedKey) => {
@@ -1169,34 +1118,34 @@ async function editEmployeePost(request, response){
                             resolve(derivedKey);
                         });
                     });
-                    
-                    db.run(`update user set password=? where id=? AND storeId=?`,[hashed.toString(HASHING_HASH_ENCODING),user.id, wantedStoreId]);
-                    }
+                    await dbRun(db, `update user set password=? where id=? AND storeId=?`, [hashed.toString(HASHING_HASH_ENCODING),user.id, wantedStoreId]);
+                }
                 if (changeInUsername) {
-                    db.run(`update user set username=? where id=? AND storeId=?`, [postParameters["username"], user.id,wantedStoreId]);
+                    await dbRun(db, `update user set username=? where id=? AND storeId=?`, [postParameters["username"], user.id,wantedStoreId]);
                 }
                 if (changeInName) {
-                    db.run(`update user set name=? where id=? AND storeId=?`,[postParameters["employeeName"], user.id, wantedStoreId]);
+                    await dbRun(db, `update user set name=? where id=? AND storeId=?`, [postParameters["employeeName"], user.id, wantedStoreId]);
                 }
                 if (changeInSuperuser) {
-                    db.run(`update user set superuser=? where id=? AND storeId=?`,[postParameters["superuser"], user.id, wantedStoreId]);
+                    await dbRun(db, `update user set superuser=? where id=? AND storeId=?`, [postParameters["superuser"], user.id, wantedStoreId]);
                 }
                 if (changeInUsername || changeInName || changeInPassword || changeInSuperuser){
                     request.session.lastError = `The user was edited.`;
                 } else{
                     request.session.lastError = `No changes were made.`;
                 }
+            } else {
+                request.session.lastError = "Username already exists";
             }
         } else{
             request.session.lastError = "You can not remove the last superuser.";
         }
-    }
-    else{
+    } else {
         request.session.lastError = "Nothing was changed.";
     }
     request.session.displayError = true;
     response.statusCode = 302;
-    response.setHeader('Location','/admin/employees/employee_list?storeid=' + request.session.storeId);
+    response.setHeader('Location','/admin/employees/employee_list?storeid=' + wantedStoreId);
     response.end()
 }
 
@@ -1210,30 +1159,15 @@ async function removeEmployeePost(request, response){
         return;  
     }
     
-    let user = await new Promise((resolve, reject) => {
-        db.serialize(() => {
-            db.get("SELECT username, id, password, salt, superuser FROM user WHERE username=? AND storeId=?", [postParameters["username"],request.user.storeId], (err, row) => {
-                if (err) {
-                    resolve(null);
-                } else {
-                    if (row == undefined) {
-                        resolve(null);
-                    } else {
-                        resolve(row);
-                    }
-                }
-            })
-        });
-    });
-    if (user == null){
+    await dbRun(db, "SELECT username, id, password, salt, superuser FROM user WHERE username=? AND storeId=?", [postParameters["username"],request.user.storeId]);
+
+    if (user == null){ 
         request.session.lastError = "User not found";
-    }
-    else if(user.username == request.user.username){
+    } else if (user.username == request.user.username) {
         request.session.lastError = "You can't delete your own user";
-    }
-    else{
+    } else {
         request.session.lastError = "User deleted";
-        db.run("DELETE FROM user WHERE username=? AND storeId=?", [postParameters["username"], request.user.storeId]);
+        await dbRun(db, "DELETE FROM user WHERE username=? AND storeId=?", [postParameters["username"], request.user.storeId]);
     }
     
     request.session.displayError = true;
@@ -1266,31 +1200,17 @@ async function employeeList(request, response){
     if (wantedStoreId == null) {
         return;  
     }
-        let userList = await new Promise((resolve, reject) => {
-            let sql = `SELECT * FROM user WHERE storeId=${request.session.storeId} ORDER BY id`;
-            let rv = [];
-            
-            db.all(sql, [], (err, rows) => {
-                if (err) {
-                    reject(err);
-                }
-                rows.forEach((row) => {
-                    valueToAdd = [ row.id, row.username, row.name,  row.superuser];
-                    rv.push(valueToAdd);               
-                });
-                resolve (rv);
-            });
-        });
+    let userList = await dbAll(db, "SELECT id, username, name, superuser FROM user WHERE storeId=? ORDER BY id", [wantedStoreId]);
 
-        let store = await storeIdToStore(wantedStoreId);
+    let store = await storeIdToStore(wantedStoreId);
 
-        request.session.displayError ? error = request.session.lastError : error = "";
-        request.session.displayError = false;
+    request.session.displayError ? error = request.session.lastError : error = "";
+    request.session.displayError = false;
 
-        response.statusCode = 200;
-        response.write(employeeListPage(store, userList, error));
-        
-        response.end();
+    response.statusCode = 200;
+    response.write(employeeListPage(store, userList, error));
+
+    response.end();
 }
 
 

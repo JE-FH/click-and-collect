@@ -243,22 +243,22 @@ function renderListOfEmployees(list, storeId) {
     list.forEach(employee => {
         html += `
             <div>
-                <h2>${employee[2]}</h2>
-                <p>Username: ${employee[1]}</p>
-                <p>Superuser: ${employee[3] == 1 ? "YES" : "NO"}</p>
+                <h2>${employee.name}</h2>
+                <p>Username: ${employee.username}</p>
+                <p>Superuser: ${employee.superuser == 1 ? "YES" : "NO"}</p>
                 <div>
                     <form action="/admin/employees/edit" method="GET">
-                        <input type="hidden" value="${employee[0]}" name="id">   
-                        <input type="hidden" value="${employee[1]}" name="username">
-                        <input type="hidden" value="${employee[2]}" name="name">
-                        <input type="hidden" value="${employee[3]}" name="superuser">     
+                        <input type="hidden" value="${employee.id}" name="id">   
+                        <input type="hidden" value="${employee.username}" name="username">
+                        <input type="hidden" value="${employee.name}" name="name">
+                        <input type="hidden" value="${employee.superuser}" name="superuser">     
                         
                         <input type="hidden" value="${storeId}" name="storeid">   
                         <input type="submit" value="Edit">
                     </form>
 
                     <form action="/admin/employees/remove" method="POST">
-                        <input type="hidden" value="${employee[1]}" name="username">     
+                        <input type="hidden" value="${employee.username}" name="username">     
                         <input type="hidden" value="${storeId}" name="storeid">   
                         <input type="submit" value="Remove">
                     </form>
