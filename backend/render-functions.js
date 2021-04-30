@@ -121,7 +121,21 @@ function renderQueues(queues) {
     return html;
 }
 
-exports.renderQueueList = function renderQueueList(store, queues) {
+exports.renderQueueList = function renderQueueList(request, store, queues) {
+    let statusText = request.session.statusText;
+    let message;
+
+    switch(statusText) {
+        case "Size, latitude, longitude or name malformed":
+            message = `<p class="error-message">${statusText}</p>`
+            break;
+        case "Succes! Added new queue":
+            message = `<p class="success-message">${statusText}</p>`
+            break;
+        default:
+            break;
+    }
+
     let page = `
         <html>
             <head>
@@ -142,6 +156,7 @@ exports.renderQueueList = function renderQueueList(store, queues) {
     page += `
                 <div class="main-body">
                     <h1>Queues for ${store.name}</h1>
+                    ${message ? message : ""}
                     <div class="queue-list">
                         ${renderQueues(queues)}
                     </div>
