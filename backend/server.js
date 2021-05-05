@@ -954,7 +954,12 @@ exports.main = async function main(use_this_db) {
     
     /* Sends reminders to customers who hasn't booked a time slot. Checks every 10 minutes. */
     setInterval(async () => {
-        await sendReminders();
+        try {
+            await sendReminders();
+        } catch (e) {
+            console.log("Send reminders error");
+            console.log(e);
+        }
     }, 600000);
 
     let requestHandler = new RequestHandler(defaultResponse, errorResponse);
