@@ -1144,11 +1144,8 @@ async function editEmployee(request, response){
 
     response.statusCode = 200;
 
-    // Måde at vise fejl til brugeren
-    request.session.displayError ? error = request.session.lastError : error = "";
-    request.session.displayError = false;
-
-    response.write(renderEditEmployee(store, request, error));
+    response.write(renderEditEmployee(store, request));
+    request.session.status = null;
     response.end();
 }
 
@@ -1164,8 +1161,10 @@ async function editEmployeePost(request, response){
     } if (typeof(postParameters["password"]) != "string" || typeof(postParameters["username"]) != "string"
         || typeof(postParameters["employeeName"]) != "string" || typeof(postParameters["id"]) != "string" || typeof(postParameters["superuser"]) != "number")
         {
-        request.session.lastError = "Some input data was invalid";
-        request.session.displayError = true;
+        request.session.status = {
+            type: ErrorType.Error,
+            text: "Some input data was invalid"
+        }
         response.statusCode = 302;
         response.setHeader('Location','/admin/employees/employee_list?storeid=' + request.session.storeId);
         response.end();
@@ -1182,8 +1181,10 @@ async function editEmployeePost(request, response){
 
     let user = await dbGet(db, "SELECT * FROM user WHERE id=? AND storeId=?", [postParameters["id"], wantedStoreId]); 
     if (user == null) {
-        request.session.lastError = "User you are trying to edit doesn't exist";
-        request.session.displayError = true;
+        request.session.status = {
+            type: ErrorType.Error,
+            text: "User you are trying to edit doesn't exist"
+        }
         response.statusCode = 302;
         response.setHeader('Location','/admin/employees/employee_list?storeid=' + request.session.storeId);
         response.end();
@@ -1219,20 +1220,34 @@ async function editEmployeePost(request, response){
                     await dbRun(db, `update user set superuser=? where id=? AND storeId=?`, [postParameters["superuser"], user.id, wantedStoreId]);
                 }
                 if (changeInUsername || changeInName || changeInPassword || changeInSuperuser){
-                    request.session.lastError = `The user was edited.`;
+                    request.session.status = {
+                        type: ErrorType.Success,
+                        text: "User was edited"
+                    }
                 } else{
-                    request.session.lastError = `No changes were made.`;
+                    request.session.status = {
+                        type: ErrorType.Success,
+                        text: "No changes were made"
+                    }
                 }
             } else {
-                request.session.lastError = "Username already exists";
+                request.session.status = {
+                    type: ErrorType.Error,
+                    text: "Username already exists"
+                }
             }
         } else{
-            request.session.lastError = "You can not remove the last superuser.";
+            request.session.status = {
+                type: ErrorType.Error,
+                text: "You can not remove the last superuser"
+            }
         }
     } else {
-        request.session.lastError = "Nothing was changed.";
+        request.session.status = {
+            type: ErrorType.Success,
+            text: "Nothing was changed"
+        }
     }
-    request.session.displayError = true;
     response.statusCode = 302;
     response.setHeader('Location','/admin/employees/employee_list?storeid=' + wantedStoreId);
     response.end()

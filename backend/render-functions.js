@@ -771,7 +771,7 @@ exports.renderLogin = function renderLogin(request) {
     return page;
 }
 
-exports.renderEditEmployee = function renderEditEmployee(store, request, error) {
+exports.renderEditEmployee = function renderEditEmployee(store, request) {
     let page = `
         <html>
             <head>
@@ -785,7 +785,7 @@ exports.renderEditEmployee = function renderEditEmployee(store, request, error) 
     
             page += `${renderNavigation(store)}`;
             page += `
-                ${error ? `<p>${error}</p>` : ""}
+                ${request.session.status ? `<p class="${request.session.status.type == 0 ? "error-message" : "success-message"}">${request.session.status.text}</p>` : ""}
                 <div class="main-body">
                     <h1>Editing ${request.query.username}</h1>
                         
