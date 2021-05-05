@@ -1,6 +1,5 @@
-//const capitalizeFirstLetter = require("./helpers");
 const moment = require('moment');
-const {fromISOToDate, fromISOToHHMM, ReadyState, readyStateToReadableString} = require('./helpers');
+const {fromISOToDate, fromISOToHHMM, ReadyState, readyStateToReadableString, ErrorType} = require('./helpers');
 
 function renderNavigation(store) {
     return `
@@ -132,20 +131,6 @@ function renderQueues(queues) {
 }
 
 exports.renderQueueList = function renderQueueList(request, store, queues) {
-    let statusText = request.session.statusText;
-    let message;
-
-    switch(statusText) {
-        case "Size, latitude, longitude or name malformed":
-            message = `<p class="error-message">${statusText}</p>`
-            break;
-        case "Succes! Added new queue":
-            message = `<p class="success-message">${statusText}</p>`
-            break;
-        default:
-            break;
-    }
-
     let page = `
         <html>
             <head>
@@ -167,7 +152,7 @@ exports.renderQueueList = function renderQueueList(request, store, queues) {
     page += `
                 <div class="main-body">
                     <h1>Queues for ${store.name}</h1>
-                    ${message ? message : ""}
+                    ${request.session.status ? `<p class="${request.session.status.type == 0 ? "error-message" : "success-message"}">${request.session.status.text}</p>` : ""}
                     <div class="queue-list">
                         ${renderQueues(queues)}
                     </div>
@@ -213,7 +198,7 @@ exports.renderPackageForm = function renderPackageForm(store, request) {
                         <label for="customerName">Customer name:</label>
                         <input type="text" name="customerName" placeholder="Customer name" required>
                         <label for="customerEmail">Customer email:</label>
-                        <input type="text" name="customerEmail" placeholder="Customer email" required>
+                        <input type="email" name="customerEmail" placeholder="Customer email" required>
                         <label for="externalOrderId">Order ID:</label>
                         <input type="text" name="externalOrderId" placeholder="Order ID" required> 
                         <input type="submit">
@@ -286,35 +271,7 @@ function renderListOfEmployees(list, storeId) {
     return html;
 }
 
-exports.employeeListPage = function employeeListPage(store, employeeList, error) {
-    let message;
-
-    switch(error) {
-        case "The user was edited.":
-            message = `<p class="success-message">${error}</p>`;
-            break;
-        case "User deleted":
-            message = `<p class="success-message">${error}</p>`;
-            break;
-        case "Nothing was changed.":
-            message = `<p class="message">${error}</p>`;
-            break;
-        case "No changes were made.":
-            message = `<p class="message">${error}</p>`;
-            break;
-        case "User not found":
-            message = `<p class="error-message">${error}</p>`;
-            break;
-        case "You can not remove the last superuser.":
-            message = `<p class="error-message">${error}</p>`;
-            break;
-        case "You can't delete your own user":
-            message = `<p class="error-message">${error}</p>`;
-            break;
-        default:
-            break;
-    }
-
+exports.employeeListPage = function employeeListPage(store, employeeList, request) {
     let page = `
         <html>
             <head>
@@ -328,7 +285,7 @@ exports.employeeListPage = function employeeListPage(store, employeeList, error)
     page += `
             <div class="main-body">
                 <h1>Employee list</h1>
-                ${message ? message : ""}
+                ${request.session.status ? `<p class="${request.session.status.type == 0 ? "error-message" : "success-message"}">${request.session.status.text}</p>` : ""}
                 <div class="employee-list">
                     ${renderListOfEmployees(employeeList, store.id)}
                 </div>
@@ -341,22 +298,7 @@ exports.employeeListPage = function employeeListPage(store, employeeList, error)
     return page;
 }
 
-exports.addEmployeePage = function addEmployeePage(store, error) {
-    let message;
-
-    console.log(error);
-
-    switch(error) {
-        case "User successfully added to database":
-            message = `<p class="success-message">${error}</p>`;
-            break;
-        case "Username already exists":
-            message = `<p class="error-message">${error}</p>`;
-            break;
-        default:
-            break;
-    }
-
+exports.addEmployeePage = function addEmployeePage(store, request) {
     let page = `
         <html>
             <head>
@@ -400,7 +342,7 @@ exports.addEmployeePage = function addEmployeePage(store, error) {
                     
                         <input type="submit" id="submit" value="Create user" disabled>
                     </form>
-                    ${message ? message : ""}
+                    ${request.session.status ? `<p class="${request.session.status.type == 0 ? "error-message" : "success-message"}">${request.session.status.text}</p>` : ""}
                     <a href="/admin/employees?storeid=${store.id}" class="knap">Back</a>
                 </div>
                 <script>
@@ -588,7 +530,7 @@ function capitalizeFirstLetter(str) {
     return str[0].toUpperCase()+str.slice(1);
 }
 
-exports.renderSettings = function renderSettings(store, request, DAYS_OF_WEEK, parsedOpeningTime, hasError) {
+exports.renderSettings = function renderSettings(store, request, DAYS_OF_WEEK, parsedOpeningTime) {
     let page = `
         <html>
             <head>
@@ -607,7 +549,6 @@ exports.renderSettings = function renderSettings(store, request, DAYS_OF_WEEK, p
             page += `
                 <div class="main-body">
                     <h1>Opening times for your store: </h1>
-                    <p id="error-message" class="${hasError ? "" : "hidden"}">${hasError ? "" : request.session.settingsError}</p>
                     <form method="POST" id="settings-form">
                         <table>
                             <thead>
@@ -637,6 +578,7 @@ exports.renderSettings = function renderSettings(store, request, DAYS_OF_WEEK, p
                         <input type="checkbox" name="delete-timeslots"><br>
                         <input type="submit" value="Set new opentime">
                     </form>
+                    ${request.session.status ? `<p id="error-message" class="${request.session.status.type == 0 ? "error-message" : "success-message"}">${request.session.status.text}</p>` : ""}
                 </div>
                 <script src="/static/js/settingsScript.js"></script>
             </body>
@@ -769,20 +711,7 @@ exports.renderPackageOverview = function renderPackageOverview(store, package) {
     return page;
 }
 
-exports.renderLogin = function renderLogin(error, request) {
-    let message = null;
-
-    switch(error) {
-        case 'Wrong username':
-            message = `<p class="error-message">Wrong username</p>`;
-            break;
-        case 'Wrong password':
-            message = `<p class="error-message">Wrong password</p>`;
-            break;
-        default:
-            message = null;
-    }
-
+exports.renderLogin = function renderLogin(request) {
     let page = `
         <html>
             <head>
@@ -803,7 +732,7 @@ exports.renderLogin = function renderLogin(error, request) {
                             <i class="fas fa-eye" id="togglePassword"> </i>
                         </div>
                     <input type="submit" value="login">
-                    ${message ? `${message}` : ""}
+                    ${request.session.status ? `<p class="${request.session.status.type == 0 ? "error-message" : "success-message"}">${request.session.status.text}</p>` : ""}
                 </form>
 
                 <script>
@@ -827,7 +756,7 @@ exports.renderLogin = function renderLogin(error, request) {
     return page;
 }
 
-exports.renderEditEmployee = function renderEditEmployee(store, request, error) {
+exports.renderEditEmployee = function renderEditEmployee(store, request) {
     let page = `
         <html>
             <head>
@@ -841,7 +770,7 @@ exports.renderEditEmployee = function renderEditEmployee(store, request, error) 
     
             page += `${renderNavigation(store)}`;
             page += `
-                ${error ? `<p>${error}</p>` : ""}
+                ${request.session.status ? `<p class="${request.session.status.type == 0 ? "error-message" : "success-message"}">${request.session.status.text}</p>` : ""}
                 <div class="main-body">
                     <h1>Editing ${request.query.username}</h1>
                         

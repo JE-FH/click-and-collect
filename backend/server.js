@@ -3,7 +3,7 @@ const sqlite3 = require("sqlite3");
 const fs = require("fs/promises");
 const crypto = require("crypto");
 const moment = require("moment");
-const {toISODateTimeString, formatMomentAsISO, isStringInt, isStringNumber, receiveBody, parseURLEncoded, assertAdminAccess, assertEmployeeAccess, setupEmail, sendEmail, sanitizeFullName, sanitizeEmailAddress, fromISOToDate, fromISOToHHMM, deleteTimeslotsWithId, readyStateToReadableString, ReadyState} = require("./helpers");
+const {toISODateTimeString, formatMomentAsISO, isStringInt, isStringNumber, receiveBody, parseURLEncoded, assertAdminAccess, assertEmployeeAccess, setupEmail, sendEmail, sanitizeFullName, sanitizeEmailAddress, fromISOToDate, fromISOToHHMM, deleteTimeslotsWithId, readyStateToReadableString, ReadyState, ErrorType} = require("./helpers");
 const {queryMiddleware, sessionMiddleware, createUserMiddleware} = require("./middleware");
 const {adminNoAccess, invalidParameters, invalidCustomerParameters} = require("./generic-responses");
 const {dbAll, dbGet, dbRun, dbExec} = require("./db-helpers");
@@ -210,11 +210,13 @@ async function packageFormHandler(request, response) {
 
     let body = await receiveBody(request);
     body = parseURLEncoded(body);
+
     addPackage(request.user.storeId, body.customerEmail, body.customerName, body.externalOrderId);
     request.session.statusMsg = "Package successfully added";
     response.statusCode = 302;
     response.setHeader('Location', request.headers['referer']);
     response.end();
+    
 }
 
 /* Adds a package to the 'package' table in the database */
@@ -338,11 +340,11 @@ function errorResponse(request, response, err) {
 }
 
 async function loginGet(request, response) {
-    let error = request.session.statusText;
+    let error = request.session.status;
     response.statusCode = error == null ? 200 : 401;
     response.setHeader('Content-Type', 'text/html');
-    response.write(renderLogin(error, request));
-    request.session.statusText = undefined;
+    response.write(renderLogin(request));
+    request.session.status = null;
     response.end();
 }
 
@@ -359,7 +361,10 @@ async function loginPost(request, response) {
 
     /* Make sure that we got the right parameters */
     if (!(typeof postParameters["username"] == "string" && typeof postParameters["password"] == "string")) {
-        request.session.statusText = "You didn't enter username and/or password";
+        request.session.status = {
+            type: ErrorType.Error,
+            text: "You didn't enter username and/or password"
+        };
         response.setHeader('Location', '/login');
         response.statusCode = 302;
         response.end();
@@ -371,7 +376,10 @@ async function loginPost(request, response) {
 
     if (user == null) {
         /* Wrong username */
-        request.session.statusText = "Wrong username";
+        request.session.status = {
+            type: ErrorType.Error,
+            text: "Wrong username"
+        };
         request.session.username = postParameters["username"];
         response.setHeader('Location', '/login');
         response.statusCode = 302;
@@ -406,7 +414,10 @@ async function loginPost(request, response) {
         response.end();
     } else {
         /* Wrong password */
-        request.session.statusText = "Wrong password";
+        request.session.status = {
+            type: ErrorType.Error,
+            text: "Wrong password"
+        };
         request.session.username = postParameters["username"];
         response.setHeader('Location', '/login');
         response.statusCode = 302;
@@ -758,7 +769,7 @@ async function queueList(request, response) {
     response.statusCode = 200;
     response.setHeader('Content-Type', 'text/html');
     response.write(renderQueueList(request, store, queues));
-    request.session.statusText = null;
+    request.session.status = null;
     response.end();
 }
 
@@ -804,7 +815,10 @@ async function queueAdd(request, response) {
         typeof(postParameters.queueName) != "string"
     ){
         //invalidParameters(response, "size, latitude, longitude or name malformed", `/admin/queues?storeid=${wantedStoreId}`, "Back to queue list");
-        request.session.statusText = "Size, latitude, longitude or name malformed";
+        request.session.status = {
+            type: ErrorType.Error,
+            text: "Error. Did you enter a queue position?"
+        }
         response.statusCode = 302;
         response.setHeader("Location", "/admin/queues?storeid=" + wantedStoreId.toString());
         response.end();
@@ -818,7 +832,10 @@ async function queueAdd(request, response) {
 
     await dbRun(db, "INSERT INTO queue (latitude, longitude, size, storeId, queueName) VALUES (?, ?, ?, ?, ?)", [wantedLatitude, wantedLongitude, wantedSize, wantedStoreId, wantedName]);
 
-    request.session.statusText = "Succes! Added new queue";
+    request.session.status = {
+        type: ErrorType.Success,
+        text: "Succes! Added new queue"
+    }
     response.statusCode = 302;
     response.setHeader("Location", "/admin/queues?storeid=" + wantedStoreId.toString());
     response.end();
@@ -1061,14 +1078,11 @@ async function addEmployee(request, response){
         return;  
     }
 
-        response.statusCode = 200;
-
-        // Måde at vise fejl til brugeren
-        request.session.displayError ? error = request.session.lastError : error = "";
-        request.session.displayError = false;
-
         let store = await storeIdToStore(wantedStoreId);
-        response.write(addEmployeePage(store, error));
+
+        response.write(addEmployeePage(store, request));
+        response.statusCode = 200;
+        request.session.status = null;
         response.end();
 }
     
@@ -1088,7 +1102,10 @@ async function addEmployeePost(request, response){
     let usernameUnique = (await dbGet(db, "SELECT id FROM user WHERE username=?", [postParameters["username"]])) == null;
     
     if (usernameUnique) {
-        request.session.lastError = "User successfully added to database";
+        request.session.status = {
+            type: ErrorType.Success,
+            text: "User successfully added to database"
+        }
         let salt = crypto.randomBytes(16).toString(HASHING_HASH_ENCODING);
         let hashed = await new Promise((resolve, reject) => {
             crypto.pbkdf2(postParameters["password"], salt, HASHING_ITERATIONS, HASHING_KEYLEN, HASHING_ALGO, (err, derivedKey) => {
@@ -1098,10 +1115,12 @@ async function addEmployeePost(request, response){
                 resolve(derivedKey);
             });
         });
-        console.log("Bruger indsat i databasen");
         dbRun(db, "INSERT INTO user (name, username, superuser, storeid, password, salt) VALUES (?, ?, ?, ?, ?, ?)", [[postParameters["employeeName"]],[postParameters["username"]], [postParameters["superuser"]], request.user.storeId, hashed.toString(HASHING_HASH_ENCODING), salt]);
     } else {
-        request.session.lastError = "Username already exists";
+        request.session.status = {
+            type: ErrorType.Error,
+            text: "Username already exists"
+        }
     }
 
     request.session.displayError = true;
@@ -1130,11 +1149,8 @@ async function editEmployee(request, response){
 
     response.statusCode = 200;
 
-    // Måde at vise fejl til brugeren
-    request.session.displayError ? error = request.session.lastError : error = "";
-    request.session.displayError = false;
-
-    response.write(renderEditEmployee(store, request, error));
+    response.write(renderEditEmployee(store, request));
+    request.session.status = null;
     response.end();
 }
 
@@ -1150,8 +1166,10 @@ async function editEmployeePost(request, response){
     } if (typeof(postParameters["password"]) != "string" || typeof(postParameters["username"]) != "string"
         || typeof(postParameters["employeeName"]) != "string" || typeof(postParameters["id"]) != "string" || typeof(postParameters["superuser"]) != "number")
         {
-        request.session.lastError = "Some input data was invalid";
-        request.session.displayError = true;
+        request.session.status = {
+            type: ErrorType.Error,
+            text: "Some input data was invalid"
+        }
         response.statusCode = 302;
         response.setHeader('Location','/admin/employees/employee_list?storeid=' + request.session.storeId);
         response.end();
@@ -1168,8 +1186,10 @@ async function editEmployeePost(request, response){
 
     let user = await dbGet(db, "SELECT * FROM user WHERE id=? AND storeId=?", [postParameters["id"], wantedStoreId]); 
     if (user == null) {
-        request.session.lastError = "User you are trying to edit doesn't exist";
-        request.session.displayError = true;
+        request.session.status = {
+            type: ErrorType.Error,
+            text: "User you are trying to edit doesn't exist"
+        }
         response.statusCode = 302;
         response.setHeader('Location','/admin/employees/employee_list?storeid=' + request.session.storeId);
         response.end();
@@ -1205,20 +1225,34 @@ async function editEmployeePost(request, response){
                     await dbRun(db, `update user set superuser=? where id=? AND storeId=?`, [postParameters["superuser"], user.id, wantedStoreId]);
                 }
                 if (changeInUsername || changeInName || changeInPassword || changeInSuperuser){
-                    request.session.lastError = `The user was edited.`;
+                    request.session.status = {
+                        type: ErrorType.Success,
+                        text: "User was edited"
+                    }
                 } else{
-                    request.session.lastError = `No changes were made.`;
+                    request.session.status = {
+                        type: ErrorType.Success,
+                        text: "No changes were made"
+                    }
                 }
             } else {
-                request.session.lastError = "Username already exists";
+                request.session.status = {
+                    type: ErrorType.Error,
+                    text: "Username already exists"
+                }
             }
         } else{
-            request.session.lastError = "You can not remove the last superuser.";
+            request.session.status = {
+                type: ErrorType.Error,
+                text: "You can not remove the last superuser"
+            }
         }
     } else {
-        request.session.lastError = "Nothing was changed.";
+        request.session.status = {
+            type: ErrorType.Success,
+            text: "Nothing was changed"
+        }
     }
-    request.session.displayError = true;
     response.statusCode = 302;
     response.setHeader('Location','/admin/employees/employee_list?storeid=' + wantedStoreId);
     response.end()
@@ -1237,15 +1271,23 @@ async function removeEmployeePost(request, response){
     let user = await dbGet(db, "SELECT * FROM user WHERE username=? AND storeId=?", [postParameters["username"],request.user.storeId]);
 
     if (user == null){ 
-        request.session.lastError = "User not found";
+        request.session.status = {
+            type: ErrorType.Error,
+            text: "User not found"
+        }
     } else if (user.username == request.user.username) {
-        request.session.lastError = "You can't delete your own user";
+        request.session.status = {
+            type: ErrorType.Error,
+            text: "You can't delete your own user"
+        }
     } else {
-        request.session.lastError = "User deleted";
+        request.session.status = {
+            type: ErrorType.Success,
+            text: "User deleted"
+        }
         await dbRun(db, "DELETE FROM user WHERE username=? AND storeId=?", [postParameters["username"], request.user.storeId]);
     }
     
-    request.session.displayError = true;
     response.statusCode = 302;
     response.setHeader('Location','/admin/employees/employee_list?storeid=' + request.session.storeId);
     response.end()
@@ -1275,11 +1317,9 @@ async function employeeList(request, response){
 
     let store = await storeIdToStore(wantedStoreId);
 
-    request.session.displayError ? error = request.session.lastError : error = "";
-    request.session.displayError = false;
-
     response.statusCode = 200;
-    response.write(employeeListPage(store, userList, error));
+    response.write(employeeListPage(store, userList, request));
+    request.session.status = null;
 
     response.end();
 }
@@ -1558,12 +1598,10 @@ async function openingTime(request, response) {
 
     let parsedOpeningTime = JSON.parse(store.openingTime);
 
-    let hasError = request.session.settingsError == null;
-
     response.statusCode = 200;
     response.setHeader('Content-Type', 'text/html');
-    response.write(renderSettings(store, request, DAYS_OF_WEEK, parsedOpeningTime, hasError));
-    request.session.settingsError = null;
+    response.write(renderSettings(store, request, DAYS_OF_WEEK, parsedOpeningTime));
+    request.session.status = null;
     response.end();
 }
 //Mangler at tjekke hvornår de begynder
@@ -1630,7 +1668,6 @@ async function settingsPost(request, response) {
     }
 
     let now = moment();
-    console.log(newOpeningTime);
     await dbRun(db, "UPDATE store SET openingTime=? WHERE id=?",[JSON.stringify(newOpeningTime), wantedStoreId]);
 
     if (postBody["delete-timeslots"] == "on") {
@@ -1650,6 +1687,10 @@ async function settingsPost(request, response) {
     }
 
     request.session.settingsError = "New opening time was successfully set";
+    request.session.status = {
+        type: ErrorType.Success,
+        text: "New opening time was successfully set"
+    }
     response.statusCode = 302
     response.setHeader("Location", "/admin/settings?storeid=" + wantedStoreId.toString());
     response.end();
