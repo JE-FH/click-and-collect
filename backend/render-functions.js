@@ -1,6 +1,5 @@
-//const capitalizeFirstLetter = require("./helpers");
 const moment = require('moment');
-const {fromISOToDate, fromISOToHHMM, ReadyState, readyStateToReadableString} = require('./helpers');
+const {fromISOToDate, fromISOToHHMM, ReadyState, readyStateToReadableString, ErrorType} = require('./helpers');
 
 function renderNavigation(store) {
     return `
@@ -780,20 +779,7 @@ exports.renderPackageOverview = function renderPackageOverview(store, package) {
     return page;
 }
 
-exports.renderLogin = function renderLogin(error, request) {
-    let message = null;
-
-    switch(error) {
-        case 'Wrong username':
-            message = `<p class="error-message">Wrong username</p>`;
-            break;
-        case 'Wrong password':
-            message = `<p class="error-message">Wrong password</p>`;
-            break;
-        default:
-            message = null;
-    }
-
+exports.renderLogin = function renderLogin(request) {
     let page = `
         <html>
             <head>
@@ -814,7 +800,7 @@ exports.renderLogin = function renderLogin(error, request) {
                             <i class="fas fa-eye" id="togglePassword"> </i>
                         </div>
                     <input type="submit" value="login">
-                    ${message ? `${message}` : ""}
+                    ${request.session.status ? `<p class="${request.session.status.type == 0 ? "error-message" : "success-message"}">${request.session.status.text}</p>` : ""}
                 </form>
 
                 <script>

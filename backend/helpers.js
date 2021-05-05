@@ -274,3 +274,11 @@ const ReadyState = {
     "Delivered": 2
 };
 exports.ReadyState = ReadyState;
+
+const ErrorType = {
+    0: "Error",
+    1: "Success",
+    "Error": 0,
+    "Success": 1
+};
+exports.ErrorType = ErrorType;

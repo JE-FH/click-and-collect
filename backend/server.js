@@ -3,7 +3,7 @@ const sqlite3 = require("sqlite3");
 const fs = require("fs/promises");
 const crypto = require("crypto");
 const moment = require("moment");
-const {toISODateTimeString, formatMomentAsISO, isStringInt, isStringNumber, receiveBody, parseURLEncoded, assertAdminAccess, assertEmployeeAccess, setupEmail, sendEmail, sanitizeFullName, sanitizeEmailAddress, fromISOToDate, fromISOToHHMM, deleteTimeslotsWithId, readyStateToReadableString, ReadyState} = require("./helpers");
+const {toISODateTimeString, formatMomentAsISO, isStringInt, isStringNumber, receiveBody, parseURLEncoded, assertAdminAccess, assertEmployeeAccess, setupEmail, sendEmail, sanitizeFullName, sanitizeEmailAddress, fromISOToDate, fromISOToHHMM, deleteTimeslotsWithId, readyStateToReadableString, ReadyState, ErrorType} = require("./helpers");
 const {queryMiddleware, sessionMiddleware, createUserMiddleware} = require("./middleware");
 const {adminNoAccess, invalidParameters, invalidCustomerParameters} = require("./generic-responses");
 const {dbAll, dbGet, dbRun, dbExec} = require("./db-helpers");
@@ -340,11 +340,11 @@ function errorResponse(request, response, err) {
 }
 
 async function loginGet(request, response) {
-    let error = request.session.statusText;
+    let error = request.session.status;
     response.statusCode = error == null ? 200 : 401;
     response.setHeader('Content-Type', 'text/html');
-    response.write(renderLogin(error, request));
-    request.session.statusText = undefined;
+    response.write(renderLogin(request));
+    request.session.status = null;
     response.end();
 }
 
@@ -361,7 +361,10 @@ async function loginPost(request, response) {
 
     /* Make sure that we got the right parameters */
     if (!(typeof postParameters["username"] == "string" && typeof postParameters["password"] == "string")) {
-        request.session.statusText = "You didn't enter username and/or password";
+        request.session.status = {
+            type: ErrorType.Error,
+            text: "You didn't enter username and/or password"
+        };
         response.setHeader('Location', '/login');
         response.statusCode = 302;
         response.end();
@@ -373,7 +376,10 @@ async function loginPost(request, response) {
 
     if (user == null) {
         /* Wrong username */
-        request.session.statusText = "Wrong username";
+        request.session.status = {
+            type: ErrorType.Error,
+            text: "Wrong username"
+        };
         request.session.username = postParameters["username"];
         response.setHeader('Location', '/login');
         response.statusCode = 302;
@@ -408,7 +414,10 @@ async function loginPost(request, response) {
         response.end();
     } else {
         /* Wrong password */
-        request.session.statusText = "Wrong password";
+        request.session.status = {
+            type: ErrorType.Error,
+            text: "Wrong password"
+        };
         request.session.username = postParameters["username"];
         response.setHeader('Location', '/login');
         response.statusCode = 302;
