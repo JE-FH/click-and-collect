@@ -2,9 +2,40 @@ const sqlite3 = require("sqlite3");
 const {main} = require("../../backend/server");
 const httpMocks = require('node-mocks-http');
 const EventEmitter = require("node:events");
-const cookie = require("cookie");
 const CookieJar = require("cookiejar");
 const config = require("../../server.config");
+
+
+const BCookieJar = function BCookieJar() {
+	this.cookieJar = new CookieJar.CookieJar();
+	this.host = config.base_host_address;
+}
+
+BCookieJar.prototype.addCookie = function addCookie(cookieHeader) {
+	if (cookieHeader instanceof Array) {
+		this.cookieJar.setCookies(cookieHeader, this.host);
+	} else {
+		this.cookieJar.setCookie(cookieHeader, this.host);
+	}
+}
+
+BCookieJar.prototype.getCookieObject = function getCookieObject() {
+	let rv = {};
+	let cookies = this.cookieJar.getCookies(CookieJar.CookieAccessInfo(this.host))
+	for (cookie of cookies) {
+		rv[cookie.name] = cookie.value;
+	}
+	return rv;
+}
+
+BCookieJar.prototype.getCookieString = function getCookieObject() {
+	return this.cookieJar.getCookies(CookieJar.CookieAccessInfo(this.host)).toString();
+}
+
+BCookieJar.prototype.getCookie = function getCookie(name) {
+	return this.cookieJar.getCookie(name, CookieJar.CookieAccessInfo(this.host))
+}
+
 function create_simple_req(method, url) {
 	return httpMocks.createRequest({
 		method: method,
@@ -32,7 +63,6 @@ describe("Unit test", function() {
 	});
 	describe("session middleware", function() {
 		const {sessionMiddleware} = require("../../backend/middleware");
-		let cookieJar = new CookieJar.CookieJar();
 		it("should add a session id", async () => {
 			let request = create_simple_req("GET", "/")
 			let response = create_simple_res();
@@ -44,52 +74,49 @@ describe("Unit test", function() {
 			let cookieHeader = response.getHeader("set-cookie");
 			expect(cookieHeader).toBeDefined();
 			expect(request.session).toBeInstanceOf(Object);
-
-			request.session.testthing = 5486283;
-
-			if (cookieHeader instanceof Array) {
-				cookieJar.setCookies(cookieHeader, config.base_host_address);
-			} else {
-				cookieJar.setCookie(cookieHeader,  config.base_host_address);
-			}
 		});
 		it("Should keep the same session", async () => {
-			let request = httpMocks.createRequest({
+			//Send first request to get the session object
+			let cookieJar = new BCookieJar();
+			let response = create_simple_res();
+			let request = create_simple_req("GET", "/");
+			sessionMiddleware(request, response);
+
+			let cookieHeader = response.getHeader("set-cookie");
+			
+			expect(cookieHeader).toBeDefined();
+			expect(request.session).toEqual({});
+			
+			request.session.testthing = 5486283;
+			cookieJar.addCookie(cookieHeader);
+			
+			//Check if the session object is still the same
+			let request2 = httpMocks.createRequest({
 				method: "",
 				url: "/",
 				headers: {
-					cookie: cookieJar.getCookies(CookieJar.CookieAccessInfo(config.base_host_address)).toString()
+					cookie: cookieJar.getCookieString()
 				}
 			});
-			let response = create_simple_res();
-			let p = await_response(response);
-			sessionMiddleware(request, response);
-			response.end()
-			await p;
+			let response2 = create_simple_res();
+			sessionMiddleware(request2, response2);
 
-			expect(request.session.testthing).toBe(5486283);
+			expect(request2.session.testthing).toBe(5486283);
 		});
-		it("Should get another session when sending without cookies", async () => {
-			let request = create_simple_req("GET", "/")
+		it("Should get unique session ids", async () => {
 			let response = create_simple_res();
-			let p = await_response(response);
-			sessionMiddleware(request, response);
-			response.end();
-			await p;
+			sessionMiddleware(create_simple_req("GET", "/"), response);
+			let cookieJar1 = new BCookieJar();
+			cookieJar1.addCookie(response.getHeader("set-cookie"));
 
-			let cookieHeader = response.getHeader("set-cookie");
-			expect(cookieHeader).toBeDefined();
-			expect(request.session).toBeInstanceOf(Object);
+			let response2 = create_simple_res();
+			sessionMiddleware(create_simple_req("GET", "/"), response2);
+			let cookieJar2 = new BCookieJar();
+			cookieJar2.addCookie(response2.getHeader("set-cookie"));
 
-			let newCookieJar = new CookieJar.CookieJar();
-			if (cookieHeader instanceof Array) {
-				newCookieJar.setCookies(cookieHeader, config.base_host_address);
-			} else {
-				newCookieJar.setCookie(cookieHeader,  config.base_host_address);
-			}
 			/*A very long way to write that we should have a new session id*/
-			expect(newCookieJar.getCookie("sessid", CookieJar.CookieAccessInfo(config.base_host_address)).value)
-				.not.toBe(cookieJar.getCookie("sessid", CookieJar.CookieAccessInfo(config.base_host_address)).value)
+			expect(cookieJar1.getCookie("sessid").value)
+				.not.toBe(cookieJar2.getCookie("sessid").value);
 		});
 	});
 })

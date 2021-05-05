@@ -1,6 +1,7 @@
 const nodemailer = require("nodemailer");
 const { dbAll, dbRun } = require("./db-helpers");
 const {adminNoAccess, invalidParameters} = require("./generic-responses");
+const querystring = require("querystring");
 const moment = require("moment");
 /**
  * Checks if a string can be converted to a whole number safely
@@ -40,25 +41,12 @@ exports.receiveBody = async function receiveBody(request) {
 }
 
 /**
- * since decodeURIComponent doesnt decode URIComponent completely correct, this is neccesary to patch whats missing
- * @param {string} data url encoded data
- */
-function decodeURIComponent4real(data) {
-    return decodeURIComponent(data.replaceAll("+", "%20"));
-}
-
-/**
- * Parses a url encoded string
+ * Parses a querystring
  * @param {string} data 
  * @returns {object}
  */
 exports.parseURLEncoded = function parseURLEncoded(data) {
-    let rv = {};
-    data.split("&").map((v) => {
-        let split = v.split("=");
-        rv[decodeURIComponent4real(split[0])] = decodeURIComponent4real(split[1] ?? "");
-    });
-    return rv;
+    return querystring.parse(data);
 }
 
 
