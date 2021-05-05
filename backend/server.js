@@ -921,6 +921,7 @@ async function packageStoreUnconfirm(request, response) {
     response.end();
 }
 
+//if use_this_db is defined then it also implies that we are testing
 exports.main = async function main(use_this_db) {
     /*First we check the config file*/
     if (typeof(config.port) != "number" || !Number.isInteger(config.port) || config.port < 1 || config.port > 65353) {
@@ -958,11 +959,13 @@ exports.main = async function main(use_this_db) {
     }, 600000);
 
     let requestHandler = new RequestHandler(defaultResponse, errorResponse);
-
-    /* Logging middleware */
-    requestHandler.addMiddleware((req, _) => {
-        console.log(`${req.socket.remoteAddress}\t${moment().format("YYYY-MM-DD HH:mm:ss ZZ")}\t${req.method} ${req.url}`)}
-    );
+    /*If we are running tests, then we dont want this output*/
+    if (use_this_db == null) {
+        /* Logging middleware */
+        requestHandler.addMiddleware((req, _) => {
+            console.log(`${req.socket.remoteAddress}\t${moment().format("YYYY-MM-DD HH:mm:ss ZZ")}\t${req.method} ${req.url}`)}
+        );
+    }
 
     requestHandler.addMiddleware(sessionMiddleware);
     requestHandler.addMiddleware(createUserMiddleware(db));

@@ -55,6 +55,26 @@ function create_req_with_cookie(method, url, cookiestr) {
 	});
 }
 
+function createPostReq(url, data) {
+	return httpMocks.createRequest({
+		method: "POST",
+		url: url,
+		fake_body_thing: data
+	});
+}
+
+
+function createPostReqWithCookie(url, data, cookiestr) {
+	return httpMocks.createRequest({
+		method: "POST",
+		url: url,
+		fake_body_thing: data,
+		headers: {
+			cookie: cookiestr
+		}
+	});
+}
+
 
 function create_simple_res() {
 	return httpMocks.createResponse({
@@ -64,15 +84,15 @@ function create_simple_res() {
 
 async function await_response(response) {
 	await new Promise((resolve) => {
-		response.on("end", () => resolve());
+		response.on("end", () => {resolve();});
 	});
 }
 
 describe("Unit test", function() {
 	let db = new sqlite3.Database(":memory:");
-	let requestHandler;
+	let serverRequestHandler;
 	beforeAll(async () => {
-		requestHandler = await main(db);
+		serverRequestHandler = await main(db);
 		//Insert a store
 		await dbRun(db, `INSERT INTO store (id, name, openingTime, pickupDelay, apiKey, storeEmail) VALUES
 			(4563, "dkfaoef", 
@@ -90,28 +110,30 @@ describe("Unit test", function() {
 			INSERT INTO user (id, username, password, salt, name, superuser, storeId) VALUES 
 			(1, "bob", "e7620ce600f3434e87dc9bfdaacdcf473f98f1275838f74f92c7e928da4a76a24d134576898ec1143f9603b025850f9e269af92d7e068f31dec31bb07c97cebc", "abcdefg", "bob", 0, 4563);
 		`);
+		//Insert another user, unhashed password is "hunter2"
+		await dbRun(db, `
+			INSERT INTO user (id, username, password, salt, name, superuser, storeId) VALUES
+			(2, "superbob", "ecb71788886af823e32cd74d22a4fe2712cc579cd0783030ff75e54272191e3d3d9f4b4e156623119f8e2d2fa55cb84cc897a700171aec3ed7617a7602c80fa4", "akrogd", "bob", 1, 4563);
+		`)
 	});
 	describe("session middleware", function() {
 		const {sessionMiddleware} = require("../../backend/middleware");
 		it("should add a session id", async () => {
 			let request = create_simple_req("GET", "/")
 			let response = create_simple_res();
-			let p = await_response(response);
 			sessionMiddleware(request, response);
-			response.end();
-			await p;
 
 			let cookieHeader = response.getHeader("set-cookie");
 			expect(cookieHeader).toBeDefined();
 			expect(request.session).toBeInstanceOf(Object);
 		});
 		it("Should keep the same session", async () => {
-			//Send first request to get the session object
 			let cookieJar = new BCookieJar();
 			let response = create_simple_res();
 			let request = create_simple_req("GET", "/");
+			//Send first request to get the session object
 			sessionMiddleware(request, response);
-
+			
 			let cookieHeader = response.getHeader("set-cookie");
 			
 			expect(cookieHeader).toBeDefined();
@@ -294,6 +316,53 @@ describe("Unit test", function() {
 			});
 			await requestHandler.handleRequest(create_simple_req("GET", "/"), create_simple_res());
 			expect(thrownError).toBe(errorToThrow);
-		})
+		});
+	});
+
+	describe("/login endpoint", function() {
+		it("Should be able to login to superuser with correct username and password", async () => {
+			let request = createPostReq("/login", querystring.encode({username: "bob", password: "password"}));
+			let response = create_simple_res();
+			let p = await_response(response);
+			serverRequestHandler.handleRequest(request, response);
+			await p;
+
+			expect(request.session.userId).toBe(1);
+			expect(response.statusCode).toBe(302);
+			expect(response.getHeader("Location")).toBe(`/store?storeid=${4563}`);
+		});
+		it("Should be able to login to superuser with correct username and password", async () => {
+			let request = createPostReq("/login", querystring.encode({username: "superbob", password: "hunter2"}));
+			let response = create_simple_res();
+			let p = await_response(response);
+			serverRequestHandler.handleRequest(request, response);
+			await p;
+
+			expect(request.session.userId).toBe(2);
+			expect(response.statusCode).toBe(302);
+			expect(response.getHeader("Location")).toBe(`/admin?storeid=${4563}`);
+		});
+		it("shouldnt be able to login with incorrect password", async () => {
+			let request = createPostReq("/login", querystring.encode({username: "bob", password: "srgarg"}));
+			let response = create_simple_res();
+			let p = await_response(response);
+			serverRequestHandler.handleRequest(request, response);
+			await p;
+
+			expect(request.session.userId).not.toBeInstanceOf(Number);
+			expect(response.statusCode).toBe(302);
+			expect(response.getHeader("Location")).toBe(`/login`);
+		});
+		it("shouldnt be able to login with incorrect username and password", async () => {
+			let request = createPostReq("/login", querystring.encode({username: "bobefef", password: "hunter2"}));
+			let response = create_simple_res();
+			let p = await_response(response);
+			serverRequestHandler.handleRequest(request, response);
+			await p;
+
+			expect(request.session.userId).not.toBeInstanceOf(Number);
+			expect(response.statusCode).toBe(302);
+			expect(response.getHeader("Location")).toBe(`/login`);
+		});
 	});
 });
