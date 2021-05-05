@@ -96,7 +96,6 @@ body {
     display: none;
     width: 36px;
     height: 23px;
-    margin: 60px auto;
     -webkit-transform: rotate(0deg);
     -moz-transform: rotate(0deg);
     -o-transform: rotate(0deg);
@@ -127,6 +126,9 @@ body {
 #hamburger > span:nth-child(1) {
     top: 0px;
     transform: rotate(0);
+    -webkit-transform: rotate(0);
+    -moz-transform: rotate(0);
+    -o-transform: rotate(0);
 }
 #hamburger > span:nth-child(2) {
     top: 9px;
@@ -186,6 +188,9 @@ body {
     -o-transform: translateX(-360px);
     background-color: #ECF0F1;
     box-shadow: 0 0px 300px 80vw rgba(0, 0, 0, 0.22);
+    -webkit-box-shadow: 0 0px 300px 80vw rgba(0, 0, 0, 0.22);
+    -moz-box-shadow: 0 0px 300px 80vw rgba(0, 0, 0, 0.22);
+    -o-box-shadow: 0 0px 300px 80vw rgba(0, 0, 0, 0.22);
 }
 @media screen and (max-width: 1095px) {
     .navigation > ul {
