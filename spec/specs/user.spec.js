@@ -4,6 +4,8 @@ const httpMocks = require('node-mocks-http');
 const EventEmitter = require("node:events");
 const CookieJar = require("cookiejar");
 const config = require("../../server.config");
+const { dbRun } = require("../../backend/db-helpers");
+const querystring = require("querystring");
 
 
 const BCookieJar = function BCookieJar() {
@@ -43,6 +45,17 @@ function create_simple_req(method, url) {
 	});
 }
 
+function create_req_with_cookie(method, url, cookiestr) {
+	return httpMocks.createRequest({
+		method: method,
+		url: url,
+		headers: {
+			cookie: cookiestr
+		}
+	});
+}
+
+
 function create_simple_res() {
 	return httpMocks.createResponse({
 		eventEmitter: EventEmitter
@@ -60,6 +73,23 @@ describe("Unit test", function() {
 	let requestHandler;
 	beforeAll(async () => {
 		requestHandler = await main(db);
+		//Insert a store
+		await dbRun(db, `INSERT INTO store (id, name, openingTime, pickupDelay, apiKey, storeEmail) VALUES
+			(4563, "dkfaoef", 
+			'{"monday": ["08:00:00", "17:00:00"],' || 
+			'"tuesday": ["08:00:00", "17:00:00"],' ||
+			'"wednesday": ["08:00:00", "17:00:00"],' ||
+			'"thursday": ["08:00:00", "17:00:00"],' ||
+			'"friday": ["08:00:00", "17:00:00"],' ||
+			'"saturday": ["10:00:00", "12:30:00"],' ||
+			'"sunday": []}', 
+			"00:00:00", "ksokg", "dkfaoef@mail.com")`
+		);
+		//Insert a user, unhashed password is "password"
+		await dbRun(db, `
+			INSERT INTO user (id, username, password, salt, name, superuser, storeId) VALUES 
+			(1, "bob", "e7620ce600f3434e87dc9bfdaacdcf473f98f1275838f74f92c7e928da4a76a24d134576898ec1143f9603b025850f9e269af92d7e068f31dec31bb07c97cebc", "abcdefg", "bob", 0, 4563);
+		`);
 	});
 	describe("session middleware", function() {
 		const {sessionMiddleware} = require("../../backend/middleware");
@@ -91,13 +121,7 @@ describe("Unit test", function() {
 			cookieJar.addCookie(cookieHeader);
 			
 			//Check if the session object is still the same
-			let request2 = httpMocks.createRequest({
-				method: "",
-				url: "/",
-				headers: {
-					cookie: cookieJar.getCookieString()
-				}
-			});
+			let request2 = create_req_with_cookie("GET", "/", cookieJar.getCookieString());
 			let response2 = create_simple_res();
 			sessionMiddleware(request2, response2);
 
@@ -119,4 +143,64 @@ describe("Unit test", function() {
 				.not.toBe(cookieJar2.getCookie("sessid").value);
 		});
 	});
-})
+
+	describe("user middleware", function () {
+		const {sessionMiddleware} = require("../../backend/middleware");
+		const {createUserMiddleware} = require("../../backend/middleware");
+		//Add a user to the database
+		let userMiddleware;
+		beforeAll(async () => {
+			userMiddleware = createUserMiddleware(db);
+		});
+		it("should not set user on request when userId is null", async () => {
+			let response = create_simple_res();
+			let request = create_simple_req("GET", "/");
+			
+			sessionMiddleware(request, response);
+			await userMiddleware(request, response);
+
+			expect(request.session.userId).not.toBeDefined();
+			expect(request.user).toBe(null);
+		});
+		it("should set user on request when userId is defined correctly", async () => {
+			let response = create_simple_res();
+			let request = create_simple_req("GET", "/");
+			
+			sessionMiddleware(request, response);
+			await userMiddleware(request, response);
+
+			request.session.userId = 1;
+			
+			let cookieJar = new BCookieJar();
+			cookieJar.addCookie(response.getHeader("set-cookie"));
+
+			let request2 = create_req_with_cookie("GET", "/", cookieJar.getCookieString());
+			let response2 = create_simple_res();
+			sessionMiddleware(request2, response2);
+			await userMiddleware(request2, response2);
+			expect(request2.user).toBeInstanceOf(Object);
+			expect(request2.user.id).toBe(1);
+			expect(request2.user.username).toBe("bob");
+		});
+	});
+
+	describe("Query middleware", function () {
+		const {queryMiddleware} = require("../../backend/middleware");
+		it("should set query object to empty with no query param", async () => {
+			let request = create_simple_req("GET", "/");
+			queryMiddleware(request, httpMocks.createResponse());
+			expect(request.query).toEqual({});
+		});
+
+		it("should parse querystrings correctly", async () => {
+			let raw = {
+				first: "kadof kaofk eof%32kao&32ekf ?=) 42890+ +5i 9??///2\\31454i392 jååæ",
+				["dkfoe&?/=\\åæ+   ef%20"]: "lg+ålæø,.-=)(?/\\21%&392%32"
+			};
+			                                                                          /*Some random characters that might break it*/
+			let request = create_simple_req("GET", "/?" + querystring.encode(raw));
+			queryMiddleware(request, httpMocks.createResponse());
+			expect(request.query).toEqual(raw);
+		});
+	});
+});
