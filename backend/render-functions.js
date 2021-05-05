@@ -298,22 +298,7 @@ exports.employeeListPage = function employeeListPage(store, employeeList, reques
     return page;
 }
 
-exports.addEmployeePage = function addEmployeePage(store, error) {
-    let message;
-
-    console.log(error);
-
-    switch(error) {
-        case "User successfully added to database":
-            message = `<p class="success-message">${error}</p>`;
-            break;
-        case "Username already exists":
-            message = `<p class="error-message">${error}</p>`;
-            break;
-        default:
-            break;
-    }
-
+exports.addEmployeePage = function addEmployeePage(store, request) {
     let page = `
         <html>
             <head>
@@ -357,7 +342,7 @@ exports.addEmployeePage = function addEmployeePage(store, error) {
                     
                         <input type="submit" id="submit" value="Create user" disabled>
                     </form>
-                    ${message ? message : ""}
+                    ${request.session.status ? `<p class="${request.session.status.type == 0 ? "error-message" : "success-message"}">${request.session.status.text}</p>` : ""}
                     <a href="/admin/employees?storeid=${store.id}" class="knap">Back</a>
                 </div>
                 <script>

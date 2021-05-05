@@ -1075,14 +1075,11 @@ async function addEmployee(request, response){
         return;  
     }
 
-        response.statusCode = 200;
-
-        // Måde at vise fejl til brugeren
-        request.session.displayError ? error = request.session.lastError : error = "";
-        request.session.displayError = false;
-
         let store = await storeIdToStore(wantedStoreId);
-        response.write(addEmployeePage(store, error));
+
+        response.write(addEmployeePage(store, request));
+        response.statusCode = 200;
+        request.session.status = null;
         response.end();
 }
     
@@ -1102,7 +1099,10 @@ async function addEmployeePost(request, response){
     let usernameUnique = (await dbGet(db, "SELECT id FROM user WHERE username=?", [postParameters["username"]])) == null;
     
     if (usernameUnique) {
-        request.session.lastError = "User successfully added to database";
+        request.session.status = {
+            type: ErrorType.Success,
+            text: "User successfully added to database"
+        }
         let salt = crypto.randomBytes(16).toString(HASHING_HASH_ENCODING);
         let hashed = await new Promise((resolve, reject) => {
             crypto.pbkdf2(postParameters["password"], salt, HASHING_ITERATIONS, HASHING_KEYLEN, HASHING_ALGO, (err, derivedKey) => {
@@ -1112,10 +1112,12 @@ async function addEmployeePost(request, response){
                 resolve(derivedKey);
             });
         });
-        console.log("Bruger indsat i databasen");
         dbRun(db, "INSERT INTO user (name, username, superuser, storeid, password, salt) VALUES (?, ?, ?, ?, ?, ?)", [[postParameters["employeeName"]],[postParameters["username"]], [postParameters["superuser"]], request.user.storeId, hashed.toString(HASHING_HASH_ENCODING), salt]);
     } else {
-        request.session.lastError = "Username already exists";
+        request.session.status = {
+            type: ErrorType.Error,
+            text: "Username already exists"
+        }
     }
 
     request.session.displayError = true;
