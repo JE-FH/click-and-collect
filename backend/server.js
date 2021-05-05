@@ -138,7 +138,7 @@ async function apiPost(request, response) {
         let store = await apiKeyToStore(body.apiKey);
         if (store != null){
             console.log('Valid post body');
-            addPackage(store.id, body.customerEmail, body.customerName, body.orderId);
+            await addPackage(store.id, body.customerEmail, body.customerName, body.orderId);
             response.statusCode = 200;
             response.end();
         }
@@ -921,7 +921,7 @@ async function packageStoreUnconfirm(request, response) {
     response.end();
 }
 
-async function main() {
+exports.main = async function main(use_this_db) {
     /*First we check the config file*/
     if (typeof(config.port) != "number" || !Number.isInteger(config.port) || config.port < 1 || config.port > 65353) {
         console.log("Configured port number is invalid, it needs to be an integer between 1-65353");
@@ -939,7 +939,7 @@ async function main() {
     }
 
 
-    db = new sqlite3.Database(__dirname + "/../databasen.sqlite3");
+    db = use_this_db ?? (new sqlite3.Database(__dirname + "/../databasen.sqlite3"));
 
     let databaseCreationCommand = (await fs.readFile(__dirname + "/database_creation.sql")).toString();
 
@@ -1042,6 +1042,8 @@ async function main() {
             process.exit(code);
         });
     });
+
+    return requestHandler;
 }
 
 async function addEmployee(request, response){
@@ -1668,6 +1670,3 @@ function isValidTime(str) {
 
     return true;
 }
-
-
-main();

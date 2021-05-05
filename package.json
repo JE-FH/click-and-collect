@@ -8,6 +8,8 @@
         "sqlite3": "5.0.1"
     },
     "devDependencies": {
-        "jasmine": "^3.7.0"
+        "cookiejar": "^2.1.2",
+        "jasmine": "^3.7.0",
+        "node-mocks-http": "^1.10.1"
     }
 }
