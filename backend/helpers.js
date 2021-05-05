@@ -29,6 +29,10 @@ exports.isStringNumber = function isStringNumber(str) {
  * @returns {Promise<string>}
  */
 exports.receiveBody = async function receiveBody(request) {
+    /*In tests we set a property called "fake_body_thing" with the body*/
+    if (request.fake_body_thing != null) {
+        return request.fake_body_thing;
+    }
     return await new Promise((resolve, reject) => {
         let body = ''
         request.on('data', function(data) {
