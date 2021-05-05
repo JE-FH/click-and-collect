@@ -769,7 +769,7 @@ async function queueList(request, response) {
     response.statusCode = 200;
     response.setHeader('Content-Type', 'text/html');
     response.write(renderQueueList(request, store, queues));
-    request.session.statusText = null;
+    request.session.status = null;
     response.end();
 }
 
@@ -815,7 +815,10 @@ async function queueAdd(request, response) {
         typeof(postParameters.queueName) != "string"
     ){
         //invalidParameters(response, "size, latitude, longitude or name malformed", `/admin/queues?storeid=${wantedStoreId}`, "Back to queue list");
-        request.session.statusText = "Size, latitude, longitude or name malformed";
+        request.session.status = {
+            type: ErrorType.Error,
+            text: "Error. Did you enter a queue position?"
+        }
         response.statusCode = 302;
         response.setHeader("Location", "/admin/queues?storeid=" + wantedStoreId.toString());
         response.end();
@@ -829,7 +832,10 @@ async function queueAdd(request, response) {
 
     await dbRun(db, "INSERT INTO queue (latitude, longitude, size, storeId, queueName) VALUES (?, ?, ?, ?, ?)", [wantedLatitude, wantedLongitude, wantedSize, wantedStoreId, wantedName]);
 
-    request.session.statusText = "Succes! Added new queue";
+    request.session.status = {
+        type: ErrorType.Success,
+        text: "Succes! Added new queue"
+    }
     response.statusCode = 302;
     response.setHeader("Location", "/admin/queues?storeid=" + wantedStoreId.toString());
     response.end();
