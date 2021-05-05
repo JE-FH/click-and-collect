@@ -1,6 +1,6 @@
 //const capitalizeFirstLetter = require("./helpers");
 const moment = require('moment');
-const {fromISOToDate, fromISOToHHMM} = require('./helpers');
+const {fromISOToDate, fromISOToHHMM, ReadyState, readyStateToReadableString} = require('./helpers');
 
 function renderNavigation(store) {
     return `
@@ -48,6 +48,7 @@ function renderEmployeeNav(store) {
             <a href="/store?storeid=${store.id}">Home</a>
             <a id="scan" href="/store/scan?storeid=${store.id}">Scan</a>
             <a href="/store/packages?storeid=${store.id}">Packages</a>
+            <a href="/store/unpacked_packages?storeid=${store.id}">Unpacked packages</a>
         </nav>
     `;
 }
@@ -450,24 +451,62 @@ exports.renderStoreMenu = function renderStoreMenu(store, request) {
                 <link rel="stylesheet" href="/static/css/style.css">
             </head>
 
-            <body>`;
-
-    page += `${renderEmployeeNav(store)}`;
-    page += `
-
+            <body>
+                ${renderEmployeeNav(store)}
                 <div class="main-body">
-                <h1>Menu for ${request.user.name}:</h1>
-                <ul class="dash">
-                    ${request.user.superuser ? `<a href="/admin?storeid=${store.id}"><li>Back to admin page</li></a>` : ""}
-                    <a href="/store/packages?storeid=${store.id}"><li>Package overview</li></a>
-                    <a href="/store/scan?storeid=${store.id}"><li>Scan package</li></a>
-                </ul>
+                    <h1>Menu for ${request.user.name}:</h1>
+                    <ul class="dash">
+                        ${request.user.superuser ? `<a href="/admin?storeid=${store.id}"><li>Back to admin page</li></a>` : ""}
+                        <a href="/store/packages?storeid=${store.id}"><li>Package overview</li></a>
+                        <a href="/store/scan?storeid=${store.id}"><li>Scan package</li></a>
+                        <a href="/store/unpacked_packages?storeid=${store.id}"><li>Unpacked packages</li></a>
+                    </ul>
                 </div>
             </body>
         </html>
     `;
 
     return page;
+}
+
+exports.renderUnpackedPackages = function renderUnpackedPackages(store, unpackedPackages) {
+    return `
+    <!DOCTYPE html>
+    <html>
+        <head>
+            ${generalHeader()}
+            <title>Package overview</title>
+            <link rel="stylesheet" href="/static/css/style.css">
+        </head>
+        <body>
+            ${renderEmployeeNav(store)}
+            <div class="main-body">
+                <h1>Unpacked packages overview</h1>
+                <div class="packages">
+                    ${unpackedPackages.map((package) => {
+                        return `
+                        <div class="package">
+                            <h2>Order id: ${package.externalOrderId}</h2>
+                            <h3>Customer info:</h3>
+                            <p>Name: ${package.customerName}</p>
+                            <p>Mail: ${package.customerEmail}</p>
+                            <h3>Creation date:</h3>
+                            <p>${fromISOToDate(package.creationDate)} ${fromISOToHHMM(package.creationDate)} </p>
+                            <h3>Status:</h3>
+                            <p style="color:red">Not packed yet</p>
+                            <form action="/store/package/ready_for_delivery" method="POST">
+                                <input type="hidden" name="packageid" value="${package.id}">
+                                <input type="hidden" name="storeid" value="${package.storeId}">
+                                <input type="submit" value="Mark as ready for delivery">
+                            </form>
+                        </div>
+                    `}).join("\n")}
+                </div>
+                <a href="/store?storeid=${store.id}" class="knap">Back</a>
+            </div>
+        </body>
+    </html>
+    `;
 }
 
 exports.renderPackageList = function renderPackageList(store, nonDeliveredPackageTable, deliveredPackageTable ) {
@@ -684,6 +723,25 @@ exports.renderStoreScan = function renderStoreScan(store) {
 }
 
 exports.renderPackageOverview = function renderPackageOverview(store, package) {
+    let action_path = "";
+    let action_name = "";
+    switch (package.readyState) {
+        case ReadyState.NotPackedYet:
+            action_path = "readyfordelivery";
+            action_name = "Mark as packed and ready";
+            break;
+        case ReadyState.NotDelivered:
+            action_path = "confirm";
+            action_name = "Mark as delivered";
+            break;
+        case ReadyState.Delivered:
+            action_path = "undeliver";
+            action_name = "Mark as not delivered";
+
+            break;
+        default:
+            throw new Error(`package with id ${package.id} has an invalid ready state of ${package.readyState}`);
+    }
     let page = `
         <html>
             <head>
@@ -691,13 +749,11 @@ exports.renderPackageOverview = function renderPackageOverview(store, package) {
                 <title>Package overview</title>
                 <link rel="stylesheet" href="/static/css/style.css">
             </head>
-            <body>`;
-
-    page += `${renderEmployeeNav(store)}`;
-    page += `
+            <body>
+                ${renderEmployeeNav(store)}
                 <div class="main-body">
                     <h1>Package details</h1>
-                    <p style="display: inline">Status: </p><span style="color: ${package.delivered ? "green" : "red"}">${package.delivered ? "DELIVERED" : "NOT DELIVERED"}</span>
+                    <p style="display: inline">Status: </p><span style="color: ${package.readyState == ReadyState.Delivered ? "green" : "red"}">${readyStateToReadableString(package.readyState)}</span>
                     <p>Guid: ${package.guid}</p>
                     <p>Booked timeslot id: ${package.bookedTimeId}</p>
                     <p>Verification code: ${package.verificationCode}</p>
@@ -706,10 +762,10 @@ exports.renderPackageOverview = function renderPackageOverview(store, package) {
                     <p>External order id: ${package.externalOrderId}</p>
                     <p>Creation date: ${fromISOToDate(package.creationDate)} ${fromISOToHHMM(package.creationDate)}</p>
                     <h2>Actions</h2>
-                    <form action="/store/package/${package.delivered == 0 ? "confirm" : "undeliver"}" method="POST">
+                    <form action="/store/package/${action_path}" method="POST">
                         <input type="hidden" value="${store.id}" name="storeid">
                         <input type="hidden" value="${package.id}" name="packageid">
-                        <input type="submit" value="${package.delivered == 0 ? "Confirm delivery" : "Mark as not delivered"}">
+                        <input type="submit" value="${action_name}">
                     </form>
                     <h2>Links:</h2>
                     <div class="link-wrap">
@@ -946,7 +1002,7 @@ exports.renderTimeSlotStatus = function renderTimeSlotStatus(package, bookedTime
                     <p>Booked time period: ${fromISOToDate(bookedTimeSlot.startTime)} from ${fromISOToHHMM(bookedTimeSlot.startTime)} to ${fromISOToHHMM(bookedTimeSlot.endTime)} </p>
                     <p>Your booking is in queue ${queueName}
                     <h2>Actions</h2>
-                    ${package.delivered == 0 ? `
+                    ${package.readyState == ReadyState.NotDelivered ? `
                     <p>If you can not come at the booked time, you can cancel and book a new time:</p> 
                     <form action="/package/cancel" method="POST">
                         <input type="hidden" value="${package.guid}" name="guid">
@@ -980,4 +1036,39 @@ exports.render500 = function render500(request) {
             ` : ""}
         </body>
     </html>`;
+}
+
+exports.renderOrderProcessingMail = function renderOrderProcessingMail(store, package, timestamp) {
+    return `
+        <html>
+            <head>
+                <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+                <title>Choose pickup</title>
+            </head>
+            <body>
+                <h1>Pick a time slot</h1>
+                <p>Hello ${package.customerName}. You have ordered items from ${store.name}.</p>
+                <p>Order received at ${timestamp}.</p>
+                <p>Your order is currently being processed and packed at the store. You will get another mail with further
+                information when the package has been packed and is ready for pick up.</p>
+            </body>
+        </html>
+    `;
+}
+
+exports.renderMissedTimeSlot = function renderMissedTimeSlot(store, package, unique_url) {
+    return `
+        <html>
+            <head>
+                <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+                <title>Choose pickup</title>
+            </head>
+            <body>
+                <h1>You have missed the timeslot for your package pick up</h1>
+                <p>Hello ${package.customerName}. You have ordered items from ${store.name} but you didnt pick your package up within your time slot.</p>
+                <p>Please pick another time on this link and pick it up with that time slot</p>
+                <p>Link: <a href="${unique_url}">${unique_url}</a></p>
+            </body>
+        </html>
+    `;
 }

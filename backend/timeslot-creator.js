@@ -113,6 +113,7 @@ async function main() {
 					timeSlotRanges.push([specificOpen, specificClose]);
 				}
 			}
+			console.log(timeSlotRanges);
 
 			timeSlotRanges.forEach(range => {
 				let currentTime = moment(range[0]);
@@ -120,18 +121,16 @@ async function main() {
 					let currentTimeFormat = currentTime.format("d:HH");
 					let currentAmount = hourTimes[currentTimeFormat] ?? 0;
 					let step = Math.min(Math.ceil(currentAmount / store.queueSizeSum), TIME_STEPS.length - 1);
-					console.log(step);
 					let currentLength = TIME_STEPS[step];
-					console.log(currentLength);
-					if (!moment(currentTime).add(currentLength, "minute").isSameOrBefore(range[1])) {
+					if (moment(currentTime).add(currentLength, "minute").isAfter(range[1])) {
 						break;
 					}
-					currentTime.add(currentLength, "minute")
 					
 					let end = moment(currentTime).add(currentLength, "minute");
 
 					timeSlots.push([currentTime.format("YYYY-MM-DDTHH:mm:ss"), end.format("YYYY-MM-DDTHH:mm:ss"), store.id, queue.id])
-
+					
+					currentTime.add(currentLength, "minute");
 				}
 			});
 		}));
