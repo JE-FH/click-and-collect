@@ -1248,18 +1248,26 @@ async function removeEmployeePost(request, response){
         return;  
     }
     postParameters["username"] = postParameters["username"].toLowerCase();
-    await dbRun(db, "SELECT username, id, password, salt, superuser FROM user WHERE username=? AND storeId=?", [postParameters["username"],request.user.storeId]);
+    let user = await dbGet(db, "SELECT * FROM user WHERE username=? AND storeId=?", [postParameters["username"],request.user.storeId]);
 
     if (user == null){ 
-        request.session.lastError = "User not found";
+        request.session.status = {
+            type: ErrorType.Error,
+            text: "User not found"
+        }
     } else if (user.username == request.user.username) {
-        request.session.lastError = "You can't delete your own user";
+        request.session.status = {
+            type: ErrorType.Error,
+            text: "You can't delete your own user"
+        }
     } else {
-        request.session.lastError = "User deleted";
+        request.session.status = {
+            type: ErrorType.Success,
+            text: "User deleted"
+        }
         await dbRun(db, "DELETE FROM user WHERE username=? AND storeId=?", [postParameters["username"], request.user.storeId]);
     }
     
-    request.session.displayError = true;
     response.statusCode = 302;
     response.setHeader('Location','/admin/employees/employee_list?storeid=' + request.session.storeId);
     response.end()
@@ -1289,11 +1297,9 @@ async function employeeList(request, response){
 
     let store = await storeIdToStore(wantedStoreId);
 
-    request.session.displayError ? error = request.session.lastError : error = "";
-    request.session.displayError = false;
-
     response.statusCode = 200;
-    response.write(employeeListPage(store, userList, error));
+    response.write(employeeListPage(store, userList, request));
+    request.session.status = null;
 
     response.end();
 }

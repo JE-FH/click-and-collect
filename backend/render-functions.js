@@ -271,35 +271,7 @@ function renderListOfEmployees(list, storeId) {
     return html;
 }
 
-exports.employeeListPage = function employeeListPage(store, employeeList, error) {
-    let message;
-
-    switch(error) {
-        case "The user was edited.":
-            message = `<p class="success-message">${error}</p>`;
-            break;
-        case "User deleted":
-            message = `<p class="success-message">${error}</p>`;
-            break;
-        case "Nothing was changed.":
-            message = `<p class="message">${error}</p>`;
-            break;
-        case "No changes were made.":
-            message = `<p class="message">${error}</p>`;
-            break;
-        case "User not found":
-            message = `<p class="error-message">${error}</p>`;
-            break;
-        case "You can not remove the last superuser.":
-            message = `<p class="error-message">${error}</p>`;
-            break;
-        case "You can't delete your own user":
-            message = `<p class="error-message">${error}</p>`;
-            break;
-        default:
-            break;
-    }
-
+exports.employeeListPage = function employeeListPage(store, employeeList, request) {
     let page = `
         <html>
             <head>
@@ -313,7 +285,7 @@ exports.employeeListPage = function employeeListPage(store, employeeList, error)
     page += `
             <div class="main-body">
                 <h1>Employee list</h1>
-                ${message ? message : ""}
+                ${request.session.status ? `<p class="${request.session.status.type == 0 ? "error-message" : "success-message"}">${request.session.status.text}</p>` : ""}
                 <div class="employee-list">
                     ${renderListOfEmployees(employeeList, store.id)}
                 </div>
