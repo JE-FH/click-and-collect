@@ -212,7 +212,7 @@ exports.renderPackageForm = function renderPackageForm(store, request) {
                         <label for="customerName">Customer name:</label>
                         <input type="text" name="customerName" placeholder="Customer name" required>
                         <label for="customerEmail">Customer email:</label>
-                        <input type="text" name="customerEmail" placeholder="Customer email" required>
+                        <input type="email" name="customerEmail" placeholder="Customer email" required>
                         <label for="externalOrderId">Order ID:</label>
                         <input type="text" name="externalOrderId" placeholder="Order ID" required> 
                         <input type="submit">
@@ -550,6 +550,16 @@ function capitalizeFirstLetter(str) {
 }
 
 exports.renderSettings = function renderSettings(store, request, DAYS_OF_WEEK, parsedOpeningTime, hasError) {
+    let statusMsg;
+
+    switch(hasError) {
+        case "New opening time was successfully set":
+            statusMsg = `<p class="success-message">${hasError}</p>`;
+            break;
+        default:
+            break;
+    }
+
     let page = `
         <html>
             <head>
@@ -598,6 +608,7 @@ exports.renderSettings = function renderSettings(store, request, DAYS_OF_WEEK, p
                         <input type="checkbox" name="delete-timeslots"><br>
                         <input type="submit" value="Set new opentime">
                     </form>
+                    ${statusMsg ? statusMsg : ""}
                 </div>
                 <script src="/static/js/settingsScript.js"></script>
             </body>

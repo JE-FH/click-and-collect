@@ -196,11 +196,13 @@ async function packageFormHandler(request, response) {
 
     let body = await receiveBody(request);
     body = parseURLEncoded(body);
+
     addPackage(request.user.storeId, body.customerEmail, body.customerName, body.externalOrderId);
     request.session.statusMsg = "Package successfully added";
     response.statusCode = 302;
     response.setHeader('Location', request.headers['referer']);
     response.end();
+    
 }
 
 /* Adds a package to the 'package' table in the database */
@@ -1408,11 +1410,9 @@ async function openingTime(request, response) {
 
     let parsedOpeningTime = JSON.parse(store.openingTime);
 
-    let hasError = request.session.settingsError == null;
-
     response.statusCode = 200;
     response.setHeader('Content-Type', 'text/html');
-    response.write(renderSettings(store, request, DAYS_OF_WEEK, parsedOpeningTime, hasError));
+    response.write(renderSettings(store, request, DAYS_OF_WEEK, parsedOpeningTime, request.session.settingsError));
     request.session.settingsError = null;
     response.end();
 }
@@ -1480,7 +1480,6 @@ async function settingsPost(request, response) {
     }
 
     let now = moment();
-    console.log(newOpeningTime);
     await dbRun(db, "UPDATE store SET openingTime=? WHERE id=?",[JSON.stringify(newOpeningTime), wantedStoreId]);
 
     if (postBody["delete-timeslots"] == "on") {
