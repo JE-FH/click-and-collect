@@ -7,7 +7,10 @@ body {
 }
 
 .main-body {
-    max-width: 370px;
+    width: 100%;
+    box-sizing: border-box;
+    padding: 0 1em;
+    max-width: 402px;
     margin: 0 auto;
     justify-content: center;
     margin-bottom: 2em;
