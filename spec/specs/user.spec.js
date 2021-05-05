@@ -103,7 +103,7 @@ describe("Unit test", function() {
 
 			expect(request2.session.testthing).toBe(5486283);
 		});
-		it("Should get unique sessio ids", async () => {
+		it("Should get unique session ids", async () => {
 			let response = create_simple_res();
 			sessionMiddleware(create_simple_req("GET", "/"), response);
 			let cookieJar1 = new BCookieJar();
