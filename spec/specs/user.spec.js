@@ -203,4 +203,97 @@ describe("Unit test", function() {
 			expect(request.query).toEqual(raw);
 		});
 	});
+
+	describe("request handler", function() {
+		const {RequestHandler} = require("../../backend/request-handler");
+		it("Should crate request handler", async () => {
+			let requestHandler = new RequestHandler();
+			expect(true).toBe(true);
+		})
+		it("Should route missing endpoints to default handler", async () => {
+			let callCount = 0;
+			let requestHandler = new RequestHandler((req, res) => {
+				callCount++;
+			});
+			let wrongCallCount = 0;
+			requestHandler.addEndpoint("GET", "/", (req, res) => {
+				wrongCallCount++;
+			});
+			await requestHandler.handleRequest(create_simple_req("GET", "/dfea"), create_simple_res());
+			await requestHandler.handleRequest(create_simple_req("GET", ""), create_simple_res());
+			await requestHandler.handleRequest(create_simple_req("GET", "wdwdawdaw/dvef/dfe"), create_simple_res());
+			await requestHandler.handleRequest(create_simple_req("POST", "/"), create_simple_res());
+			expect(callCount).toBe(4);
+			expect(wrongCallCount).toBe(0);
+		});
+		it("Should route endpoints to the correct endpoint handler", async () => {
+			let defCallCount = 0;
+			let requestHandler = new RequestHandler((req, res) => {
+				defCallCount++;
+			});
+
+			let aCallCount = 0;
+			requestHandler.addEndpoint("GET", "/b", (req, res) => {
+				aCallCount++;
+			});
+			let bCallCount = 0;
+			requestHandler.addEndpoint("GET", "/a", (req, res) => {
+				bCallCount++;
+			});
+			await requestHandler.handleRequest(create_simple_req("GET", "/a"), create_simple_res());
+			await requestHandler.handleRequest(create_simple_req("POST", "/a"), create_simple_res());
+			await requestHandler.handleRequest(create_simple_req("GET", "/b"), create_simple_res());
+			await requestHandler.handleRequest(create_simple_req("POST", "/b"), create_simple_res());
+			await requestHandler.handleRequest(create_simple_req("GET", ""), create_simple_res());
+			await requestHandler.handleRequest(create_simple_req("GET", "&sdfef"), create_simple_res());
+			expect(defCallCount).toBe(4);
+			expect(aCallCount).toBe(1);
+			expect(bCallCount).toBe(1);
+		});
+		it("should route errors to error handler", async () => {
+			let errorToThrow = new Error();
+			let thrownError;
+			let requestHandler = new RequestHandler((req, res) => {}, (req, res, err) => {
+				thrownError = err;
+			});
+			requestHandler.addEndpoint("GET", "/", (req, res) => {
+				throw errorToThrow;
+			});
+			await requestHandler.handleRequest(create_simple_req("GET", "/"), create_simple_res());
+			expect(thrownError).toBe(errorToThrow);
+		});
+		it("Should route through middleware", async () => {
+			let requestHandler = new RequestHandler((req, res) => {});
+			let order = [];
+			requestHandler.addMiddleware((req, res) => {
+				order.push(1);
+			});
+			requestHandler.addMiddleware((req, res) => {
+				order.push(2);
+			});
+			requestHandler.addMiddleware((req, res) => {
+				order.push(3);
+			});
+			requestHandler.addEndpoint("GET", "/", (req, res) => {
+				order.push(4);
+			});
+
+			await requestHandler.handleRequest(create_simple_req("GET", "/"), create_simple_res());
+			
+			await requestHandler.handleRequest(create_simple_req("GET", "539234"), create_simple_res());
+			expect(order).toEqual([1, 2, 3, 4, 1, 2, 3]);
+		});
+		it("should make middleware error reach error handler", async () => {
+			let errorToThrow = new Error();
+			let thrownError;
+			let requestHandler = new RequestHandler((req, res) => {}, (req, res, err) => {
+				thrownError = err;
+			});
+			requestHandler.addMiddleware((req, res) => {
+				throw errorToThrow;
+			});
+			await requestHandler.handleRequest(create_simple_req("GET", "/"), create_simple_res());
+			expect(thrownError).toBe(errorToThrow);
+		})
+	});
 });
