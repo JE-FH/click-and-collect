@@ -10,10 +10,7 @@ const {dbAll, dbGet, dbRun, dbExec} = require("./db-helpers");
 const {renderAdmin, renderQueueList, renderMissedTimeSlot, renderPackageForm, manageEmployees, employeeListPage, addEmployeePage, renderStoreMenu, renderPackageList, renderSettings, renderStoreScan, renderPackageOverview, render404, renderLogin, render500, renderEditEmployee, renderTimeSlots, renderTimeSlotStatus, renderUnpackedPackages, renderOrderProcessingMail} = require("./render-functions");
 const QRCode = require("qrcode");
 const {RequestHandler} = require("./request-handler");
-
-const port = 8000;
-const hostname = '127.0.0.1';
-const HOST = "http://127.0.0.1:8000";
+const config = require(__dirname + "/../server.config.js");
 
 let db;
 
@@ -38,7 +35,7 @@ async function sendReminders() {
     let late_packages = await dbAll(db, "SELECT p.*, s.name as storeName FROM package p LEFT JOIN timeSlot t ON t.id = p.bookedTimeId LEFT JOIN store s ON s.id = p.storeId WHERE t.endTime > ? AND p.readyState=?", [formatMomentAsISO(late_time), ReadyState.NotDelivered]);
 
     await dbRun("UPDATE package SET p.bookedTimeIds")
-    let link = `${HOST}/package?guid=${package.guid}`;
+    let link = `${config.base_host_address}/package?guid=${package.guid}`;
     await Promise.all(late_packages.map(async (package) => {
         await sendEmail(
             package.customerEmail, package.customerName, 
@@ -60,7 +57,7 @@ async function sendReminder(package) {
 
     if(creationDelta >= msPerDay*days) {
         console.log('Sending reminder to: ' + package.customerEmail + ' (3 days has passed)');
-        await sendEmail(package.customerEmail, package.customerName, "Reminder: no time slot booked", `Link: ${HOST}/package?guid=${package.guid}`, await reminderHTML(package));
+        await sendEmail(package.customerEmail, package.customerName, "Reminder: no time slot booked", `Link: ${config.base_host_address}/package?guid=${package.guid}`, await reminderHTML(package));
         /* Increment package.remindersSent in database */
         await dbRun(db, "UPDATE package SET remindersSent=1 WHERE id=?", [package.id]);
     } else {
@@ -114,7 +111,7 @@ async function reminderHTML(package) {
                 <h1>Unbooked time slot</h1>
                 <p>Hello ${package.customerName}, you still have not picked a time slot for picking up your order from ${store.name}</p>
                 <p>Follow this link to book a time slot:</p>
-                <a target="_blank" href="${HOST}/package?guid=${package.guid}">${HOST}/package?guid=${package.guid}</a>
+                <a target="_blank" href="${config.base_host_address}/package?guid=${package.guid}">${config.base_host_address}/package?guid=${package.guid}</a>
             </body>
         </html>
     `
@@ -275,7 +272,7 @@ async function renderMailTemplate(name, store, guid, timestamp) {
                 <p>The package has now been processed and packed.
                 Now you have to select a timeslot where you can pick up the package<p>
                 <h2>Your unique link:</h2>
-                <a target="_blank" href="${HOST}/package?guid=${guid}">${HOST}/package?guid=${guid}</a>
+                <a target="_blank" href="${config.base_host_address}/package?guid=${guid}">${config.base_host_address}/package?guid=${guid}</a>
             </body>
         </html>
     `;
@@ -600,7 +597,7 @@ async function markPackageAsPacked(request, response) {
     await sendEmail(
         package.customerEmail, package.customerName, 
         `${store.name}: Choose a pickup time slot`, 
-        `Link: ${HOST}/package?guid=${package.guid}`, 
+        `Link: ${config.base_host_address}/package?guid=${package.guid}`, 
         await renderMailTemplate(package.customerName, store, package.guid, package.creationDate)
     );
 
@@ -782,7 +779,7 @@ async function queueRemove(request, response) {
 
     await dbRun(db, "DELETE FROM queue WHERE id=? and storeId=?", [wantedQueueId, wantedStoreId]);
 
-    deleteTimeslotsWithId(db, HOST, wantedQueueId, wantedStoreId)
+    deleteTimeslotsWithId(db, config.base_host_address, wantedQueueId, wantedStoreId)
 
     response.statusCode = 302;
     response.setHeader("Location", "/admin/queues?storeid=" + wantedStoreId.toString());
@@ -925,6 +922,23 @@ async function packageStoreUnconfirm(request, response) {
 }
 
 async function main() {
+    /*First we check the config file*/
+    if (typeof(config.port) != "number" || !Number.isInteger(config.port) || config.port < 1 || config.port > 65353) {
+        console.log("Configured port number is invalid, it needs to be an integer between 1-65353");
+        return;
+    }
+
+    if (typeof(config.hostname) != "string") {
+        console.log("Configured hostname needs to be a string");
+        return;
+    }
+
+    if (typeof(config.base_host_address) != "string") {
+        console.log("Configured base_host_address needs to be a string");
+        return;
+    }
+
+
     db = new sqlite3.Database(__dirname + "/../databasen.sqlite3");
 
     let databaseCreationCommand = (await fs.readFile(__dirname + "/database_creation.sql")).toString();
@@ -1014,8 +1028,8 @@ async function main() {
     const server = http.createServer((request, response) => requestHandler.handleRequest(request, response));
 
     /* Starts the server */
-    server.listen(port, hostname, () => {
-        console.log("Server listening on " + hostname + ":" + port);
+    server.listen(config.port, config.hostname, () => {
+        console.log("Server listening on " + config.hostname + ":" + config.port);
     })
 
     /* Just before the program exits we have to make sure that the database is saved */
