@@ -573,17 +573,7 @@ function capitalizeFirstLetter(str) {
     return str[0].toUpperCase()+str.slice(1);
 }
 
-exports.renderSettings = function renderSettings(store, request, DAYS_OF_WEEK, parsedOpeningTime, hasError) {
-    let statusMsg;
-
-    switch(hasError) {
-        case "New opening time was successfully set":
-            statusMsg = `<p class="success-message">${hasError}</p>`;
-            break;
-        default:
-            break;
-    }
-
+exports.renderSettings = function renderSettings(store, request, DAYS_OF_WEEK, parsedOpeningTime) {
     let page = `
         <html>
             <head>
@@ -602,7 +592,6 @@ exports.renderSettings = function renderSettings(store, request, DAYS_OF_WEEK, p
             page += `
                 <div class="main-body">
                     <h1>Opening times for your store: </h1>
-                    <p id="error-message" class="${hasError ? "" : "hidden"}">${hasError ? "" : request.session.settingsError}</p>
                     <form method="POST" id="settings-form">
                         <table>
                             <thead>
@@ -632,7 +621,7 @@ exports.renderSettings = function renderSettings(store, request, DAYS_OF_WEEK, p
                         <input type="checkbox" name="delete-timeslots"><br>
                         <input type="submit" value="Set new opentime">
                     </form>
-                    ${statusMsg ? statusMsg : ""}
+                    ${request.session.status ? `<p id="error-message" class="${request.session.status.type == 0 ? "error-message" : "success-message"}">${request.session.status.text}</p>` : ""}
                 </div>
                 <script src="/static/js/settingsScript.js"></script>
             </body>

@@ -1569,8 +1569,8 @@ async function openingTime(request, response) {
 
     response.statusCode = 200;
     response.setHeader('Content-Type', 'text/html');
-    response.write(renderSettings(store, request, DAYS_OF_WEEK, parsedOpeningTime, request.session.settingsError));
-    request.session.settingsError = null;
+    response.write(renderSettings(store, request, DAYS_OF_WEEK, parsedOpeningTime));
+    request.session.status = null;
     response.end();
 }
 //Mangler at tjekke hvornår de begynder
@@ -1656,6 +1656,10 @@ async function settingsPost(request, response) {
     }
 
     request.session.settingsError = "New opening time was successfully set";
+    request.session.status = {
+        type: ErrorType.Success,
+        text: "New opening time was successfully set"
+    }
     response.statusCode = 302
     response.setHeader("Location", "/admin/settings?storeid=" + wantedStoreId.toString());
     response.end();
