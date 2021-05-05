@@ -525,7 +525,7 @@ exports.renderPackageList = function renderPackageList(store, nonDeliveredPackag
                     <h1>Package Overview</h1>
                     <form action="/store/packages" method="POST">
                         <label for="customerName"> Search for customer name: </label>
-                        <input type="text" name="customerName" required>
+                        <input type="text" name="customerName">
                         <input type="hidden" value="${store.id}" name="storeid">
                         <input type="submit" id="submit" value="Search">
                     </form>
