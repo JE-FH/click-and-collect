@@ -1231,7 +1231,7 @@ async function removeEmployeePost(request, response){
         return;  
     }
     postParameters["username"] = postParameters["username"].toLowerCase();
-    await dbRun(db, "SELECT username, id, password, salt, superuser FROM user WHERE username=? AND storeId=?", [postParameters["username"],request.user.storeId]);
+    let user = await dbGet(db, "SELECT * FROM user WHERE username=? AND storeId=?", [postParameters["username"],request.user.storeId]);
 
     if (user == null){ 
         request.session.lastError = "User not found";
