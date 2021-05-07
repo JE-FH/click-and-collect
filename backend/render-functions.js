@@ -490,14 +490,23 @@ exports.renderPackageList = function renderPackageList(store, nonDeliveredPackag
     page += `
                 <div class="main-body">
                     <h1>Package Overview</h1>
-                    <form action="/store/packages" method="POST">
-                        <label for="customerName"> Search for customer name: </label>
-                        <input type="text" name="customerName">
-                        <input type="hidden" value="${store.id}" name="storeid">
-                        <input type="submit" id="submit" value="Search">
-                    </form>
-                    <a class="knap" id="showButton" onclick="toggleShowDelivered()"> Show delivered packages </a>
-                    <a class="knap" id="toggleTimeslots"onclick="toggleTimeSlotChosen()"> Hide packages without an assigned timeslot </a>
+                </div>
+                <div class="search">
+                    <div id="search-body" class="main-body">
+                        <form action="/store/packages" method="POST">
+                            <label for="customerName"> Search for customer name: </label>
+                            <input type="text" name="customerName">
+                            <input type="hidden" value="${store.id}" name="storeid">
+                            <input type="submit" id="submit" value="Search">
+                        </form>
+                        <div id="search-buttons">
+                            <a class="knap" id="showButton" onclick="toggleShowDelivered()">Show delivered packages</a>
+                            <a class="knap" id="toggleTimeslots"onclick="toggleTimeSlotChosen()">Hide packages without an assigned timeslot</a>
+                        </div>
+                    </div>
+                    <div id="toggle-search">&#9650;</div>
+                </div>
+                <div class="main-body">
                     ${nonDeliveredPackageTable}
                     ${deliveredPackageTable}
                     <a href="/store?storeid=${store.id}" class="knap">Back</a>
@@ -544,6 +553,15 @@ exports.renderPackageList = function renderPackageList(store, nonDeliveredPackag
                     button.innerText = "Hide packages without an assigned timeslot";
                 }
             }
+
+            /* Search toggle */
+            let searchToggle = document.getElementById('toggle-search');
+            let searchBody = document.getElementById('search-body');
+
+            searchToggle.addEventListener('click', () => {
+                searchBody.classList.toggle("close");
+                searchToggle.classList.toggle("flip");
+            })
             </script>
         </html>
     `;

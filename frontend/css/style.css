@@ -16,19 +16,16 @@ body {
     margin-bottom: 2em;
 }
 
-.message {
-    padding: 5px;
-    border: solid 2px black;
-    display: block;
-    margin: 1em 0;
-}
-
 .success-message {
     color: green;
     padding: 5px;
     border: solid 2px green;
     display: block;
     margin: 1em 0;
+    position: relative;
+    opacity: 0%;
+    bottom: -30px;
+    animation: message 5s ease-in-out alternate;
 }
 
 .error-message {
@@ -37,6 +34,21 @@ body {
     border: solid 2px red;
     display: block;
     margin: 1em 0;
+    position: relative;
+    opacity: 0%;
+    bottom: -30px;
+    animation: message 5s ease-in-out alternate;
+}
+
+@keyframes message {
+    10% {
+        opacity: 100%;
+        bottom: 0;
+    }
+    90% {
+        opacity: 100%;
+        bottom: 0;
+    }
 }
 
 /* Navigation */
@@ -326,6 +338,40 @@ form input[type=submit] {
     padding: 0.5em;
     min-width: 155px;
     margin: auto;
+}
+
+.search {
+    z-index: 999;
+    box-shadow: 0 0 10px rgba(0, 0, 0, 0.18);
+    position: sticky;
+    top: 47px;
+    background-color: #e6eaeb;
+}
+#search-body {
+    padding-top: 1px;
+}
+#search-body > form {
+    background-color: #e6eaeb;
+}
+#search-buttons {
+    display: flex;
+    flex-direction: column;
+}
+#search-buttons > a {
+    flex: 1;
+    margin: 0.5em 0;
+    box-sizing: border-box;
+}
+#toggle-search {
+    text-align: center;
+    font-size: 30px;
+    padding: 5px;
+}
+#toggle-search.flip {
+    transform: rotate(180deg);
+}
+#search-body.close {
+    display: none;
 }
 
 .knap:hover {
