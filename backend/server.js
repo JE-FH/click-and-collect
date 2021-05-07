@@ -269,7 +269,7 @@ async function renderMailTemplate(name, store, guid, timestamp) {
                 <title>Choose pickup</title>
             </head>
             <body>
-                <h1>Pick a time slot</h1>
+                <h1>Package is ready</h1>
                 <p>Hello ${name}. You have ordered items from ${store.name}.</p>
                 <p>The package has now been processed and packed.
                 Now you have to select a timeslot where you can pick up the package<p>
