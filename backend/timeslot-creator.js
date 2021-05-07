@@ -42,17 +42,7 @@ async function createFrequencyData(db, begin, end) {
 	return hourTimes;
 }
 
-async function main() {
-	db = new sqlite3.Database(__dirname + "/../databasen.sqlite3");
-
-    let databaseCreationCommand = (await fs.readFile(__dirname + "/database_creation.sql")).toString();
-
-    console.log("Configuring database");
-    
-    /* Execute the database creation commands */
-    await dbExec(db, databaseCreationCommand);
-
-    console.log("Database correctly configured");
+exports.createTimeSlots = async function createTimeSlots(use_this_db) {
 	let now = moment();
 
 	let hourTimes = await createFrequencyData(db, moment(now).subtract(21, "day"), moment(now).set(0, "second").set(0, "minute").set(0, "hour"));
@@ -115,7 +105,6 @@ async function main() {
 					timeSlotRanges.push([specificOpen, specificClose]);
 				}
 			}
-			console.log(timeSlotRanges);
 
 			timeSlotRanges.forEach(range => {
 				let currentTime = moment(range[0]);
@@ -151,17 +140,6 @@ async function main() {
 			});
 		})
 	});
-
-	db.close();
-}
-
-function getEarliestTime(openingTime, closingTime, lastTimeSlotEnd) {
-	let lastRoundedUp = roundUpHour(lastTimeSlotEnd);
-	console.log(lastRoundedUp);
-	if (isBetween(openingTime, closingTime, lastRoundedUp, lastRoundedUp)) {
-		return lastRoundedUp;
-	}
-	return null;
 }
 
 function getTimeParts(hhmmss) {
@@ -201,5 +179,3 @@ function roundUpHour(m) {
 	let roundUp = m.minute() || m.second() || m.millisecond() ? m.add(1, 'hour').startOf('hour') : m.startOf('hour');
 	return roundUp;
 }
-
-main();

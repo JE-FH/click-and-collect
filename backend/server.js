@@ -10,6 +10,7 @@ const {dbAll, dbGet, dbRun, dbExec} = require("./db-helpers");
 const {renderAdmin, renderQueueList, renderMissedTimeSlot, renderPackageForm, manageEmployees, employeeListPage, addEmployeePage, renderStoreMenu, renderPackageList, renderSettings, renderStoreScan, renderPackageOverview, render404, renderLogin, render500, renderEditEmployee, renderTimeSlots, renderTimeSlotStatus, renderUnpackedPackages, renderOrderProcessingMail} = require("./render-functions");
 const QRCode = require("qrcode");
 const {RequestHandler} = require("./request-handler");
+const { createTimeSlots } = require("./timeslot-creator");
 const config = require(__dirname + "/../server.config.js");
 
 let db;
@@ -938,6 +939,24 @@ async function packageStoreUnconfirm(request, response) {
     response.end();
 }
 
+async function sendReminderInterval() {
+    try {
+        await sendReminders();
+    } catch (e) {
+        console.log("Send reminders error");
+        console.log(e);
+    }
+}
+
+async function timeSlotCreatorInterval() {
+    try {
+        await createTimeSlots(db);
+    } catch (e) {
+        console.log("Error while creating timeslots");
+        console.log(e);
+    }
+}
+
 //if use_this_db is defined then it also implies that we are testing
 exports.main = async function main(use_this_db) {
     /*First we check the config file*/
@@ -970,15 +989,13 @@ exports.main = async function main(use_this_db) {
 
     await setupEmail();
     
+    sendReminderInterval();
     /* Sends reminders to customers who hasn't booked a time slot. Checks every 10 minutes. */
-    setInterval(async () => {
-        try {
-            await sendReminders();
-        } catch (e) {
-            console.log("Send reminders error");
-            console.log(e);
-        }
-    }, 600000);
+    setInterval(sendReminderInterval, 600000);
+
+    timeSlotCreatorInterval();
+    /* Creates timeslots every 10 minutes */
+    setInterval(timeSlotCreatorInterval, 1000 * 60 * 10);
 
     let requestHandler = new RequestHandler(defaultResponse, errorResponse);
     /*If we are running tests, then we dont want this output*/
