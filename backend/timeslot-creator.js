@@ -41,16 +41,6 @@ async function createFrequencyData(db, begin, end) {
 }
 
 exports.createTimeSlots = async function createTimeSlots(use_this_db) {
-	let db = use_this_db ?? new sqlite3.Database(__dirname + "/../databasen.sqlite3");
-
-    let databaseCreationCommand = (await fs.readFile(__dirname + "/database_creation.sql")).toString();
-
-    console.log("Configuring database");
-    
-    /* Execute the database creation commands */
-    await dbExec(db, databaseCreationCommand);
-
-    console.log("Database correctly configured");
 	let now = moment();
 
 	let hourTimes = await createFrequencyData(db, moment(now).subtract(21, "day"), moment(now).set(0, "second").set(0, "minute").set(0, "hour"));
