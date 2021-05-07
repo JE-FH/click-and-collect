@@ -113,7 +113,6 @@ async function main() {
 					timeSlotRanges.push([specificOpen, specificClose]);
 				}
 			}
-			console.log(timeSlotRanges);
 
 			timeSlotRanges.forEach(range => {
 				let currentTime = moment(range[0]);
@@ -151,15 +150,6 @@ async function main() {
 	});
 
 	db.close();
-}
-
-function getEarliestTime(openingTime, closingTime, lastTimeSlotEnd) {
-	let lastRoundedUp = roundUpHour(lastTimeSlotEnd);
-	console.log(lastRoundedUp);
-	if (isBetween(openingTime, closingTime, lastRoundedUp, lastRoundedUp)) {
-		return lastRoundedUp;
-	}
-	return null;
 }
 
 function getTimeParts(hhmmss) {
