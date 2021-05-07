@@ -141,7 +141,7 @@ exports.setupEmail = async function setupMail() {
             secure: config.emailDetails.secure,
             auth: {
                 user: config.emailDetails.user,
-                user: config.emailDetails.pass
+                pass: config.emailDetails.pass
             }
         });
     }
