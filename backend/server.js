@@ -1538,7 +1538,7 @@ async function cancelTimeSlot(request, response) {
 }
 
 async function sendPickupDocumentation(package, timeSlotDetails) {
-    let qrCode = await QRCode.toDataURL(package.verificationCode);
+    //let qrCode = await QRCode.toDataURL(package.verificationCode);
 
     let mapLink = `https://www.openstreetmap.org/?mlat=${encodeURIComponent(timeSlotDetails.qlatitude)}&mlon=${encodeURIComponent(timeSlotDetails.qlongitude)}`;
     let queueName = (await dbGet(db, "SELECT queueName FROM queue WHERE id = ? AND storeId = ?", [timeSlotDetails.qid, package.storeId])).queueName;
@@ -1570,7 +1570,7 @@ ${package.verificationCode}
                     <a href="${mapLink}">here</a>
                 </p>
                 <h2>Show the following qr code to the employee when you go to the pickup location</h2>
-                <img src="${qrCode}" style="display: block;max-width: 100vh;height: auto;max-height: 100vh;width: 100%;"/>
+                <img src="https://api.qrserver.com/v1/create-qr-code/?size=150x150&data=${encodeURIComponent(package.verificationCode)}" style="display: block;max-width: 100vh;height: auto;max-height: 100vh;width: 100%;"/>
                 <p>If the image is not visible you can try to enable image displaying in your email client or use the following code instead of the qr code at the pickup location:</p>
                 <code>${package.verificationCode}</code>
             </body>
