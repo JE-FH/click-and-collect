@@ -4,9 +4,10 @@ const httpMocks = require('node-mocks-http');
 const EventEmitter = require("node:events");
 const CookieJar = require("cookiejar");
 const config = require("../../server.config");
-const { dbRun } = require("../../backend/db-helpers");
+const { dbRun, dbExec, dbAll } = require("../../backend/db-helpers");
 const querystring = require("querystring");
-
+const { ReadyState } = require("../../backend/helpers");
+const fs = require("fs/promises");
 
 const BCookieJar = function BCookieJar() {
 	this.cookieJar = new CookieJar.CookieJar();
@@ -251,12 +252,12 @@ describe("Unit test", function() {
 			});
 
 			let aCallCount = 0;
-			requestHandler.addEndpoint("GET", "/b", (req, res) => {
-				aCallCount++;
-			});
-			let bCallCount = 0;
 			requestHandler.addEndpoint("GET", "/a", (req, res) => {
 				bCallCount++;
+			});
+			let bCallCount = 0;
+			requestHandler.addEndpoint("POST", "/b", (req, res) => {
+				aCallCount++;
 			});
 			await requestHandler.handleRequest(createSimpleReq("GET", "/a"), createSimpleRes());
 			await requestHandler.handleRequest(createSimpleReq("POST", "/a"), createSimpleRes());
@@ -359,6 +360,44 @@ describe("Unit test", function() {
 			expect(request.session.userId).not.toBeInstanceOf(Number);
 			expect(response.statusCode).toBe(302);
 			expect(response.getHeader("Location")).toBe(`/login`);
+		});
+	});
+	describe("timeslot creator", function () {
+		const { createTimeSlots } = require("../../backend/timeslot-creator");
+		let timeslotCreatorDb;
+		beforeAll(async () => {
+			timeslotCreatorDb = new sqlite3.Database(":memory:");
+			let databaseCreationCommand = (await fs.readFile(__dirname + "/../../backend/database_creation.sql")).toString();
+			
+			/* Execute the database creation commands */
+			await dbExec(timeslotCreatorDb, databaseCreationCommand);
+			await dbExec(timeslotCreatorDb, `
+				INSERT INTO store (id, name, openingTime, pickupDelay, apiKey, storeEmail) VALUES
+					(4563, "dkfaoef", 
+					'{"monday": ["08:00:00", "17:00:00"],' || 
+					'"tuesday": ["08:00:00", "17:00:00"],' ||
+					'"wednesday": ["08:00:00", "17:00:00"],' ||
+					'"thursday": ["08:00:00", "17:00:00"],' ||
+					'"friday": ["08:00:00", "17:00:00"],' ||
+					'"saturday": ["10:00:00", "12:30:00"],' ||
+					'"sunday": []}', 
+					"00:00:00", "ksokg", "dkfaoef@mail.com"
+				);
+				INSERT INTO queue (id, latitude, longitude, size, storeId, queueName) VALUES
+					(1, 0, 0, 1, 4563, "Queue number 1!");
+				INSERT INTO timeSlot (id, storeId, startTime, endTime, queueId) VALUES
+					(1, 4563, "2021-05-05T11:00:00", "2021-05-05T11:30:00", 1),
+					(2, 4563, "2021-05-05T11:30:00", "2021-05-05T12:00:00", 1);
+				INSERT INTO package (id, guid, storeId, bookedTimeId, customerEmail, creationDate, readyState) VALUES
+					(1, "12155", 4563, 1, "", "", ${ReadyState.NotDelivered});
+				INSERT INTO package (id, guid, storeId, bookedTimeId, customerEmail, creationDate, readyState) VALUES
+					(2, "1234", 4563, 2, "", "", ${ReadyState.NotDelivered});
+			`);
+		});
+		it("Should create 4 timeslots since the 2 was filled before", async () => {
+			await createTimeSlots(timeslotCreatorDb);
+			await dbAll(timeslotCreatorDb, "SELECT * FROM timeSlot WHERE ");
+			expect(true).toBe(true);
 		});
 	});
 });

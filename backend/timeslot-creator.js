@@ -44,9 +44,9 @@ async function createFrequencyData(db, begin, end) {
 	return hourTimes;
 }
 
-exports.createTimeSlots = async function createTimeSlots(use_this_db) {
+exports.createTimeSlots = async function createTimeSlots(use_this_db, use_this_now) {
 	let db = use_this_db;
-	let now = moment();
+	let now = use_this_now ?? moment();
 
 	let hourTimes = await createFrequencyData(db, moment(now).subtract(21, "day"), moment(now).set(0, "second").set(0, "minute").set(0, "hour"));
 	// Vi går 3 uger bagud indtil idag 00:00:00
@@ -117,6 +117,7 @@ exports.createTimeSlots = async function createTimeSlots(use_this_db) {
 				while (true) {
 					let currentTimeFormat = currentTime.format("d:HH");
 					let currentAmount = hourTimes[currentTimeFormat] ?? 0; // Antallet af pakker hentet den dag historisk (man-søn)
+					console.log(`${currentTimeFormat}: ${currentAmount / store.queueSizeSum}`);
 					let step = Math.min(Math.ceil(currentAmount / store.queueSizeSum), TIME_STEPS.length - 1); // Her bliver tiden timeslots varer valgt, værdierne ligger i TIME_STEPS, TIME_STEPS er designet så man kan hoppe til næste trin hvis timeslots er fyldt
 					let currentLength = TIME_STEPS[step]; // Længden af timeslots den dag
 					if (moment(currentTime).add(currentLength, "minute").isAfter(range[1])) { //Hvis det er det sidste timeslot der er tid til den dag break
