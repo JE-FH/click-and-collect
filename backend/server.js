@@ -34,7 +34,7 @@ async function sendReminders() {
 
     let late_packages = await dbAll(db, "SELECT p.*, s.name as storeName FROM package p LEFT JOIN timeSlot t ON t.id = p.bookedTimeId LEFT JOIN store s ON s.id = p.storeId WHERE t.endTime > ? AND p.readyState=?", [formatMomentAsISO(late_time), ReadyState.NotDelivered]);
 
-    await dbRun("UPDATE package SET p.bookedTimeIds")
+    await dbRun(db, "UPDATE package SET p.bookedTimeIds")
     let link = `${config.base_host_address}/package?guid=${package.guid}`;
     await Promise.all(late_packages.map(async (package) => {
         await sendEmail(
