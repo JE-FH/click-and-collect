@@ -209,32 +209,6 @@ body {
     }
 }
 
-/* Employee navigation */
-.employee-nav {
-    background-color: #222;
-    z-index: 999;
-    position: sticky;
-    top: 0;
-    box-shadow: 0 6px 10px rgba(0, 0, 0, 0.22);
-    padding: 0 1em;
-}
-.employee-nav  > a {
-    font-weight: 600;
-    text-decoration: none;
-    color: #ECF0F1;
-    display: inline-block;
-    margin: 0.5em auto;
-    padding: 0.4em 0.8em;
-    border-radius: 5px;
-}
-#scan {
-    padding: 0.4em 3em;
-}
-.employee-nav > a:hover {
-    color: #222;
-    background-color: #ECF0F1;
-}
-
 /* Generic form styling*/
 form {
     background-color: #f0f0f0;

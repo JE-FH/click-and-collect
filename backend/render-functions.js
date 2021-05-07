@@ -43,12 +43,36 @@ function renderNavigation(store) {
 
 function renderEmployeeNav(store) {
     return `
-        <nav class="employee-nav">
-            <a href="/store?storeid=${store.id}">Home</a>
+        <nav class="navigation">
+            <a href="/store?storeid=${store.id}" id="home">Home</a>
+            <ul style="max-width: 460px">
+                <a href="/store/scan?storeid=${store.id}"><li>Scan</li></a>
+                <a href="/store/packages?storeid=${store.id}"><li>Packages</li></a>
+                <a href="/store/unpacked_packages?storeid=${store.id}" style="flex: 2"><li>Unpacked packages</li></a>
+            </ul>
+            <div id="hamburger">
+                <span></span>
+                <span></span>
+                <span></span>
+            </div>
+        </nav>
+
+        <div id="hamburger-menu">
+            <a href="/store?storeid=${store.id}" id="home">Home</a>
             <a id="scan" href="/store/scan?storeid=${store.id}">Scan</a>
             <a href="/store/packages?storeid=${store.id}">Packages</a>
             <a href="/store/unpacked_packages?storeid=${store.id}">Unpacked packages</a>
-        </nav>
+        </div>
+
+        <script>
+            let hamburger = document.getElementById("hamburger");
+            let hamburgerMenu = document.getElementById("hamburger-menu");
+
+            hamburger.addEventListener("click", () => {
+                hamburger.classList.toggle("close");
+                hamburgerMenu.classList.toggle("close");
+            })
+        </script>
     `;
 }
 
@@ -396,7 +420,8 @@ exports.renderStoreMenu = function renderStoreMenu(store, request) {
             <body>
                 ${renderEmployeeNav(store)}
                 <div class="main-body">
-                    <h1>Menu for ${request.user.name}:</h1>
+                    <h1>Employee dashboard</h1>
+                    <h2>Welcome, ${request.user.name}</h2>
                     <ul class="dash">
                         ${request.user.superuser ? `<a href="/admin?storeid=${store.id}"><li>Back to admin page</li></a>` : ""}
                         <a href="/store/packages?storeid=${store.id}"><li>Package overview</li></a>
