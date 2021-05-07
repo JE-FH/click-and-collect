@@ -30,11 +30,13 @@ async function createFrequencyData(db, begin, end) {
 			hourTimes[format] = [0, 0, ""];
 		}
 		hourTimes[format][0] += row.booked;
+		// [format][0] Er antallet af pakker den dag, [format][1] er antallet af gange den dag er talt med (den går 3 uger tilbage og kigger efter timeslots), [format][2] er den nuværende dag
 		if (hourTimes[format][2] != start.format("YYYY-MM-DD")) {
 			hourTimes[format][1] += 1;
 			hourTimes[format][2] = start.format("YYYY-MM-DD");
 		}
 	});
+	
 
 	Object.entries(hourTimes).forEach(([key, val]) => {
 		hourTimes[key] = val[0] / val[1];
@@ -46,11 +48,11 @@ exports.createTimeSlots = async function createTimeSlots(use_this_db) {
 	let now = moment();
 
 	let hourTimes = await createFrequencyData(db, moment(now).subtract(21, "day"), moment(now).set(0, "second").set(0, "minute").set(0, "hour"));
-
+	// Vi går 3 uger bagud indtil idag 00:00:00
 	let applicableRangeStart = roundUpHour(moment(now));
 	let applicableRangeEnd = moment(applicableRangeStart).add(7, "day");
 
-	let lastTimeslot = await dbGet(db, "select * from timeSlot ORDER BY endTime DESC LIMIT 1;");
+	let lastTimeslot = await dbGet(db, "select * from timeSlot ORDER BY endTime DESC LIMIT 1");
 	
 	let beginningTime = roundUpHour(moment(lastTimeslot?.startTime ?? 0));
 	
@@ -62,6 +64,7 @@ exports.createTimeSlots = async function createTimeSlots(use_this_db) {
 		console.log("Cant add anything");
 	}
 	let stores = await dbAll(db, "select s.id, s.openingTime, s.name, SUM(q.size) as queueSizeSum from store s left outer join queue q on s.id = q.storeId group by s.id");
+	// Vi vælger alle stores og finder deres id, opening time, navn, antallet af plads i alle deres køer
 
 	let timeSlots = [];
 
@@ -83,19 +86,20 @@ exports.createTimeSlots = async function createTimeSlots(use_this_db) {
 			let timeSlotRanges = [];
 			
 			let currentDay = minBeginningTime.format("dddd").toLowerCase();
-			/*Check if we can any time slots for today*/
+			/*Check if the store is open that day*/
 			if (openingTimeObj[currentDay].length == 2) {
-				/*The closing time is after beginning time*/
+				/*Checks if there are hours the current day within opening times without timeslots*/
 				if (isAfter(openingTimeObj[currentDay][1], minBeginningTime)) {
 					let closingTimeParts = getTimeParts(openingTimeObj[currentDay][1]);
 					let specificClosingTime = moment(minBeginningTime).hour(closingTimeParts.hour).minute(closingTimeParts.minute).second(closingTimeParts.second);
 					timeSlotRanges.push([minBeginningTime, specificClosingTime]);
+					// Sætter muligt timeslot fra nu til butikken lukker
 				}
 			}
 			
-			for (let currentTime = moment(minBeginningTime).add(1, "day"); currentTime.isBefore(maxEndTime); currentTime.add(1, "day")) {
+			for (let currentTime = moment(minBeginningTime).add(1, "day"); currentTime.isBefore(maxEndTime); currentTime.add(1, "day")) { // Loops from minBeginningTime until 7 days later
 				let dayName = currentTime.format("dddd").toLowerCase();
-				if (openingTimeObj[dayName].length == 2) {
+				if (openingTimeObj[dayName].length == 2) { // If the store is open on dayName
 					let openParts = getTimeParts(openingTimeObj[dayName][0]);
 					let closeParts = getTimeParts(openingTimeObj[dayName][1]);
 
@@ -103,10 +107,13 @@ exports.createTimeSlots = async function createTimeSlots(use_this_db) {
 					let specificClose = moment(currentTime).hour(closeParts.hour).minute(closeParts.minute).second(closeParts.second);
 
 					timeSlotRanges.push([specificOpen, specificClose]);
+					// Creates possible timeslots from opening time to closing time
 				}
 			}
 
 			timeSlotRanges.forEach(range => {
+
+				console.log(range);
 				let currentTime = moment(range[0]);
 				while (true) {
 					let currentTimeFormat = currentTime.format("d:HH");
