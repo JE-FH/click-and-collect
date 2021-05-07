@@ -4,11 +4,11 @@ const httpMocks = require('node-mocks-http');
 const EventEmitter = require("node:events");
 const CookieJar = require("cookiejar");
 const config = require("../../server.config");
-const { dbRun, dbExec, dbAll } = require("../../backend/db-helpers");
+const { dbRun, dbExec, dbAll, dbGet } = require("../../backend/db-helpers");
 const querystring = require("querystring");
 const { ReadyState } = require("../../backend/helpers");
 const fs = require("fs/promises");
-
+const moment = require("moment");
 const BCookieJar = function BCookieJar() {
 	this.cookieJar = new CookieJar.CookieJar();
 	this.host = config.base_host_address;
@@ -385,19 +385,61 @@ describe("Unit test", function() {
 				);
 				INSERT INTO queue (id, latitude, longitude, size, storeId, queueName) VALUES
 					(1, 0, 0, 1, 4563, "Queue number 1!");
+				
 				INSERT INTO timeSlot (id, storeId, startTime, endTime, queueId) VALUES
 					(1, 4563, "2021-05-05T11:00:00", "2021-05-05T11:30:00", 1),
 					(2, 4563, "2021-05-05T11:30:00", "2021-05-05T12:00:00", 1);
-				INSERT INTO package (id, guid, storeId, bookedTimeId, customerEmail, creationDate, readyState) VALUES
-					(1, "12155", 4563, 1, "", "", ${ReadyState.NotDelivered});
-				INSERT INTO package (id, guid, storeId, bookedTimeId, customerEmail, creationDate, readyState) VALUES
-					(2, "1234", 4563, 2, "", "", ${ReadyState.NotDelivered});
+				
+				INSERT INTO package (guid, storeId, bookedTimeId, customerEmail, creationDate, readyState) VALUES
+					("12155", 4563, 1, "", "", ${ReadyState.NotDelivered}),
+					("1234", 4563, 2, "", "", ${ReadyState.NotDelivered});
+
+				INSERT INTO timeSlot (id, storeId, startTime, endTime, queueId) VALUES
+					(3, 4563, "2021-05-05T12:00:00", "2021-05-05T12:15:00", 1),
+					(4, 4563, "2021-05-05T12:15:00", "2021-05-05T12:30:00", 1),
+					(5, 4563, "2021-05-05T12:30:00", "2021-05-05T12:45:00", 1),
+					(6, 4563, "2021-05-05T12:45:00", "2021-05-05T13:00:00", 1);
+
+				INSERT INTO package (guid, storeId, bookedTimeId, customerEmail, creationDate, readyState) VALUES
+					("12341", 4563, 3, "", "", ${ReadyState.NotDelivered}),
+					("12342", 4563, 4, "", "", ${ReadyState.NotDelivered}),
+					("12343", 4563, 5, "", "", ${ReadyState.NotDelivered}),
+					("12344", 4563, 6, "", "", ${ReadyState.NotDelivered});
+
+				INSERT INTO timeSlot (id, storeId, startTime, endTime, queueId) VALUES
+					(7, 4563, "2021-05-05T13:00:00", "2021-05-05T13:15:00", 1),
+					(8, 4563, "2021-05-05T13:15:00", "2021-05-05T13:30:00", 1),
+					(9, 4563, "2021-05-05T13:30:00", "2021-05-05T13:45:00", 1),
+					(10, 4563, "2021-05-05T13:45:00", "2021-05-05T14:00:00", 1);
+					
+				INSERT INTO package (guid, storeId, bookedTimeId, customerEmail, creationDate, readyState) VALUES
+					("12345", 4563, 7, "", "", ${ReadyState.NotDelivered}),
+					("12346", 4563, 8, "", "", ${ReadyState.NotDelivered}),
+					("12347", 4563, 9, "", "", ${ReadyState.NotDelivered});
+
+				INSERT INTO timeSlot (id, storeId, startTime, endTime, queueId) VALUES
+					(11, 4563, "2021-05-05T14:00:00", "2021-05-05T14:15:00", 1),
+					(12, 4563, "2021-05-05T14:15:00", "2021-05-05T14:30:00", 1),
+					(13, 4563, "2021-05-05T14:30:00", "2021-05-05T14:45:00", 1),
+					(14, 4563, "2021-05-05T14:45:00", "2021-05-05T15:00:00", 1);
+					
+				INSERT INTO package (guid, storeId, bookedTimeId, customerEmail, creationDate, readyState) VALUES
+					("12348", 4563, 11, "", "", ${ReadyState.NotDelivered});
 			`);
 		});
 		it("Should create 4 timeslots since the 2 was filled before", async () => {
-			await createTimeSlots(timeslotCreatorDb);
-			await dbAll(timeslotCreatorDb, "SELECT * FROM timeSlot WHERE ");
-			expect(true).toBe(true);
+			await createTimeSlots(timeslotCreatorDb, moment("2021-05-07T14:00:00"));
+			let res = await dbGet(timeslotCreatorDb, `SELECT COUNT(*) as cnt FROM timeSlot WHERE startTime >= "2021-05-12T11:00:00" AND endTime <= "2021-05-12T12:00:00"`);
+			expect(res.cnt).toBe(4);
+
+			let res2 = await dbGet(timeslotCreatorDb, `SELECT COUNT(*) as cnt FROM timeSlot WHERE startTime >= "2021-05-12T12:00:00" AND endTime <= "2021-05-12T13:00:00"`);
+			expect(res2.cnt).toBe(8);
+
+			let res3 = await dbGet(timeslotCreatorDb, `SELECT COUNT(*) as cnt FROM timeSlot WHERE startTime >= "2021-05-12T13:00:00" AND endTime <= "2021-05-12T14:00:00"`);
+			expect(res3.cnt).toBe(4);
+
+			let res4 = await dbGet(timeslotCreatorDb, `SELECT COUNT(*) as cnt FROM timeSlot WHERE startTime >= "2021-05-12T14:00:00" AND endTime <= "2021-05-12T15:00:00"`);
+			expect(res4.cnt).toBe(2);
 		});
 	});
 });
