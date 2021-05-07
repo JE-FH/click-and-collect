@@ -40,8 +40,8 @@ async function createFrequencyData(db, begin, end) {
 	return hourTimes;
 }
 
-async function main() {
-	db = new sqlite3.Database(__dirname + "/../databasen.sqlite3");
+exports.createTimeSlots = async function createTimeSlots(use_this_db) {
+	let db = use_this_db ?? new sqlite3.Database(__dirname + "/../databasen.sqlite3");
 
     let databaseCreationCommand = (await fs.readFile(__dirname + "/database_creation.sql")).toString();
 
@@ -148,8 +148,6 @@ async function main() {
 			});
 		})
 	});
-
-	db.close();
 }
 
 function getTimeParts(hhmmss) {
@@ -189,5 +187,3 @@ function roundUpHour(m) {
 	let roundUp = m.minute() || m.second() || m.millisecond() ? m.add(1, 'hour').startOf('hour') : m.startOf('hour');
 	return roundUp;
 }
-
-main();
