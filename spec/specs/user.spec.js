@@ -38,14 +38,14 @@ BCookieJar.prototype.getCookie = function getCookie(name) {
 	return this.cookieJar.getCookie(name, CookieJar.CookieAccessInfo(this.host))
 }
 
-function create_simple_req(method, url) {
+function createSimpleReq(method, url) {
 	return httpMocks.createRequest({
 		method: method,
 		url: url
 	});
 }
 
-function create_req_with_cookie(method, url, cookiestr) {
+function createReqWithCookie(method, url, cookiestr) {
 	return httpMocks.createRequest({
 		method: method,
 		url: url,
@@ -76,13 +76,13 @@ function createPostReqWithCookie(url, data, cookiestr) {
 }
 
 
-function create_simple_res() {
+function createSimpleRes() {
 	return httpMocks.createResponse({
 		eventEmitter: EventEmitter
 	});
 }
 
-async function await_response(response) {
+async function awaitResponse(response) {
 	await new Promise((resolve) => {
 		response.on("end", () => {resolve();});
 	});
@@ -119,8 +119,8 @@ describe("Unit test", function() {
 	describe("session middleware", function() {
 		const {sessionMiddleware} = require("../../backend/middleware");
 		it("should add a session id", async () => {
-			let request = create_simple_req("GET", "/")
-			let response = create_simple_res();
+			let request = createSimpleReq("GET", "/")
+			let response = createSimpleRes();
 			sessionMiddleware(request, response);
 
 			let cookieHeader = response.getHeader("set-cookie");
@@ -129,8 +129,8 @@ describe("Unit test", function() {
 		});
 		it("Should keep the same session", async () => {
 			let cookieJar = new BCookieJar();
-			let response = create_simple_res();
-			let request = create_simple_req("GET", "/");
+			let response = createSimpleRes();
+			let request = createSimpleReq("GET", "/");
 			//Send first request to get the session object
 			sessionMiddleware(request, response);
 			
@@ -143,20 +143,20 @@ describe("Unit test", function() {
 			cookieJar.addCookie(cookieHeader);
 			
 			//Check if the session object is still the same
-			let request2 = create_req_with_cookie("GET", "/", cookieJar.getCookieString());
-			let response2 = create_simple_res();
+			let request2 = createReqWithCookie("GET", "/", cookieJar.getCookieString());
+			let response2 = createSimpleRes();
 			sessionMiddleware(request2, response2);
 
 			expect(request2.session.testthing).toBe(5486283);
 		});
 		it("Should get unique session ids", async () => {
-			let response = create_simple_res();
-			sessionMiddleware(create_simple_req("GET", "/"), response);
+			let response = createSimpleRes();
+			sessionMiddleware(createSimpleReq("GET", "/"), response);
 			let cookieJar1 = new BCookieJar();
 			cookieJar1.addCookie(response.getHeader("set-cookie"));
 
-			let response2 = create_simple_res();
-			sessionMiddleware(create_simple_req("GET", "/"), response2);
+			let response2 = createSimpleRes();
+			sessionMiddleware(createSimpleReq("GET", "/"), response2);
 			let cookieJar2 = new BCookieJar();
 			cookieJar2.addCookie(response2.getHeader("set-cookie"));
 
@@ -175,8 +175,8 @@ describe("Unit test", function() {
 			userMiddleware = createUserMiddleware(db);
 		});
 		it("should not set user on request when userId is null", async () => {
-			let response = create_simple_res();
-			let request = create_simple_req("GET", "/");
+			let response = createSimpleRes();
+			let request = createSimpleReq("GET", "/");
 			
 			sessionMiddleware(request, response);
 			await userMiddleware(request, response);
@@ -185,8 +185,8 @@ describe("Unit test", function() {
 			expect(request.user).toBe(null);
 		});
 		it("should set user on request when userId is defined correctly", async () => {
-			let response = create_simple_res();
-			let request = create_simple_req("GET", "/");
+			let response = createSimpleRes();
+			let request = createSimpleReq("GET", "/");
 			
 			sessionMiddleware(request, response);
 			await userMiddleware(request, response);
@@ -196,8 +196,8 @@ describe("Unit test", function() {
 			let cookieJar = new BCookieJar();
 			cookieJar.addCookie(response.getHeader("set-cookie"));
 
-			let request2 = create_req_with_cookie("GET", "/", cookieJar.getCookieString());
-			let response2 = create_simple_res();
+			let request2 = createReqWithCookie("GET", "/", cookieJar.getCookieString());
+			let response2 = createSimpleRes();
 			sessionMiddleware(request2, response2);
 			await userMiddleware(request2, response2);
 			expect(request2.user).toBeInstanceOf(Object);
@@ -209,7 +209,7 @@ describe("Unit test", function() {
 	describe("Query middleware", function () {
 		const {queryMiddleware} = require("../../backend/middleware");
 		it("should set query object to empty with no query param", async () => {
-			let request = create_simple_req("GET", "/");
+			let request = createSimpleReq("GET", "/");
 			queryMiddleware(request, httpMocks.createResponse());
 			expect(request.query).toEqual({});
 		});
@@ -220,7 +220,7 @@ describe("Unit test", function() {
 				["dkfoe&?/=\\åæ+   ef%20"]: "lg+ålæø,.-=)(?/\\21%&392%32"
 			};
 			                                                                          /*Some random characters that might break it*/
-			let request = create_simple_req("GET", "/?" + querystring.encode(raw));
+			let request = createSimpleReq("GET", "/?" + querystring.encode(raw));
 			queryMiddleware(request, httpMocks.createResponse());
 			expect(request.query).toEqual(raw);
 		});
@@ -228,10 +228,6 @@ describe("Unit test", function() {
 
 	describe("request handler", function() {
 		const {RequestHandler} = require("../../backend/request-handler");
-		it("Should crate request handler", async () => {
-			let requestHandler = new RequestHandler();
-			expect(true).toBe(true);
-		})
 		it("Should route missing endpoints to default handler", async () => {
 			let callCount = 0;
 			let requestHandler = new RequestHandler((req, res) => {
@@ -241,10 +237,10 @@ describe("Unit test", function() {
 			requestHandler.addEndpoint("GET", "/", (req, res) => {
 				wrongCallCount++;
 			});
-			await requestHandler.handleRequest(create_simple_req("GET", "/dfea"), create_simple_res());
-			await requestHandler.handleRequest(create_simple_req("GET", ""), create_simple_res());
-			await requestHandler.handleRequest(create_simple_req("GET", "wdwdawdaw/dvef/dfe"), create_simple_res());
-			await requestHandler.handleRequest(create_simple_req("POST", "/"), create_simple_res());
+			await requestHandler.handleRequest(createSimpleReq("GET", "/dfea"), createSimpleRes());
+			await requestHandler.handleRequest(createSimpleReq("GET", ""), createSimpleRes());
+			await requestHandler.handleRequest(createSimpleReq("GET", "wdwdawdaw/dvef/dfe"), createSimpleRes());
+			await requestHandler.handleRequest(createSimpleReq("POST", "/"), createSimpleRes());
 			expect(callCount).toBe(4);
 			expect(wrongCallCount).toBe(0);
 		});
@@ -262,12 +258,12 @@ describe("Unit test", function() {
 			requestHandler.addEndpoint("GET", "/a", (req, res) => {
 				bCallCount++;
 			});
-			await requestHandler.handleRequest(create_simple_req("GET", "/a"), create_simple_res());
-			await requestHandler.handleRequest(create_simple_req("POST", "/a"), create_simple_res());
-			await requestHandler.handleRequest(create_simple_req("GET", "/b"), create_simple_res());
-			await requestHandler.handleRequest(create_simple_req("POST", "/b"), create_simple_res());
-			await requestHandler.handleRequest(create_simple_req("GET", ""), create_simple_res());
-			await requestHandler.handleRequest(create_simple_req("GET", "&sdfef"), create_simple_res());
+			await requestHandler.handleRequest(createSimpleReq("GET", "/a"), createSimpleRes());
+			await requestHandler.handleRequest(createSimpleReq("POST", "/a"), createSimpleRes());
+			await requestHandler.handleRequest(createSimpleReq("GET", "/b"), createSimpleRes());
+			await requestHandler.handleRequest(createSimpleReq("POST", "/b"), createSimpleRes());
+			await requestHandler.handleRequest(createSimpleReq("GET", ""), createSimpleRes());
+			await requestHandler.handleRequest(createSimpleReq("GET", "&sdfef"), createSimpleRes());
 			expect(defCallCount).toBe(4);
 			expect(aCallCount).toBe(1);
 			expect(bCallCount).toBe(1);
@@ -281,7 +277,7 @@ describe("Unit test", function() {
 			requestHandler.addEndpoint("GET", "/", (req, res) => {
 				throw errorToThrow;
 			});
-			await requestHandler.handleRequest(create_simple_req("GET", "/"), create_simple_res());
+			await requestHandler.handleRequest(createSimpleReq("GET", "/"), createSimpleRes());
 			expect(thrownError).toBe(errorToThrow);
 		});
 		it("Should route through middleware", async () => {
@@ -300,9 +296,9 @@ describe("Unit test", function() {
 				order.push(4);
 			});
 
-			await requestHandler.handleRequest(create_simple_req("GET", "/"), create_simple_res());
+			await requestHandler.handleRequest(createSimpleReq("GET", "/"), createSimpleRes());
 			
-			await requestHandler.handleRequest(create_simple_req("GET", "539234"), create_simple_res());
+			await requestHandler.handleRequest(createSimpleReq("GET", "539234"), createSimpleRes());
 			expect(order).toEqual([1, 2, 3, 4, 1, 2, 3]);
 		});
 		it("should make middleware error reach error handler", async () => {
@@ -314,7 +310,7 @@ describe("Unit test", function() {
 			requestHandler.addMiddleware((req, res) => {
 				throw errorToThrow;
 			});
-			await requestHandler.handleRequest(create_simple_req("GET", "/"), create_simple_res());
+			await requestHandler.handleRequest(createSimpleReq("GET", "/"), createSimpleRes());
 			expect(thrownError).toBe(errorToThrow);
 		});
 	});
@@ -322,8 +318,8 @@ describe("Unit test", function() {
 	describe("/login endpoint", function() {
 		it("Should be able to login to superuser with correct username and password", async () => {
 			let request = createPostReq("/login", querystring.encode({username: "bob", password: "password"}));
-			let response = create_simple_res();
-			let p = await_response(response);
+			let response = createSimpleRes();
+			let p = awaitResponse(response);
 			serverRequestHandler.handleRequest(request, response);
 			await p;
 
@@ -333,8 +329,8 @@ describe("Unit test", function() {
 		});
 		it("Should be able to login to superuser with correct username and password", async () => {
 			let request = createPostReq("/login", querystring.encode({username: "superbob", password: "hunter2"}));
-			let response = create_simple_res();
-			let p = await_response(response);
+			let response = createSimpleRes();
+			let p = awaitResponse(response);
 			serverRequestHandler.handleRequest(request, response);
 			await p;
 
@@ -344,8 +340,8 @@ describe("Unit test", function() {
 		});
 		it("shouldnt be able to login with incorrect password", async () => {
 			let request = createPostReq("/login", querystring.encode({username: "bob", password: "srgarg"}));
-			let response = create_simple_res();
-			let p = await_response(response);
+			let response = createSimpleRes();
+			let p = awaitResponse(response);
 			serverRequestHandler.handleRequest(request, response);
 			await p;
 
@@ -355,8 +351,8 @@ describe("Unit test", function() {
 		});
 		it("shouldnt be able to login with incorrect username and password", async () => {
 			let request = createPostReq("/login", querystring.encode({username: "bobefef", password: "hunter2"}));
-			let response = create_simple_res();
-			let p = await_response(response);
+			let response = createSimpleRes();
+			let p = awaitResponse(response);
 			serverRequestHandler.handleRequest(request, response);
 			await p;
 
