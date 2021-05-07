@@ -134,6 +134,7 @@ exports.setupEmail = async function setupMail() {
                 pass: test_account.pass
             }
         });
+        EMAIL_ADDRESS = test_account.user;
     } else {
         mailTransporter = nodemailer.createTransport({
             host: config.emailDetails.host,
@@ -144,8 +145,9 @@ exports.setupEmail = async function setupMail() {
                 pass: config.emailDetails.pass
             }
         });
+        EMAIL_ADDRESS = config.emailDetails.user;
     }
-    EMAIL_ADDRESS = test_account.user;
+    
     console.log(`Fake email was setup, email is: ${EMAIL_ADDRESS}`);
 }
 
