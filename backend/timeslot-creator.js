@@ -12,18 +12,20 @@ const { isStringInt, formatMomentAsISO } = require("./helpers");
 
 const TIME_STEPS = [30, 30, 30, 15, 7.5, 5];
 async function createFrequencyData(db, begin, end) {
-	let yep = await dbAll(db, `select t.startTime, t.endTime, count(p.id) as booked from timeSlot t 
+	let previousTimeSlotsInformation = await dbAll(db, `select t.startTime, t.endTime, count(p.id) as booked from timeSlot t 
 	left outer join package p on t.id = p.bookedTimeId 
 	left outer join queue q on t.queueId=q.id  
 	WHERE t.startTime > ? AND 
 	t.endTime < ? 
 	group by t.startTime, t.endTime 
 	ORDER BY t.startTime`, [formatMomentAsISO(begin), formatMomentAsISO(end)]);
+	// Vi tager starttime, endtime og antallet af packages der har samme bookedtimeid som timeslottet har id, for alle timeslots indenfor det valgte interval
 	let hourTimes = {};
-	yep.forEach((row) => {
+
+	previousTimeSlotsInformation.forEach((row) => {
 		let start = moment(row.startTime);
-		let end = moment(row.endTime);
 		let format = start.format("d:HH");
+
 		if (hourTimes[format] == null) {
 			hourTimes[format] = [0, 0, ""];
 		}
