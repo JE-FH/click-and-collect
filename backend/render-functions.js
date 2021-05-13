@@ -1007,7 +1007,7 @@ exports.renderOrderProcessingMail = function renderOrderProcessingMail(store, pa
                 <title>Choose pickup</title>
             </head>
             <body>
-                <h1>Pick a time slot</h1>
+                <h1>Order information</h1>
                 <p>Hello ${package.customerName}. You have ordered items from ${store.name}.</p>
                 <p>Order received at ${timestamp}.</p>
                 <p>Your order is currently being processed and packed at the store. You will get another mail with further

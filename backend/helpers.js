@@ -3,6 +3,7 @@ const { dbAll, dbRun } = require("./db-helpers");
 const {adminNoAccess, invalidParameters} = require("./generic-responses");
 const querystring = require("querystring");
 const moment = require("moment");
+const config = require("../server.config");
 /**
  * Checks if a string can be converted to a whole number safely
  * @param {string} str 
@@ -122,17 +123,31 @@ let EMAIL_ADDRESS;
 let mailTransporter;
 
 exports.setupEmail = async function setupMail() {
-    let test_account = await nodemailer.createTestAccount();
-    mailTransporter = nodemailer.createTransport({
-        host: test_account.smtp.host,
-        port: test_account.smtp.port,
-        secure: test_account.smtp.secure,
-        auth: {
-            user: test_account.user,
-            pass: test_account.pass
-        }
-    });
-    EMAIL_ADDRESS = test_account.user;
+    if (config.emailDetails == null) {
+        let test_account = await nodemailer.createTestAccount();
+         mailTransporter = nodemailer.createTransport({
+            host: test_account.smtp.host,
+            port: test_account.smtp.port,
+            secure: test_account.smtp.secure,
+            auth: {
+                user: test_account.user,
+                pass: test_account.pass
+            }
+        });
+        EMAIL_ADDRESS = test_account.user;
+    } else {
+        mailTransporter = nodemailer.createTransport({
+            host: config.emailDetails.host,
+            port: config.emailDetails.port,
+            secure: config.emailDetails.secure,
+            auth: {
+                user: config.emailDetails.user,
+                pass: config.emailDetails.pass
+            }
+        });
+        EMAIL_ADDRESS = config.emailDetails.user;
+    }
+    
     console.log(`Fake email was setup, email is: ${EMAIL_ADDRESS}`);
 }
 

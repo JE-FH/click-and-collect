@@ -10,6 +10,7 @@ const {dbAll, dbGet, dbRun, dbExec} = require("./db-helpers");
 const {renderAdmin, renderQueueList, renderMissedTimeSlot, renderPackageForm, manageEmployees, employeeListPage, addEmployeePage, renderStoreMenu, renderPackageList, renderSettings, renderStoreScan, renderPackageOverview, render404, renderLogin, render500, renderEditEmployee, renderTimeSlots, renderTimeSlotStatus, renderUnpackedPackages, renderOrderProcessingMail} = require("./render-functions");
 const QRCode = require("qrcode");
 const {RequestHandler} = require("./request-handler");
+const { createTimeSlots } = require("./timeslot-creator");
 const config = require(__dirname + "/../server.config.js");
 
 let db;
@@ -34,9 +35,9 @@ async function sendReminders() {
 
     let late_packages = await dbAll(db, "SELECT p.*, s.name as storeName FROM package p LEFT JOIN timeSlot t ON t.id = p.bookedTimeId LEFT JOIN store s ON s.id = p.storeId WHERE t.endTime > ? AND p.readyState=?", [formatMomentAsISO(late_time), ReadyState.NotDelivered]);
 
-    await dbRun("UPDATE package SET p.bookedTimeIds")
-    let link = `${config.base_host_address}/package?guid=${package.guid}`;
+    await dbRun(db, `UPDATE package SET bookedTimeId=NULL WHERE id IN (${(new Array(late_packages.length)).fill("?").join(",")})`, late_packages.map((p) => p.id));
     await Promise.all(late_packages.map(async (package) => {
+        let link = `${config.base_host_address}/package?guid=${package.guid}`;
         await sendEmail(
             package.customerEmail, package.customerName, 
             `${package.storeName}: You have missed the pickup time for your package!`, 
@@ -269,7 +270,7 @@ async function renderMailTemplate(name, store, guid, timestamp) {
                 <title>Choose pickup</title>
             </head>
             <body>
-                <h1>Pick a time slot</h1>
+                <h1>Package is ready</h1>
                 <p>Hello ${name}. You have ordered items from ${store.name}.</p>
                 <p>The package has now been processed and packed.
                 Now you have to select a timeslot where you can pick up the package<p>
@@ -938,6 +939,24 @@ async function packageStoreUnconfirm(request, response) {
     response.end();
 }
 
+async function sendReminderInterval() {
+    try {
+        await sendReminders();
+    } catch (e) {
+        console.log("Send reminders error");
+        console.log(e);
+    }
+}
+
+async function timeSlotCreatorInterval() {
+    try {
+        await createTimeSlots(db);
+    } catch (e) {
+        console.log("Error while creating timeslots");
+        console.log(e);
+    }
+}
+
 //if use_this_db is defined then it also implies that we are testing
 exports.main = async function main(use_this_db) {
     /*First we check the config file*/
@@ -970,15 +989,13 @@ exports.main = async function main(use_this_db) {
 
     await setupEmail();
     
+    sendReminderInterval();
     /* Sends reminders to customers who hasn't booked a time slot. Checks every 10 minutes. */
-    setInterval(async () => {
-        try {
-            await sendReminders();
-        } catch (e) {
-            console.log("Send reminders error");
-            console.log(e);
-        }
-    }, 600000);
+    setInterval(sendReminderInterval, 600000);
+
+    timeSlotCreatorInterval();
+    /* Creates timeslots every 10 minutes */
+    setInterval(timeSlotCreatorInterval, 1000 * 60 * 10);
 
     let requestHandler = new RequestHandler(defaultResponse, errorResponse);
     /*If we are running tests, then we dont want this output*/
@@ -1538,7 +1555,7 @@ async function cancelTimeSlot(request, response) {
 }
 
 async function sendPickupDocumentation(package, timeSlotDetails) {
-    let qrCode = await QRCode.toDataURL(package.verificationCode);
+    //let qrCode = await QRCode.toDataURL(package.verificationCode);
 
     let mapLink = `https://www.openstreetmap.org/?mlat=${encodeURIComponent(timeSlotDetails.qlatitude)}&mlon=${encodeURIComponent(timeSlotDetails.qlongitude)}`;
     let queueName = (await dbGet(db, "SELECT queueName FROM queue WHERE id = ? AND storeId = ?", [timeSlotDetails.qid, package.storeId])).queueName;
@@ -1570,7 +1587,7 @@ ${package.verificationCode}
                     <a href="${mapLink}">here</a>
                 </p>
                 <h2>Show the following qr code to the employee when you go to the pickup location</h2>
-                <img src="${qrCode}" style="display: block;max-width: 100vh;height: auto;max-height: 100vh;width: 100%;"/>
+                <img src="https://api.qrserver.com/v1/create-qr-code/?size=150x150&data=${encodeURIComponent(package.verificationCode)}" style="display: block;max-width: 100vh;height: auto;max-height: 100vh;"/>
                 <p>If the image is not visible you can try to enable image displaying in your email client or use the following code instead of the qr code at the pickup location:</p>
                 <code>${package.verificationCode}</code>
             </body>

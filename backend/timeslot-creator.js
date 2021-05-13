@@ -10,29 +10,33 @@ const { isStringInt, formatMomentAsISO } = require("./helpers");
  * @param {moment} end 
  */
 
-const TIME_STEPS = [30, 30, 30, 15, 7.5, 5];
+const TIME_STEPS = [30, 30, 15, 15, 7.5, 7.5, 7.5, 7.5, 5];
 async function createFrequencyData(db, begin, end) {
-	let yep = await dbAll(db, `select t.startTime, t.endTime, count(p.id) as booked from timeSlot t 
+	let previousTimeSlotsInformation = await dbAll(db, `select t.startTime, t.endTime, count(p.id) as booked from timeSlot t 
 	left outer join package p on t.id = p.bookedTimeId 
 	left outer join queue q on t.queueId=q.id  
 	WHERE t.startTime > ? AND 
 	t.endTime < ? 
 	group by t.startTime, t.endTime 
 	ORDER BY t.startTime`, [formatMomentAsISO(begin), formatMomentAsISO(end)]);
+	// Vi tager starttime, endtime og antallet af packages der har samme bookedtimeid som timeslottet har id, for alle timeslots indenfor det valgte interval
 	let hourTimes = {};
-	yep.forEach((row) => {
+
+	previousTimeSlotsInformation.forEach((row) => {
 		let start = moment(row.startTime);
-		let end = moment(row.endTime);
 		let format = start.format("d:HH");
+
 		if (hourTimes[format] == null) {
 			hourTimes[format] = [0, 0, ""];
 		}
 		hourTimes[format][0] += row.booked;
+		// [format][0] Er antallet af pakker den dag, [format][1] er antallet af gange den dag er talt med (den går 3 uger tilbage og kigger efter timeslots), [format][2] er den nuværende dag
 		if (hourTimes[format][2] != start.format("YYYY-MM-DD")) {
 			hourTimes[format][1] += 1;
 			hourTimes[format][2] = start.format("YYYY-MM-DD");
 		}
 	});
+	
 
 	Object.entries(hourTimes).forEach(([key, val]) => {
 		hourTimes[key] = val[0] / val[1];
@@ -40,25 +44,16 @@ async function createFrequencyData(db, begin, end) {
 	return hourTimes;
 }
 
-async function main() {
-	db = new sqlite3.Database(__dirname + "/../databasen.sqlite3");
-
-    let databaseCreationCommand = (await fs.readFile(__dirname + "/database_creation.sql")).toString();
-
-    console.log("Configuring database");
-    
-    /* Execute the database creation commands */
-    await dbExec(db, databaseCreationCommand);
-
-    console.log("Database correctly configured");
-	let now = moment();
+exports.createTimeSlots = async function createTimeSlots(use_this_db, use_this_now) {
+	let db = use_this_db;
+	let now = use_this_now ?? moment();
 
 	let hourTimes = await createFrequencyData(db, moment(now).subtract(21, "day"), moment(now).set(0, "second").set(0, "minute").set(0, "hour"));
-
+	// Vi går 3 uger bagud indtil idag 00:00:00
 	let applicableRangeStart = roundUpHour(moment(now));
 	let applicableRangeEnd = moment(applicableRangeStart).add(7, "day");
 
-	let lastTimeslot = await dbGet(db, "select * from timeSlot ORDER BY endTime DESC LIMIT 1;");
+	let lastTimeslot = await dbGet(db, "select * from timeSlot ORDER BY endTime DESC LIMIT 1");
 	
 	let beginningTime = roundUpHour(moment(lastTimeslot?.startTime ?? 0));
 	
@@ -70,6 +65,7 @@ async function main() {
 		console.log("Cant add anything");
 	}
 	let stores = await dbAll(db, "select s.id, s.openingTime, s.name, SUM(q.size) as queueSizeSum from store s left outer join queue q on s.id = q.storeId group by s.id");
+	// Vi vælger alle stores og finder deres id, opening time, navn, antallet af plads i alle deres køer
 
 	let timeSlots = [];
 
@@ -91,19 +87,20 @@ async function main() {
 			let timeSlotRanges = [];
 			
 			let currentDay = minBeginningTime.format("dddd").toLowerCase();
-			/*Check if we can any time slots for today*/
+			/*Check if the store is open that day*/
 			if (openingTimeObj[currentDay].length == 2) {
-				/*The closing time is after beginning time*/
+				/*Checks if there are hours the current day within opening times without timeslots*/
 				if (isAfter(openingTimeObj[currentDay][1], minBeginningTime)) {
 					let closingTimeParts = getTimeParts(openingTimeObj[currentDay][1]);
 					let specificClosingTime = moment(minBeginningTime).hour(closingTimeParts.hour).minute(closingTimeParts.minute).second(closingTimeParts.second);
 					timeSlotRanges.push([minBeginningTime, specificClosingTime]);
+					// Sætter muligt timeslot fra nu til butikken lukker
 				}
 			}
 			
-			for (let currentTime = moment(minBeginningTime).add(1, "day"); currentTime.isBefore(maxEndTime); currentTime.add(1, "day")) {
+			for (let currentTime = moment(minBeginningTime).add(1, "day"); currentTime.isBefore(maxEndTime); currentTime.add(1, "day")) { // Loops from minBeginningTime until 7 days later
 				let dayName = currentTime.format("dddd").toLowerCase();
-				if (openingTimeObj[dayName].length == 2) {
+				if (openingTimeObj[dayName].length == 2) { // If the store is open on dayName
 					let openParts = getTimeParts(openingTimeObj[dayName][0]);
 					let closeParts = getTimeParts(openingTimeObj[dayName][1]);
 
@@ -111,31 +108,31 @@ async function main() {
 					let specificClose = moment(currentTime).hour(closeParts.hour).minute(closeParts.minute).second(closeParts.second);
 
 					timeSlotRanges.push([specificOpen, specificClose]);
+					// Creates possible timeslots from opening time to closing time
 				}
 			}
-			console.log(timeSlotRanges);
 
-			timeSlotRanges.forEach(range => {
+			timeSlotRanges.forEach(range => { // Hver range er opening time - closing time en dag butikken har åbent
 				let currentTime = moment(range[0]);
 				while (true) {
 					let currentTimeFormat = currentTime.format("d:HH");
-					let currentAmount = hourTimes[currentTimeFormat] ?? 0;
-					let step = Math.min(Math.ceil(currentAmount / store.queueSizeSum), TIME_STEPS.length - 1);
-					let currentLength = TIME_STEPS[step];
-					if (moment(currentTime).add(currentLength, "minute").isAfter(range[1])) {
+					let currentAmount = hourTimes[currentTimeFormat] ?? 0; // Antallet af pakker hentet den dag historisk (man-søn)
+					let step = Math.min(Math.ceil(currentAmount / store.queueSizeSum), TIME_STEPS.length - 1); // Her bliver tiden timeslots varer valgt, værdierne ligger i TIME_STEPS, TIME_STEPS er designet så man kan hoppe til næste trin hvis timeslots er fyldt
+					let currentLength = TIME_STEPS[step]; // Længden af timeslots den dag
+					if (moment(currentTime).add(currentLength, "minute").isAfter(range[1])) { //Hvis det er det sidste timeslot der er tid til den dag break
 						break;
 					}
 					
-					let end = moment(currentTime).add(currentLength, "minute");
+					let end = moment(currentTime).add(currentLength, "minute"); // Slutningen af næste timeslot
 
-					timeSlots.push([currentTime.format("YYYY-MM-DDTHH:mm:ss"), end.format("YYYY-MM-DDTHH:mm:ss"), store.id, queue.id])
+					timeSlots.push([currentTime.format("YYYY-MM-DDTHH:mm:ss"), end.format("YYYY-MM-DDTHH:mm:ss"), store.id, queue.id]) //Indsæt timeslottet i timeSlots arrayet
 					
 					currentTime.add(currentLength, "minute");
 				}
 			});
 		}));
 	}));
-
+	// Sæt timeslots fra timeSlots ind i databasen
 	await new Promise((resolve, reject) => {
 		db.serialize(() => {
 			let stmt = db.prepare("INSERT INTO timeSlot (startTime, endTime, storeId, queueId) VALUES (?,?,?,?)");
@@ -149,17 +146,6 @@ async function main() {
 			});
 		})
 	});
-
-	db.close();
-}
-
-function getEarliestTime(openingTime, closingTime, lastTimeSlotEnd) {
-	let lastRoundedUp = roundUpHour(lastTimeSlotEnd);
-	console.log(lastRoundedUp);
-	if (isBetween(openingTime, closingTime, lastRoundedUp, lastRoundedUp)) {
-		return lastRoundedUp;
-	}
-	return null;
 }
 
 function getTimeParts(hhmmss) {
@@ -173,16 +159,6 @@ function getTimeParts(hhmmss) {
 		minute: Number(parts[1]),
 		second: Number(parts[2])
 	};
-}
-
-function isBetween(beginhhmmss, endhhmmss, startTimeSlot, endTimeSlot) {
-	let formattedStart = startTimeSlot.format("HH:mm:ss");
-	let formattedEnd = endTimeSlot.format("HH:mm:ss");
-	if (formattedStart >= beginhhmmss && formattedEnd <= endhhmmss) {
-		return true;
-	} else {
-		return false;
-	}
 }
 
 function isAfter(hhmmss, endTimeSlot) {
@@ -199,5 +175,3 @@ function roundUpHour(m) {
 	let roundUp = m.minute() || m.second() || m.millisecond() ? m.add(1, 'hour').startOf('hour') : m.startOf('hour');
 	return roundUp;
 }
-
-main();
