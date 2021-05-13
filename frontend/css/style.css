@@ -20,10 +20,10 @@ body {
     color: green;
     padding: 5px;
     border: solid 2px green;
-    display: block;
     margin: 1em 0;
     position: relative;
     opacity: 0%;
+    display: block;
     bottom: -30px;
     animation: message 5s ease-in-out alternate;
 }

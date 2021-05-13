@@ -1,7 +1,7 @@
 const http = require('http');
 const fetch = require('node-fetch');
 
-const port = 3000;
+const port = 4000;
 const hostname = '127.0.0.1';
 
 const server = http.createServer(requestHandler);
