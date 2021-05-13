@@ -207,6 +207,12 @@ body {
     -moz-box-shadow: 0 0px 300px 80vw rgba(0, 0, 0, 0.22);
     -o-box-shadow: 0 0px 300px 80vw rgba(0, 0, 0, 0.22);
 }
+#employeeNav {
+    background-color: #0067A6; 
+}
+#employeeNav li:hover {
+    color: #0067A6;
+}
 @media screen and (max-width: 1095px) {
     .navigation > ul {
         display: none;
@@ -349,6 +355,8 @@ form input[type=submit] {
 }
 #search-body {
     padding-top: 1px;
+    border:solid 2px black;
+    display: none;
 }
 #search-body > form {
     background-color: #e6eaeb;
@@ -370,8 +378,8 @@ form input[type=submit] {
 #toggle-search.flip {
     transform: rotate(180deg);
 }
-#search-body.close {
-    display: none;
+#search-body.open {
+    display: block;
 }
 
 .knap:hover {

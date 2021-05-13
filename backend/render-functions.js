@@ -43,7 +43,7 @@ function renderNavigation(store) {
 
 function renderEmployeeNav(store) {
     return `
-        <nav class="navigation">
+        <nav class="navigation" id="employeeNav">
             <a href="/store?storeid=${store.id}" id="home">Home</a>
             <ul style="max-width: 460px">
                 <a href="/store/scan?storeid=${store.id}"><li>Scan</li></a>
@@ -123,7 +123,7 @@ exports.renderAdmin = function renderAdmin(request, store) {
                     <ul class="dash">
                         <a href="/store?storeid=${store.id}"><li>Employee dashboard</li></a>
                         <a href="/admin/queues?storeid=${store.id}"><li>Manage queues</li></a>
-                        <a href="/admin/settings?storeid=${store.id}"><li>Manage opening times</li></a>
+                        <a href="/admin/settings?storeid=${store.id}"><li>Manage opening hours</li></a>
                         <a href="/admin/package_form?storeid=${store.id}"><li>Create package manually</li></a>
                         <a href="/admin/employees?storeid=${store.id}"><li>Manage employees</li></a>
                     </ul>
@@ -488,9 +488,6 @@ exports.renderPackageList = function renderPackageList(store, nonDeliveredPackag
 
     page += `${renderEmployeeNav(store)}`;
     page += `
-                <div class="main-body">
-                    <h1>Package Overview</h1>
-                </div>
                 <div class="search">
                     <div id="search-body" class="main-body">
                         <form action="/store/packages" method="POST">
@@ -504,9 +501,10 @@ exports.renderPackageList = function renderPackageList(store, nonDeliveredPackag
                             <a class="knap" id="toggleTimeslots"onclick="toggleTimeSlotChosen()">Hide packages without an assigned timeslot</a>
                         </div>
                     </div>
-                    <div id="toggle-search">&#9650;</div>
+                    <div id="toggle-search">&#9660;</div>
                 </div>
                 <div class="main-body">
+                    <h1>Package Overview</h1>
                     ${nonDeliveredPackageTable}
                     ${deliveredPackageTable}
                     <a href="/store?storeid=${store.id}" class="knap">Back</a>
@@ -559,7 +557,7 @@ exports.renderPackageList = function renderPackageList(store, nonDeliveredPackag
             let searchBody = document.getElementById('search-body');
 
             searchToggle.addEventListener('click', () => {
-                searchBody.classList.toggle("close");
+                searchBody.classList.toggle("open");
                 searchToggle.classList.toggle("flip");
             })
             </script>
@@ -578,7 +576,7 @@ exports.renderSettings = function renderSettings(store, request, DAYS_OF_WEEK, p
         <html>
             <head>
                 ${generalHeader()}
-                <title>Opening time for ${store.name}</title>
+                <title>Opening hours for ${store.name}</title>
                 <link rel="stylesheet" href="/static/css/style.css">
                 <style>
                     .hidden {
@@ -591,7 +589,7 @@ exports.renderSettings = function renderSettings(store, request, DAYS_OF_WEEK, p
             page += `${renderNavigation(store)}`;
             page += `
                 <div class="main-body">
-                    <h1>Opening times for your store: </h1>
+                    <h1>Opening hours for ${store.name}</h1>
                     <form method="POST" id="settings-form">
                         <table>
                             <thead>
@@ -619,7 +617,7 @@ exports.renderSettings = function renderSettings(store, request, DAYS_OF_WEEK, p
                         </table>
                         <label for="delete-timeslots">Delete existing timeslots outside of opening times: </label>
                         <input type="checkbox" name="delete-timeslots"><br>
-                        <input type="submit" value="Set new opentime">
+                        <input type="submit" value="Set new opening hours">
                     </form>
                     ${request.session.status ? `<p id="error-message" class="${request.session.status.type == 0 ? "error-message" : "success-message"}">${request.session.status.text}</p>` : ""}
                 </div>
