@@ -101,15 +101,15 @@ function renderCheckout() {
                     }
                     #name {
                         padding: 2em;
-                        background-color: #553285;
+                        background-color: #D95100;
                     }
                 </style>
             </head>
             <body>
-                <h1 id="name">Northern Ecommerce</h1>
+                <h1 id="name">Southern Ecommerce</h1>
                 <div id="body-wrap">
                     <h1>Order payment</h1>
-                    <h2>595,95 DKK</h2>
+                    <h2>179,95 DKK</h2>
                     <form action="/formHandler" method="POST">
                         <h3>Contact details</h3>
                         <div>

@@ -101,6 +101,7 @@ function renderCheckout() {
                     }
                     #name {
                         padding: 2em;
+                        color: white;
                         background-color: #553285;
                     }
                 </style>
