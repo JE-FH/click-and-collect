@@ -355,7 +355,6 @@ form input[type=submit] {
 }
 #search-body {
     padding-top: 1px;
-    border:solid 2px black;
     display: none;
 }
 #search-body > form {
