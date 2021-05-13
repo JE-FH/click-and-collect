@@ -27,7 +27,7 @@ INSERT INTO store (id, name, openingTime, pickupDelay, apiKey, storeEmail) VALUE
 '"thursday": ["08:00:00", "17:00:00"],' ||
 '"friday": ["08:00:00", "17:00:00"],' ||
 '"saturday": ["08:00:00", "17:00:00"],' ||
-'"sunday": ["08:00:00", "17:00:00"]}', "00:00:00", "nothern-ecommerce-9137582955591253", "se@southnernecommerce.com");
+'"sunday": ["08:00:00", "17:00:00"]}', "00:00:00", "southern-ecommerce-9137582955591253", "se@southnernecommerce.com");
 
 --superuser for "Northern Ecommerce" password is "adminWest1"
 INSERT INTO user (username, password, salt, name, superuser, storeId) VALUES
