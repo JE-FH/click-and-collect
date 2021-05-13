@@ -16,19 +16,16 @@ body {
     margin-bottom: 2em;
 }
 
-.message {
-    padding: 5px;
-    border: solid 2px black;
-    display: block;
-    margin: 1em 0;
-}
-
 .success-message {
     color: green;
     padding: 5px;
     border: solid 2px green;
-    display: block;
     margin: 1em 0;
+    position: relative;
+    opacity: 0%;
+    display: block;
+    bottom: -30px;
+    animation: message 5s ease-in-out alternate;
 }
 
 .error-message {
@@ -37,6 +34,21 @@ body {
     border: solid 2px red;
     display: block;
     margin: 1em 0;
+    position: relative;
+    opacity: 0%;
+    bottom: -30px;
+    animation: message 5s ease-in-out alternate;
+}
+
+@keyframes message {
+    10% {
+        opacity: 100%;
+        bottom: 0;
+    }
+    90% {
+        opacity: 100%;
+        bottom: 0;
+    }
 }
 
 /* Navigation */
@@ -195,6 +207,12 @@ body {
     -moz-box-shadow: 0 0px 300px 80vw rgba(0, 0, 0, 0.22);
     -o-box-shadow: 0 0px 300px 80vw rgba(0, 0, 0, 0.22);
 }
+#employeeNav {
+    background-color: #0067A6; 
+}
+#employeeNav li:hover {
+    color: #0067A6;
+}
 @media screen and (max-width: 1095px) {
     .navigation > ul {
         display: none;
@@ -207,32 +225,6 @@ body {
     #hamburger-menu {
         display: none;
     }
-}
-
-/* Employee navigation */
-.employee-nav {
-    background-color: #222;
-    z-index: 999;
-    position: sticky;
-    top: 0;
-    box-shadow: 0 6px 10px rgba(0, 0, 0, 0.22);
-    padding: 0 1em;
-}
-.employee-nav  > a {
-    font-weight: 600;
-    text-decoration: none;
-    color: #ECF0F1;
-    display: inline-block;
-    margin: 0.5em auto;
-    padding: 0.4em 0.8em;
-    border-radius: 5px;
-}
-#scan {
-    padding: 0.4em 3em;
-}
-.employee-nav > a:hover {
-    color: #222;
-    background-color: #ECF0F1;
 }
 
 /* Generic form styling*/
@@ -352,6 +344,41 @@ form input[type=submit] {
     padding: 0.5em;
     min-width: 155px;
     margin: auto;
+}
+
+.search {
+    z-index: 997;
+    box-shadow: 0 0 10px rgba(0, 0, 0, 0.18);
+    position: sticky;
+    top: 47px;
+    background-color: #e6eaeb;
+}
+#search-body {
+    padding-top: 1px;
+    display: none;
+}
+#search-body > form {
+    background-color: #e6eaeb;
+}
+#search-buttons {
+    display: flex;
+    flex-direction: column;
+}
+#search-buttons > a {
+    flex: 1;
+    margin: 0.5em 0;
+    box-sizing: border-box;
+}
+#toggle-search {
+    text-align: center;
+    font-size: 30px;
+    padding: 5px;
+}
+#toggle-search.flip {
+    transform: rotate(180deg);
+}
+#search-body.open {
+    display: block;
 }
 
 .knap:hover {

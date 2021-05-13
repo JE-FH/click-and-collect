@@ -2,7 +2,7 @@ const http = require('http');
 const fetch = require('node-fetch');
 const config = require("../server.config");
 
-const port = 8127;
+const port = 8128;
 const hostname = '127.0.0.1';
 
 const server = http.createServer(requestHandler);
@@ -102,16 +102,15 @@ function renderCheckout() {
                     }
                     #name {
                         padding: 2em;
-                        color: white;
-                        background-color: #553285;
+                        background-color: #D95100;
                     }
                 </style>
             </head>
             <body>
-                <h1 id="name">Northern Ecommerce</h1>
+                <h1 id="name">Southern Ecommerce</h1>
                 <div id="body-wrap">
                     <h1>Order payment</h1>
-                    <h2>595,95 DKK</h2>
+                    <h2>179,95 DKK</h2>
                     <form action="/formHandler" method="POST">
                         <h3>Contact details</h3>
                         <div>
@@ -257,7 +256,7 @@ function formHandler(request, response) {
         let bodyObj = qsToObj(body.toString());
         let random = Math.floor((Math.random()*100));
 
-        apiJs(bodyObj.firstName+' '+bodyObj.lastName, bodyObj.email, `#${random*100}`, "nothern-ecommerce-9483557717594177")
+        apiJs(bodyObj.firstName+' '+bodyObj.lastName, bodyObj.email, `#${random*100}`, "southern-ecommerce-9137582955591253")
     })
 
     response.statusCode = 302;

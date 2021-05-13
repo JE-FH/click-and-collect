@@ -43,12 +43,36 @@ function renderNavigation(store) {
 
 function renderEmployeeNav(store) {
     return `
-        <nav class="employee-nav">
-            <a href="/store?storeid=${store.id}">Home</a>
+        <nav class="navigation" id="employeeNav">
+            <a href="/store?storeid=${store.id}" id="home">Home</a>
+            <ul style="max-width: 460px">
+                <a href="/store/scan?storeid=${store.id}"><li>Scan</li></a>
+                <a href="/store/packages?storeid=${store.id}"><li>Packages</li></a>
+                <a href="/store/unpacked_packages?storeid=${store.id}" style="flex: 2"><li>Unpacked packages</li></a>
+            </ul>
+            <div id="hamburger">
+                <span></span>
+                <span></span>
+                <span></span>
+            </div>
+        </nav>
+
+        <div id="hamburger-menu">
+            <a href="/store?storeid=${store.id}" id="home">Home</a>
             <a id="scan" href="/store/scan?storeid=${store.id}">Scan</a>
             <a href="/store/packages?storeid=${store.id}">Packages</a>
             <a href="/store/unpacked_packages?storeid=${store.id}">Unpacked packages</a>
-        </nav>
+        </div>
+
+        <script>
+            let hamburger = document.getElementById("hamburger");
+            let hamburgerMenu = document.getElementById("hamburger-menu");
+
+            hamburger.addEventListener("click", () => {
+                hamburger.classList.toggle("close");
+                hamburgerMenu.classList.toggle("close");
+            })
+        </script>
     `;
 }
 
@@ -99,7 +123,7 @@ exports.renderAdmin = function renderAdmin(request, store) {
                     <ul class="dash">
                         <a href="/store?storeid=${store.id}"><li>Employee dashboard</li></a>
                         <a href="/admin/queues?storeid=${store.id}"><li>Manage queues</li></a>
-                        <a href="/admin/settings?storeid=${store.id}"><li>Manage opening times</li></a>
+                        <a href="/admin/settings?storeid=${store.id}"><li>Manage opening hours</li></a>
                         <a href="/admin/package_form?storeid=${store.id}"><li>Create package manually</li></a>
                         <a href="/admin/employees?storeid=${store.id}"><li>Manage employees</li></a>
                     </ul>
@@ -396,7 +420,8 @@ exports.renderStoreMenu = function renderStoreMenu(store, request) {
             <body>
                 ${renderEmployeeNav(store)}
                 <div class="main-body">
-                    <h1>Menu for ${request.user.name}:</h1>
+                    <h1>Employee dashboard</h1>
+                    <h2>Welcome, ${request.user.name}</h2>
                     <ul class="dash">
                         ${request.user.superuser ? `<a href="/admin?storeid=${store.id}"><li>Back to admin page</li></a>` : ""}
                         <a href="/store/packages?storeid=${store.id}"><li>Package overview</li></a>
@@ -463,16 +488,23 @@ exports.renderPackageList = function renderPackageList(store, nonDeliveredPackag
 
     page += `${renderEmployeeNav(store)}`;
     page += `
+                <div class="search">
+                    <div id="search-body" class="main-body">
+                        <form action="/store/packages" method="POST">
+                            <label for="customerName"> Search for customer name: </label>
+                            <input type="text" name="customerName">
+                            <input type="hidden" value="${store.id}" name="storeid">
+                            <input type="submit" id="submit" value="Search">
+                        </form>
+                        <div id="search-buttons">
+                            <a class="knap" id="showButton" onclick="toggleShowDelivered()">Show delivered packages</a>
+                            <a class="knap" id="toggleTimeslots"onclick="toggleTimeSlotChosen()">Hide packages without an assigned timeslot</a>
+                        </div>
+                    </div>
+                    <div id="toggle-search">&#9660;</div>
+                </div>
                 <div class="main-body">
                     <h1>Package Overview</h1>
-                    <form action="/store/packages" method="POST">
-                        <label for="customerName"> Search for customer name: </label>
-                        <input type="text" name="customerName">
-                        <input type="hidden" value="${store.id}" name="storeid">
-                        <input type="submit" id="submit" value="Search">
-                    </form>
-                    <a class="knap" id="showButton" onclick="toggleShowDelivered()"> Show delivered packages </a>
-                    <a class="knap" id="toggleTimeslots"onclick="toggleTimeSlotChosen()"> Hide packages without an assigned timeslot </a>
                     ${nonDeliveredPackageTable}
                     ${deliveredPackageTable}
                     <a href="/store?storeid=${store.id}" class="knap">Back</a>
@@ -519,6 +551,15 @@ exports.renderPackageList = function renderPackageList(store, nonDeliveredPackag
                     button.innerText = "Hide packages without an assigned timeslot";
                 }
             }
+
+            /* Search toggle */
+            let searchToggle = document.getElementById('toggle-search');
+            let searchBody = document.getElementById('search-body');
+
+            searchToggle.addEventListener('click', () => {
+                searchBody.classList.toggle("open");
+                searchToggle.classList.toggle("flip");
+            })
             </script>
         </html>
     `;
@@ -535,7 +576,7 @@ exports.renderSettings = function renderSettings(store, request, DAYS_OF_WEEK, p
         <html>
             <head>
                 ${generalHeader()}
-                <title>Opening time for ${store.name}</title>
+                <title>Opening hours for ${store.name}</title>
                 <link rel="stylesheet" href="/static/css/style.css">
                 <style>
                     .hidden {
@@ -548,7 +589,7 @@ exports.renderSettings = function renderSettings(store, request, DAYS_OF_WEEK, p
             page += `${renderNavigation(store)}`;
             page += `
                 <div class="main-body">
-                    <h1>Opening times for your store: </h1>
+                    <h1>Opening hours for ${store.name}</h1>
                     <form method="POST" id="settings-form">
                         <table>
                             <thead>
@@ -576,7 +617,7 @@ exports.renderSettings = function renderSettings(store, request, DAYS_OF_WEEK, p
                         </table>
                         <label for="delete-timeslots">Delete existing timeslots outside of opening times: </label>
                         <input type="checkbox" name="delete-timeslots"><br>
-                        <input type="submit" value="Set new opentime">
+                        <input type="submit" value="Set new opening hours">
                     </form>
                     ${request.session.status ? `<p id="error-message" class="${request.session.status.type == 0 ? "error-message" : "success-message"}">${request.session.status.text}</p>` : ""}
                 </div>
