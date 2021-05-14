@@ -1,7 +1,6 @@
 const sqlite3 = require("sqlite3");
 const {main} = require("../../backend/server");
 const httpMocks = require('node-mocks-http');
-const EventEmitter = require("node:events");
 const CookieJar = require("cookiejar");
 const config = require("../../server.config");
 const { dbRun, dbExec, dbAll, dbGet } = require("../../backend/db-helpers");
