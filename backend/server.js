@@ -212,7 +212,7 @@ async function packageFormHandler(request, response) {
     let body = await receiveBody(request);
     body = parseURLEncoded(body);
 
-    addPackage(request.user.storeId, body.customerEmail, body.customerName, body.externalOrderId);
+    await addPackage(request.user.storeId, body.customerEmail, body.customerName, body.externalOrderId);
     request.session.statusMsg = "Package successfully added";
     response.statusCode = 302;
     response.setHeader('Location', request.headers['referer']);
