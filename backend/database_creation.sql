@@ -55,8 +55,6 @@ CREATE INDEX IF NOT EXISTS idx_timeSlot_storeId ON timeSlot (storeId);
 CREATE TABLE IF NOT EXISTS package (
 	id integer PRIMARY KEY AUTOINCREMENT NOT NULL,
 	guid varchar NOT NULL,
-	storeId integer NOT NULL,
-	bookedTimeId integer,
 	verificationCode varchar,
 	customerEmail varchar NOT NULL,
 	customerName varchar,
@@ -64,6 +62,8 @@ CREATE TABLE IF NOT EXISTS package (
 	creationDate timestamp NOT NULL,
 	readyState integer NOT NULL DEFAULT 0,
 	remindersSent NOT NULL DEFAULT 0,
+	bookedTimeId integer,
+	storeId integer NOT NULL,
 	FOREIGN KEY (bookedTimeId)
 		REFERENCES timeSlot (id),
 	FOREIGN KEY (storeId)
