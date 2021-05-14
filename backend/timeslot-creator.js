@@ -21,7 +21,6 @@ async function createFrequencyData(db, begin, end) {
 	ORDER BY t.startTime`, [formatMomentAsISO(begin), formatMomentAsISO(end)]);
 	// Vi tager starttime, endtime og antallet af packages der har samme bookedtimeid som timeslottet har id, for alle timeslots indenfor det valgte interval
 	let hourTimes = {};
-
 	previousTimeSlotsInformation.forEach((row) => {
 		let start = moment(row.startTime);
 		let format = start.format("d:HH");
@@ -53,17 +52,6 @@ exports.createTimeSlots = async function createTimeSlots(use_this_db, use_this_n
 	let applicableRangeStart = roundUpHour(moment(now));
 	let applicableRangeEnd = moment(applicableRangeStart).add(7, "day");
 
-	let lastTimeslot = await dbGet(db, "select * from timeSlot ORDER BY endTime DESC LIMIT 1");
-	
-	let beginningTime = roundUpHour(moment(lastTimeslot?.startTime ?? 0));
-	
-	if (now.isAfter(beginningTime)) {
-		beginningTime = roundUpHour(moment(now));
-	}
-
-	if (beginningTime.isSameOrAfter(applicableRangeEnd)) {
-		console.log("Cant add anything");
-	}
 	let stores = await dbAll(db, "select s.id, s.openingTime, s.name, SUM(q.size) as queueSizeSum from store s left outer join queue q on s.id = q.storeId group by s.id");
 	// Vi vælger alle stores og finder deres id, opening time, navn, antallet af plads i alle deres køer
 
@@ -98,7 +86,8 @@ exports.createTimeSlots = async function createTimeSlots(use_this_db, use_this_n
 				}
 			}
 			
-			for (let currentTime = moment(minBeginningTime).add(1, "day"); currentTime.isBefore(maxEndTime); currentTime.add(1, "day")) { // Loops from minBeginningTime until 7 days later
+			for (let currentTime = moment(minBeginningTime).add(1, "day"); currentTime.isBefore(maxEndTime); currentTime.add(1, "day")) { 
+				// Loops from minBeginningTime until 7 days later
 				let dayName = currentTime.format("dddd").toLowerCase();
 				if (openingTimeObj[dayName].length == 2) { // If the store is open on dayName
 					let openParts = getTimeParts(openingTimeObj[dayName][0]);
@@ -117,7 +106,8 @@ exports.createTimeSlots = async function createTimeSlots(use_this_db, use_this_n
 				while (true) {
 					let currentTimeFormat = currentTime.format("d:HH");
 					let currentAmount = hourTimes[currentTimeFormat] ?? 0; // Antallet af pakker hentet den dag historisk (man-søn)
-					let step = Math.min(Math.ceil(currentAmount / store.queueSizeSum), TIME_STEPS.length - 1); // Her bliver tiden timeslots varer valgt, værdierne ligger i TIME_STEPS, TIME_STEPS er designet så man kan hoppe til næste trin hvis timeslots er fyldt
+					let step = Math.min(Math.ceil(currentAmount / store.queueSizeSum), TIME_STEPS.length - 1); 
+					// Her bliver tiden timeslots varer valgt, værdierne ligger i TIME_STEPS, TIME_STEPS er designet så man kan hoppe til næste trin hvis timeslots er fyldt
 					let currentLength = TIME_STEPS[step]; // Længden af timeslots den dag
 					if (moment(currentTime).add(currentLength, "minute").isAfter(range[1])) { //Hvis det er det sidste timeslot der er tid til den dag break
 						break;
