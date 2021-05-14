@@ -138,13 +138,11 @@ async function apiPost(request, response) {
     if(isApiPostValid(body)) {
         let store = await apiKeyToStore(body.apiKey);
         if (store != null){
-            console.log('Valid post body');
             await addPackage(store.id, body.customerEmail, body.customerName, body.orderId);
             response.statusCode = 200;
             response.end();
         }
         else{
-            console.log("No store has a matching API key.")
             response.statusCode = 400;
             response.end()
         }
@@ -169,7 +167,6 @@ async function storeIdToStore(storeId) {
 /* Returns true if the API POST body is valid. Further checks could be added. */
 function isApiPostValid(body) {
     if(body == null) {
-        console.log('POST body is undefined');
         return false;
     } else {
         return true;
@@ -230,8 +227,6 @@ async function addPackage(storeId, customerEmail, customerName, externalOrderId)
     let query = 'INSERT INTO package (guid, storeId, bookedTimeId, verificationCode, customerEmail, customerName, externalOrderId, creationDate) VALUES (?, ?, ?, ?, ?, ?, ?, ?)';
 
     await dbRun(db, query, [guid, storeId, bookedTimeId, verificationCode, customerEmail, customerName, externalOrderId, creationDate.format("YYYY-MM-DDTHH:mm:ss")]);
-
-    console.log('Package added for: ' + customerName);
 
     let store = await storeIdToStore(storeId);
 
@@ -492,7 +487,6 @@ async function packageList(request,response){
             } else{
                 queueName = null;
             }
-            //console.log(nonDeliveredPackages[i]);
             nonDeliveredPackageTable += `
                         <div class="package${timeSlot == null ? ' noTimeSlot' : ''}">
                             <h2>Order id: ${nonDeliveredPackages[i].externalOrderId}</h2>
@@ -575,7 +569,6 @@ async function unpackedPackageList(request, response) {
 
 async function markPackageAsPacked(request, response) {
     let postData = parseURLEncoded(await receiveBody(request));
-    console.log(postData);
     let wantedStoreId = assertEmployeeAccess(request, postData, response);
     if (wantedStoreId == null) {
         return;
@@ -845,7 +838,6 @@ async function storeScan(request, response) {
     }
 
     let store = await storeIdToStore(wantedStoreId);
-    console.log("error: " + request.session.statusText);
     
     response.statusCode = 200;
     response.setHeader("Content-Type", "text/html");
