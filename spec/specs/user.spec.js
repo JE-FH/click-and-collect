@@ -95,7 +95,7 @@ describe("Unit test", function() {
 	beforeAll(async () => {
 		serverRequestHandler = await main(db);
 		//Insert a store
-		await dbRun(db, `INSERT INTO store (id, name, openingTime, pickupDelay, apiKey, storeEmail) VALUES
+		await dbRun(db, `INSERT INTO store (id, name, openingTime, apiKey, storeEmail) VALUES
 			(4563, "dkfaoef", 
 			'{"monday": ["08:00:00", "17:00:00"],' || 
 			'"tuesday": ["08:00:00", "17:00:00"],' ||
@@ -104,7 +104,7 @@ describe("Unit test", function() {
 			'"friday": ["08:00:00", "17:00:00"],' ||
 			'"saturday": ["10:00:00", "12:30:00"],' ||
 			'"sunday": []}', 
-			"00:00:00", "ksokg", "dkfaoef@mail.com")`
+			"ksokg", "dkfaoef@mail.com")`
 		);
 		//Insert a user, unhashed password is "password"
 		await dbRun(db, `
@@ -372,7 +372,7 @@ describe("Unit test", function() {
 			/* Execute the database creation commands */
 			await dbExec(timeslotCreatorDb, databaseCreationCommand);
 			await dbExec(timeslotCreatorDb, `
-				INSERT INTO store (id, name, openingTime, pickupDelay, apiKey, storeEmail) VALUES
+				INSERT INTO store (id, name, openingTime, apiKey, storeEmail) VALUES
 					(4563, "dkfaoef", 
 					'{"monday": ["08:00:00", "17:00:00"],' || 
 					'"tuesday": ["08:00:00", "17:00:00"],' ||
@@ -381,7 +381,7 @@ describe("Unit test", function() {
 					'"friday": ["08:00:00", "17:00:00"],' ||
 					'"saturday": ["10:00:00", "12:30:00"],' ||
 					'"sunday": []}', 
-					"00:00:00", "ksokg", "dkfaoef@mail.com"
+					"ksokg", "dkfaoef@mail.com"
 				);
 				INSERT INTO queue (id, latitude, longitude, size, storeId, queueName) VALUES
 					(1, 0, 0, 1, 4563, "Queue number 1!");
