@@ -8,6 +8,7 @@ const querystring = require("querystring");
 const { ReadyState } = require("../../backend/helpers");
 const fs = require("fs/promises");
 const moment = require("moment");
+const {EventEmitter} = require("events");
 const BCookieJar = function BCookieJar() {
 	this.cookieJar = new CookieJar.CookieJar();
 	this.host = config.base_host_address;
