@@ -3,7 +3,6 @@ CREATE TABLE IF NOT EXISTS store (
 	id integer PRIMARY KEY AUTOINCREMENT NOT NULL,
 	name varchar NOT NULL,
 	openingTime text NOT NULL,
-	pickupDelay time NOT NULL,
 	apiKey varchar NOT NULL,
 	storeEmail varchar NOT NULL
 );
@@ -41,9 +40,9 @@ CREATE INDEX IF NOT EXISTS idx_queue_storeId ON queue (storeId);
 
 CREATE TABLE IF NOT EXISTS timeSlot (
 	id integer PRIMARY KEY AUTOINCREMENT NOT NULL,
-	storeId integer NOT NULL,
 	startTime time NOT NULL,
 	endTime time NOT NULL,
+	storeId integer NOT NULL,
 	queueId integer NOT NULL,
 	FOREIGN KEY (queueId)
 		REFERENCES queue (id),
