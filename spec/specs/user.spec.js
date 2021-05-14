@@ -442,4 +442,77 @@ describe("Unit test", function() {
 			expect(res4.cnt).toBe(2);
 		});
 	});
+	describe("API", function() {
+		it("Should add one package into the database with the correct field values", async () => {
+			/* Example order for John Doe using a store with the api key "ksokg" */
+			let postBody = {
+                customerName: "John Doe",
+                customerEmail: "johndoe@mail.com",
+                orderId: "#1",
+                apiKey: "ksokg"
+            }
+
+			let request = createPostReq("/api/add_package", querystring.encode(postBody));
+			let response = createSimpleRes();
+			let p = awaitResponse(response);
+			serverRequestHandler.handleRequest(request, response);
+			await p;
+
+			/* Did the response turn out good? */
+			expect(response.statusCode).toBe(200);
+
+			/* Is there a package with the correct field values in the database?
+			*  customerName: 'John Doe'
+			*  customerEmail: 'johndoe@mail.com'
+			*  externalOrderId: '#1'
+			*/
+			let packages = await dbGet(db, `SELECT COUNT(*) as count FROM package WHERE customerName == 'John Doe' AND customerEmail == 'johndoe@mail.com' AND externalOrderId == '#1'`);
+			
+			expect(packages.count).toBe(1);
+		});
+		it("Should not add a new package if the api key doesn't exist in our database", async () => {
+			/* Example order for John Doe using an api key that doesn't exist */
+			let postBody = {
+                customerName: "John Doe",
+                customerEmail: "johndoe@mail.com",
+                orderId: "#2",
+                apiKey: "wrongKey"
+            }
+
+			let request = createPostReq("/api/add_package", querystring.encode(postBody));
+			let response = createSimpleRes();
+			let p = awaitResponse(response);
+			serverRequestHandler.handleRequest(request, response);
+			await p;
+
+			/* Did the response turn out as an error? */
+			expect(response.statusCode).toBe(400);
+		});
+		it("Should add the package to the correct store", async () => {
+			/* Example order for John Doe using a store with the api key "ksokg" */
+			let postBody = {
+                customerName: "John Doe",
+                customerEmail: "johndoe@mail.com",
+                orderId: "#3",
+                apiKey: "ksokg"
+            }
+
+			let request = createPostReq("/api/add_package", querystring.encode(postBody));
+			let response = createSimpleRes();
+			let p = awaitResponse(response);
+			serverRequestHandler.handleRequest(request, response);
+			await p;
+
+			/* Did the response turn out good? */
+			expect(response.statusCode).toBe(200);
+
+			/* Do we have an order in the database with the order id '#3'? */
+			let package = await dbGet(db, `SELECT * FROM package WHERE externalOrderId == '#3'`);
+			expect(package).toBeDefined();
+
+			/* Is the store id of the package the same store id as the store with the api key? */
+			let store = await dbGet(db, `SELECT * FROM store WHERE apiKey == 'ksokg'`);
+			expect(package.storeId).toBe(store.id);
+		});
+	});
 });

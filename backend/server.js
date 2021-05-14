@@ -227,11 +227,6 @@ async function addPackage(storeId, customerEmail, customerName, externalOrderId)
     bookedTimeId = null;
     creationDate = moment();
     verificationCode = generateVerification();
-    let existingOrder = await dbGet(db, "SELECT * FROM package WHERE externalOrderId=?", [externalOrderId]);
-     /* Vi tjekker om en pakke med samme ordre id eksisterer og gør ikke så meget ved det*/
-    if (existingOrder != null){
-        console.log(`An order with this id already exists: ${externalOrderId}`);
-    }
     let query = 'INSERT INTO package (guid, storeId, bookedTimeId, verificationCode, customerEmail, customerName, externalOrderId, creationDate) VALUES (?, ?, ?, ?, ?, ?, ?, ?)';
 
     await dbRun(db, query, [guid, storeId, bookedTimeId, verificationCode, customerEmail, customerName, externalOrderId, creationDate.format("YYYY-MM-DDTHH:mm:ss")]);
