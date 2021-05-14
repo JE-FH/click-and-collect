@@ -317,7 +317,7 @@ describe("Unit test", function() {
 	});
 
 	describe("/login endpoint", function() {
-		it("Should be able to login to superuser with correct username and password", async () => {
+		it("Should be able to login to normal user with correct username and password", async () => {
 			let request = createPostReq("/login", querystring.encode({username: "bob", password: "password"}));
 			let response = createSimpleRes();
 			let p = awaitResponse(response);
@@ -326,7 +326,7 @@ describe("Unit test", function() {
 
 			expect(request.session.userId).toBe(1);
 			expect(response.statusCode).toBe(302);
-			expect(response.getHeader("Location")).toBe(`/store?storeid=${4563}`);
+			expect(response.getHeader("Location")).toBe(`/store?storeid=4563`);
 		});
 		it("Should be able to login to superuser with correct username and password", async () => {
 			let request = createPostReq("/login", querystring.encode({username: "superbob", password: "hunter2"}));
@@ -337,7 +337,7 @@ describe("Unit test", function() {
 
 			expect(request.session.userId).toBe(2);
 			expect(response.statusCode).toBe(302);
-			expect(response.getHeader("Location")).toBe(`/admin?storeid=${4563}`);
+			expect(response.getHeader("Location")).toBe(`/admin?storeid=4563`);
 		});
 		it("shouldnt be able to login with incorrect password", async () => {
 			let request = createPostReq("/login", querystring.encode({username: "bob", password: "srgarg"}));
