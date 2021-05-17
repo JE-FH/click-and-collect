@@ -253,8 +253,8 @@ exports.manageEmployees = function manageEmployees(store, request) {
                 <div class="main-body">
                     <h1>Manage employees </h1>
                     <ul class="dash">
-                        <a href="/admin/employees/employee_list?storeid=${request.session.storeId}"><li>View employees</li></a>
-                        <a href="/admin/employees/add?storeid=${request.session.storeId}"><li>Add employee</li></a>
+                        <a href="/admin/employees/employee_list?storeid=${request.user.storeId}"><li>View employees</li></a>
+                        <a href="/admin/employees/add?storeid=${request.user.storeId}"><li>Add employee</li></a>
                     </ul>   
                 </div>
             </body>
