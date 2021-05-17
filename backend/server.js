@@ -57,8 +57,11 @@ async function sendReminder(package) {
     let creationDelta = now - then;
     
     if(creationDelta >= msPerDay*days) {
+        let store = await storeIdToStore(package.storeId);
         console.log(`Sending reminder to: ` + package.customerEmail + ` (${Math.floor(creationDelta / msPerDay)} days has passed)`);
-        await sendEmail(package.customerEmail, package.customerName, "Reminder: no time slot booked", `Link: ${config.base_host_address}/package?guid=${package.guid}`, await reminderHTML(package));
+        await sendEmail(package.customerEmail, package.customerName, "Reminder: no time slot booked", `Hello ${package.customerName},
+    you have not yet chosen a time slot for your package from ${store.name} with the id: ${package.id}.
+    You can use the following link to choose a time slot: ${config.base_host_address}/package?guid=${package.guid}`, await reminderHTML(package));
         /* Increment package.remindersSent in database */
         await dbRun(db, "UPDATE package SET remindersSent=1 WHERE id=?", [package.id]);
     } else {
@@ -79,7 +82,12 @@ async function remindStoreOwner(package) {
     if(creationDelta >= msPerDay*days) {
         let store = await storeIdToStore(package.storeId);
         console.log('Sending reminder to store owner: ' + store.storeEmail + ` (${Math.floor(creationDelta / msPerDay)} days has passed - order: ` + package.externalOrderId + ')');
-        await sendEmail(store.storeEmail, store.name, "Reminder: no time slot booked", `Order: ${package.externalOrderId}`, await reminderStoreHTML(package));
+        await sendEmail(store.storeEmail, store.name, "Reminder: no time slot booked", `Hello ${store.name},
+The order with the following id: ${package.externalOrderId} had their package ready to collect since ${fromISOToDate(package.creationDate)} but has still not chosen a time slot.
+Here is the order and customer information:
+Customer name: ${package.customerName}
+Customer email: ${package.customerEmail}
+We will not contact you regarding this order again.`, await reminderStoreHTML(package));
         /* Increment package.remindersSent in database */
         await dbRun(db, "UPDATE package SET remindersSent=2 WHERE id=?", [package.id]);
     } else {
@@ -88,6 +96,7 @@ async function remindStoreOwner(package) {
 }
 
 async function reminderStoreHTML(package) {
+    let store = await storeIdToStore(package.storeId);
     return `
         <html>
             <head>
@@ -95,9 +104,12 @@ async function reminderStoreHTML(package) {
             </head>
             <body>
                 <h1>Unbooked time slot</h1>
-                <p>Order: ${package.externalOrderId}</p>
-                <p>Customer info:<br>${package.customerName} (${package.customerEmail})</p>
-                <p>Created: ${new Date(package.creationDate)}</p>
+                <p> Hello ${store.name},</p>
+                <p>The order with the following id: ${package.externalOrderId} had their package ready to collect since ${fromISOToDate(package.creationDate)} but has still not chosen a time slot.</p>
+                <p>Here is the customer's information:</p>
+                <p>Customer name: ${package.customerName}</p>
+                <p> Customer email: ${package.customerEmail} </p>
+                <p> We will not contact you regarding this order again. </p>
             </body>
         </html>
     `
@@ -113,7 +125,7 @@ async function reminderHTML(package) {
             </head>
             <body>
                 <h1>Unbooked time slot</h1>
-                <p>Hello ${package.customerName}, you still have not picked a time slot for picking up your order from ${store.name}</p>
+                <p>Hello ${package.customerName}, you still have not picked a time slot for picking up your order from ${store.name}.</p>
                 <p>Follow this link to book a time slot:</p>
                 <a target="_blank" href="${config.base_host_address}/package?guid=${package.guid}">${config.base_host_address}/package?guid=${package.guid}</a>
             </body>
