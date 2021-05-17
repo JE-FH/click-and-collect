@@ -17,7 +17,6 @@ let db;
 
 async function sendReminders() {
     let unbookedPackages = await getUnbookedPackages();
-
     for (let package of unbookedPackages) {
         switch(package.remindersSent) {
             case 0:
@@ -31,10 +30,9 @@ async function sendReminders() {
         }
     }
     
-    let late_time = moment().add(15, "minute");
-
-    let late_packages = await dbAll(db, "SELECT p.*, s.name as storeName FROM package p LEFT JOIN timeSlot t ON t.id = p.bookedTimeId LEFT JOIN store s ON s.id = p.storeId WHERE t.endTime > ? AND p.readyState=?", [formatMomentAsISO(late_time), ReadyState.NotDelivered]);
-
+    let late_time = moment().subtract(15, "minute");
+    let late_packages = await dbAll(db, "SELECT p.*, s.name as storeName FROM package p LEFT JOIN timeSlot t ON t.id = p.bookedTimeId LEFT JOIN store s ON s.id = p.storeId WHERE t.endTime < ? AND p.readyState=?", [formatMomentAsISO(late_time), ReadyState.NotDelivered]);
+    
     await dbRun(db, `UPDATE package SET bookedTimeId=NULL WHERE id IN (${(new Array(late_packages.length)).fill("?").join(",")})`, late_packages.map((p) => p.id));
     await Promise.all(late_packages.map(async (package) => {
         let link = `${config.base_host_address}/package?guid=${package.guid}`;
@@ -42,7 +40,7 @@ async function sendReminders() {
             package.customerEmail, package.customerName, 
             `${package.storeName}: You have missed the pickup time for your package!`, 
             "You have missed the time slot you chose for picking up your package\r\n" +
-            "Please go to this link and pick another time and show up within the select time\r\n" +
+            "Please go to this link and pick another time to pick up your package\r\n" +
             `${link}`,
             renderMissedTimeSlot(store, package, link)
         );
@@ -53,11 +51,13 @@ async function sendReminders() {
 async function sendReminder(package) {
     const msPerDay = 86400000;
     const days = 3;
-    let now = new Date();
-    let creationDelta = now-package.creationDate;
 
+    let now = new Date().getTime();
+    let then = new Date(package.creationDate).getTime();
+    let creationDelta = now - then;
+    
     if(creationDelta >= msPerDay*days) {
-        console.log('Sending reminder to: ' + package.customerEmail + ' (3 days has passed)');
+        console.log(`Sending reminder to: ` + package.customerEmail + ` (${Math.floor(creationDelta / msPerDay)} days has passed)`);
         await sendEmail(package.customerEmail, package.customerName, "Reminder: no time slot booked", `Link: ${config.base_host_address}/package?guid=${package.guid}`, await reminderHTML(package));
         /* Increment package.remindersSent in database */
         await dbRun(db, "UPDATE package SET remindersSent=1 WHERE id=?", [package.id]);
@@ -70,12 +70,15 @@ async function sendReminder(package) {
 async function remindStoreOwner(package) {
     const msPerDay = 86400000;
     const days = 14;
-    let now = new Date();
-    let creationDelta = now-package.creationDate;
-    let store = await storeIdToStore(package.storeId);
+
+    let now = new Date().getTime();
+    let then = new Date(package.creationDate).getTime();
+    
+    let creationDelta = now - then;    
 
     if(creationDelta >= msPerDay*days) {
-        console.log('Sending reminder to store owner: ' + store.storeEmail + ' (14 days has passed - order: ' + package.externalOrderId + ')');
+        let store = await storeIdToStore(package.storeId);
+        console.log('Sending reminder to store owner: ' + store.storeEmail + ` (${Math.floor(creationDelta / msPerDay)} days has passed - order: ` + package.externalOrderId + ')');
         await sendEmail(store.storeEmail, store.name, "Reminder: no time slot booked", `Order: ${package.externalOrderId}`, await reminderStoreHTML(package));
         /* Increment package.remindersSent in database */
         await dbRun(db, "UPDATE package SET remindersSent=2 WHERE id=?", [package.id]);
