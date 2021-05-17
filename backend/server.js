@@ -584,7 +584,7 @@ async function unpackedPackageList(request, response) {
     let store = await dbGet(db, "select * from store where id=?", [wantedStoreId]);
 
     response.statusCode = 200;
-    response.write(renderUnpackedPackages(store, unpackaged_packages));
+    response.write(renderUnpackedPackages(store, unpackaged_packages, request));
     response.end();
 }
 
@@ -738,7 +738,7 @@ async function packageListPost(request,response){
 
         response.statusCode = 200;
 
-        response.write(renderPackageList(store, nonDeliveredPackageTable, deliveredPackageTable));
+        response.write(renderPackageList(store, nonDeliveredPackageTable, deliveredPackageTable, request));
         
         response.end();
     }
@@ -862,7 +862,7 @@ async function storeScan(request, response) {
     
     response.statusCode = 200;
     response.setHeader("Content-Type", "text/html");
-    response.write(renderStoreScan(store));
+    response.write(renderStoreScan(store, request));
     request.session.statusText = null;
     response.end();
 }
@@ -887,7 +887,7 @@ async function packageStoreView(request, response) {
 
     response.statusCode = 200;
     response.setHeader("Content-Type", "text/html");
-    response.write(renderPackageOverview(store, package));
+    response.write(renderPackageOverview(store, package, request));
     response.end();
 }
 

@@ -41,11 +41,13 @@ function renderNavigation(store) {
     `
 }
 
-function renderEmployeeNav(store) {
+function renderEmployeeNav(store, request) {
     return `
         <nav class="navigation" id="employeeNav">
             <a href="/store?storeid=${store.id}" id="home">Home</a>
-            <ul style="max-width: 460px">
+            <ul>
+                ${request.user.superuser == 1 ? `<a href="/admin?storeid=${store.id}" style="flex: 2; width: 16em;"><li>Admin dashboard</li></a>` : ''}
+                <a href="/store?storeid=${store.id}" style="flex: 2; width: 16em;"><li>Employee dashboard</li></a>
                 <a href="/store/scan?storeid=${store.id}"><li>Scan</li></a>
                 <a href="/store/packages?storeid=${store.id}"><li>Packages</li></a>
                 <a href="/store/unpacked_packages?storeid=${store.id}" style="flex: 2"><li>Unpacked packages</li></a>
@@ -58,8 +60,9 @@ function renderEmployeeNav(store) {
         </nav>
 
         <div id="hamburger-menu">
-            <a href="/store?storeid=${store.id}" id="home">Home</a>
-            <a id="scan" href="/store/scan?storeid=${store.id}">Scan</a>
+            ${request.user.superuser == 1 ? `<a href="/admin?storeid=${store.id}">Admin dashboard</a>` : ''}
+            <a href="/store?storeid=${store.id}">Employee dashboard</a>
+            <a href="/store/scan?storeid=${store.id}">Scan</a>
             <a href="/store/packages?storeid=${store.id}">Packages</a>
             <a href="/store/unpacked_packages?storeid=${store.id}">Unpacked packages</a>
         </div>
@@ -418,7 +421,7 @@ exports.renderStoreMenu = function renderStoreMenu(store, request) {
             </head>
 
             <body>
-                ${renderEmployeeNav(store)}
+                ${renderEmployeeNav(store, request)}
                 <div class="main-body">
                     <h1>Employee dashboard</h1>
                     <h2>Welcome, ${request.user.name}</h2>
@@ -436,7 +439,7 @@ exports.renderStoreMenu = function renderStoreMenu(store, request) {
     return page;
 }
 
-exports.renderUnpackedPackages = function renderUnpackedPackages(store, unpackedPackages) {
+exports.renderUnpackedPackages = function renderUnpackedPackages(store, unpackedPackages, request) {
     return `
     <!DOCTYPE html>
     <html>
@@ -446,7 +449,7 @@ exports.renderUnpackedPackages = function renderUnpackedPackages(store, unpacked
             <link rel="stylesheet" href="/static/css/style.css">
         </head>
         <body>
-            ${renderEmployeeNav(store)}
+            ${renderEmployeeNav(store, request)}
             <div class="main-body">
                 <h1>Unpacked packages overview</h1>
                 <div class="packages">
@@ -476,7 +479,7 @@ exports.renderUnpackedPackages = function renderUnpackedPackages(store, unpacked
     `;
 }
 
-exports.renderPackageList = function renderPackageList(store, nonDeliveredPackageTable, deliveredPackageTable ) {
+exports.renderPackageList = function renderPackageList(store, nonDeliveredPackageTable, deliveredPackageTable, request) {
     let page = `
         <html>
             <head>
@@ -486,7 +489,7 @@ exports.renderPackageList = function renderPackageList(store, nonDeliveredPackag
             </head>
             <body>`;
 
-    page += `${renderEmployeeNav(store)}`;
+    page += `${renderEmployeeNav(store, request)}`;
     page += `
                 <div class="search">
                     <div id="search-body" class="main-body">
@@ -629,7 +632,7 @@ exports.renderSettings = function renderSettings(store, request, DAYS_OF_WEEK, p
     return page;
 }
 
-exports.renderStoreScan = function renderStoreScan(store) {
+exports.renderStoreScan = function renderStoreScan(store, request) {
     let page = `
         <html>
             <head>
@@ -646,7 +649,7 @@ exports.renderStoreScan = function renderStoreScan(store) {
             </head>
             <body>`;
 
-    page += `${renderEmployeeNav(store)}`;
+    page += `${renderEmployeeNav(store, request)}`;
     page += `
                 <div class="main-body">
                     <h1>Scan a package</h1>
@@ -693,7 +696,7 @@ exports.renderStoreScan = function renderStoreScan(store) {
     return page;
 }
 
-exports.renderPackageOverview = function renderPackageOverview(store, package) {
+exports.renderPackageOverview = function renderPackageOverview(store, package, request) {
     let action_path = "";
     let action_name = "";
     switch (package.readyState) {
@@ -721,7 +724,7 @@ exports.renderPackageOverview = function renderPackageOverview(store, package) {
                 <link rel="stylesheet" href="/static/css/style.css">
             </head>
             <body>
-                ${renderEmployeeNav(store)}
+                ${renderEmployeeNav(store, request)}
                 <div class="main-body">
                     <h1>Package details</h1>
                     <p style="display: inline">Status: </p><span style="color: ${package.readyState == ReadyState.Delivered ? "green" : "red"}">${readyStateToReadableString(package.readyState)}</span>
