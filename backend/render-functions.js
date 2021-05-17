@@ -663,7 +663,7 @@ exports.renderStoreScan = function renderStoreScan(store) {
                         <form action="/store/package" method="GET">
                             <label for="validationKey">Validation key:</label><br>
                             <div class="input-container">
-                                <input id="validation-key-input" style="background-color:grey" type="text" name="validationKey" readonly value="">
+                                <input id="validation-key-input" style="background-color:#72A4D2" type="text" name="validationKey" readonly value="">
                                 <i id="input-toggle" class="fas fa-unlock" onclick="toggleValidationInput()"> </i> <br>
                             </div>
                             <input type="hidden" value="${store.id}" name="storeid">
@@ -673,7 +673,6 @@ exports.renderStoreScan = function renderStoreScan(store) {
                     <a href="/store?storeid=${store.id}" class="knap">Back</a>
                     </div>
 
-                <!-- Burde måske samles i en script -->
                 <script src="/static/js/external/qr-scanner.umd.min.js"></script>
                 <script src="/static/js/qrScannerScript.js"></script>
                 <script>
@@ -681,7 +680,7 @@ exports.renderStoreScan = function renderStoreScan(store) {
                         elm = document.getElementById('validation-key-input');
                         elm.readOnly = !elm.readOnly;
                         if (elm.readOnly){
-                            elm.style.backgroundColor = "grey";
+                            elm.style.backgroundColor = "#72A4D2";
                         } else{
                             elm.style.backgroundColor = "#f0f0f0";
                         }
@@ -967,6 +966,7 @@ exports.renderTimeSlotStatus = function renderTimeSlotStatus(package, bookedTime
                         <input type="hidden" value="${package.guid}" name="guid">
                         <input type="submit" value="Cancel the booked time">
                     </form>` : ""}
+                    <p> You can close this page, and can return with the same link.</p>
                 </div>
             </body>
         </html>
@@ -1023,10 +1023,11 @@ exports.renderMissedTimeSlot = function renderMissedTimeSlot(store, package, uni
                 <title>Choose pickup</title>
             </head>
             <body>
-                <h1>You have missed the timeslot for your package pick up</h1>
-                <p>Hello ${package.customerName}. You have ordered items from ${store.name} but you didnt pick your package up within your time slot.</p>
+                <h1>You have missed the timeslot for your package</h1>
+                <p>Hello ${package.customerName}. </p>
+                <p>You have ordered items from ${store.name} but you did not collect your package up within your time slot.</p>
                 <p>Please pick another time on this link and pick it up with that time slot</p>
-                <p>Link: <a href="${unique_url}">${unique_url}</a></p>
+                <p><a href="${unique_url}">Click here to choose a new time slot</a></p>
             </body>
         </html>
     `;

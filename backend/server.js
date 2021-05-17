@@ -30,21 +30,27 @@ async function sendReminders() {
         }
     }
     
-    let late_time = moment().subtract(15, "minute");
-    let late_packages = await dbAll(db, "SELECT p.*, s.name as storeName FROM package p LEFT JOIN timeSlot t ON t.id = p.bookedTimeId LEFT JOIN store s ON s.id = p.storeId WHERE t.endTime < ? AND p.readyState=?", [formatMomentAsISO(late_time), ReadyState.NotDelivered]);
+    let lateTime = moment().subtract(15, "minute");
     
-    await dbRun(db, `UPDATE package SET bookedTimeId=NULL WHERE id IN (${(new Array(late_packages.length)).fill("?").join(",")})`, late_packages.map((p) => p.id));
-    await Promise.all(late_packages.map(async (package) => {
-        let link = `${config.base_host_address}/package?guid=${package.guid}`;
-        await sendEmail(
-            package.customerEmail, package.customerName, 
-            `${package.storeName}: You have missed the pickup time for your package!`, 
-            "You have missed the time slot you chose for picking up your package\r\n" +
-            "Please go to this link and pick another time to pick up your package\r\n" +
-            `${link}`,
-            renderMissedTimeSlot(store, package, link)
-        );
-    }));
+    let latePackages = await dbAll(db, "SELECT p.*, s.name as storeName FROM package p LEFT JOIN timeSlot t ON t.id = p.bookedTimeId LEFT JOIN store s ON s.id = p.storeId WHERE t.endTime < ? AND p.readyState=?", [formatMomentAsISO(lateTime), ReadyState.NotDelivered]);
+    if (latePackages.length > 0){
+        await dbRun(db, `UPDATE package SET bookedTimeId=NULL WHERE id IN (${(new Array(latePackages.length)).fill("?").join(",")})`, latePackages.map((p) => p.id));
+        await Promise.all(latePackages.map(async (package) => {
+            console.log(`Package with id: ${package.id} was not picked up at timeslot id: ${package.bookedTimeId}.`);
+            store = await storeIdToStore(package.storeId);
+            let link = `${config.base_host_address}/package?guid=${package.guid}`;
+            await sendEmail(
+                package.customerEmail, package.customerName, 
+                `${package.storeName}: You have missed the pickup time for your package!`, 
+                `Hello ${package.customerName},` +
+                `\nYou have missed the time slot you chose for picking up your package.\r\n` +
+                "Please go to this link and pick another time to pick up your package\r\n" +
+                `${link}`,
+                renderMissedTimeSlot(store, package, link)
+            );
+        }));
+    }
+    
 }
 
 /* Sends a reminder to the customer associated with the package if it is more than 3 days old and isn't booked for pickup yet */
@@ -604,15 +610,15 @@ async function markPackageAsPacked(request, response) {
 
     let store = await dbGet(db, "SELECT * FROM store WHERE id=? LIMIT 1", [wantedStoreId]);
     if (store == null) {
-        throw new Error("storeid should not be null here 12354135");
+        throw new Error("storeid should not be null here");
     }
-
-    await dbRun(db, "UPDATE package SET readyState=? WHERE id=? AND storeId=?", [ReadyState.NotDelivered, packageId, wantedStoreId]);
-    
+    let now = moment();
+    await dbRun(db, "UPDATE package SET readyState=?  WHERE id=? AND storeId=?", [ReadyState.NotDelivered, packageId, wantedStoreId]);
+    await dbRun(db, "UPDATE package SET creationDate=? WHERE id=? AND storeId=?", [formatMomentAsISO(now), packageId, wantedStoreId]);
     await sendEmail(
         package.customerEmail, package.customerName, 
         `${store.name}: Choose a pickup time slot`, 
-        `Link: ${config.base_host_address}/package?guid=${package.guid}`, 
+        `Your package is ready to be collected. Choose a time slot at this link: ${config.base_host_address}/package?guid=${package.guid}`, 
         await renderMailTemplate(package.customerName, store, package.guid, package.creationDate)
     );
 
