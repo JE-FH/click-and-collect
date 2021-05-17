@@ -567,7 +567,7 @@ async function packageList(request,response){
 
         response.statusCode = 200;
 
-        response.write(renderPackageList(store, nonDeliveredPackageTable, deliveredPackageTable));
+        response.write(renderPackageList(store, nonDeliveredPackageTable, deliveredPackageTable, request));
         
         response.end();
     }

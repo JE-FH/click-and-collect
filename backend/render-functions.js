@@ -426,7 +426,7 @@ exports.renderStoreMenu = function renderStoreMenu(store, request) {
                     <h1>Employee dashboard</h1>
                     <h2>Welcome, ${request.user.name}</h2>
                     <ul class="dash">
-                        ${request.user.superuser ? `<a href="/admin?storeid=${store.id}"><li>Back to admin page</li></a>` : ""}
+                        ${request.user.superuser == 1 ? `<a href="/admin?storeid=${store.id}"><li>Back to admin page</li></a>` : ""}
                         <a href="/store/packages?storeid=${store.id}"><li>Package overview</li></a>
                         <a href="/store/scan?storeid=${store.id}"><li>Scan package</li></a>
                         <a href="/store/unpacked_packages?storeid=${store.id}"><li>Unpacked packages</li></a>
