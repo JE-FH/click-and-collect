@@ -415,7 +415,6 @@ async function loginPost(request, response) {
         
         //same same but different
         request.session.userId = user.id;
-        request.session.storeId = user.storeId;
 
         if (user.superuser == 1) { 
             response.setHeader('Location','/admin?storeid=' + user.storeId.toString());
@@ -773,8 +772,6 @@ async function queueList(request, response) {
     }
 
     let queues = await dbAll(db, "SELECT * FROM queue WHERE storeId=?", [store.id]);
-
-    request.session.storeName = store.name;
 
     response.statusCode = 200;
     response.setHeader('Content-Type', 'text/html');
@@ -1150,7 +1147,7 @@ async function addEmployeePost(request, response){
 
     request.session.displayError = true;
     response.statusCode = 302;
-    response.setHeader('Location','/admin/employees/add?storeid=' + request.session.storeId);
+    response.setHeader('Location','/admin/employees/add?storeid=' + wantedStoreId);
     response.end()
 }
 
@@ -1165,7 +1162,7 @@ async function editEmployee(request, response){
         request.session.lastError = "You have to select a user to edit.";
         request.session.displayError = true;
         response.statusCode = 302;
-        response.setHeader('Location','/admin/employees/employee_list?storeid=' + request.session.storeId);
+        response.setHeader('Location','/admin/employees/employee_list?storeid=' + wantedStoreId);
         response.end();
         return;
     }
@@ -1196,7 +1193,7 @@ async function editEmployeePost(request, response){
             text: "Some input data was invalid"
         }
         response.statusCode = 302;
-        response.setHeader('Location','/admin/employees/employee_list?storeid=' + request.session.storeId);
+        response.setHeader('Location','/admin/employees/employee_list?storeid=' + wantedStoreId);
         response.end();
         return;
     }
@@ -1216,7 +1213,7 @@ async function editEmployeePost(request, response){
             text: "User you are trying to edit doesn't exist"
         }
         response.statusCode = 302;
-        response.setHeader('Location','/admin/employees/employee_list?storeid=' + request.session.storeId);
+        response.setHeader('Location','/admin/employees/employee_list?storeid=' + wantedStoreId);
         response.end();
         return;
     }
@@ -1314,7 +1311,7 @@ async function removeEmployeePost(request, response){
     }
     
     response.statusCode = 302;
-    response.setHeader('Location','/admin/employees/employee_list?storeid=' + request.session.storeId);
+    response.setHeader('Location','/admin/employees/employee_list?storeid=' + wantedStoreId);
     response.end()
 }
 
@@ -1327,7 +1324,7 @@ async function employeesDashboard(request, response){
 
     let store = await storeIdToStore(wantedStoreId);
     
-    response.write(manageEmployees(store, request));
+    response.write(manageEmployees(store.name, request));
     response.end();
     
 }
