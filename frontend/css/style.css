@@ -213,6 +213,9 @@ body {
 #employeeNav li:hover {
     color: #0067A6;
 }
+#homeEmployee:hover {
+    color: #0067A6;
+}
 @media screen and (max-width: 1095px) {
     .navigation > ul {
         display: none;
