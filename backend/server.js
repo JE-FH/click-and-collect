@@ -821,7 +821,6 @@ async function queueAdd(request, response) {
         postParameters.longitude == 0 ||
         typeof(postParameters.queueName) != "string"
     ){
-        //invalidParameters(response, "size, latitude, longitude or name malformed", `/admin/queues?storeid=${wantedStoreId}`, "Back to queue list");
         request.session.status = {
             type: ErrorType.Error,
             text: "Error. Did you enter a queue position?"
