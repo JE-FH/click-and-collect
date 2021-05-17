@@ -44,7 +44,7 @@ function renderNavigation(store) {
 function renderEmployeeNav(store, request) {
     return `
         <nav class="navigation" id="employeeNav">
-            <a href="/store?storeid=${store.id}" id="home">Home</a>
+            <a href="/store?storeid=${store.id}" id="homeEmployee">Home</a>
             <ul>
                 ${request.user.superuser == 1 ? `<a href="/admin?storeid=${store.id}" style="flex: 2; width: 16em;"><li>Admin dashboard</li></a>` : ''}
                 <a href="/store?storeid=${store.id}" style="flex: 2; width: 16em;"><li>Employee dashboard</li></a>
