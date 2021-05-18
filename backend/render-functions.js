@@ -350,13 +350,13 @@ exports.addEmployeePage = function addEmployeePage(store, request) {
 
                         <label for="password"> Password:</label>
                         <div class="container">
-                            <input type="password" name="password" placeholder="password" id="password" onchange='checkPass();' minlength="8" required>
+                            <input type="password" name="password" placeholder="password" id="password" oninput='checkPass();' minlength="8" required>
                             <i class="fas fa-eye" id="togglePassword"></i>
                         </div>
 
                         <label for="confirmPassword"> Confirm password:</label>
                         <div class="container">
-                            <input type="password" name="confirmPassword" placeholder="password" id="confirmPassword" onchange='checkPass();' required>
+                            <input type="password" name="confirmPassword" placeholder="password" id="confirmPassword" oninput='checkPass();' required>
                             <i class="fas fa-eye" id="toggleConfirmPassword"></i>
                         </div>
 
