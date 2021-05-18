@@ -1112,12 +1112,12 @@ async function addEmployeePost(request, response){
     let postBody = await receiveBody(request);
     
     postParameters = parseURLEncoded(postBody);
-    postParameters["superuser"] = Number(postParameters["superuser"]);
     let wantedStoreId = assertAdminAccess(request, postParameters, response);
-
+    
     if (wantedStoreId == null) {
         return;  
     }
+    postParameters["superuser"] = Number(postParameters["superuser"]);
     postParameters["username"] = postParameters["username"].toLowerCase();
     /* Find the user if it exists */
     let usernameUnique = (await dbGet(db, "SELECT id FROM user WHERE username=?", [postParameters["username"]])) == null;
