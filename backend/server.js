@@ -1099,12 +1099,12 @@ async function addEmployee(request, response){
         return;  
     }
 
-        let store = await storeIdToStore(wantedStoreId);
+    let store = await storeIdToStore(wantedStoreId);
 
-        response.write(addEmployeePage(store, request));
-        response.statusCode = 200;
-        request.session.status = null;
-        response.end();
+    response.write(addEmployeePage(store, request));
+    response.statusCode = 200;
+    request.session.status = null;
+    response.end();
 }
     
 
