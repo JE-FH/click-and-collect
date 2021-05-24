@@ -823,7 +823,7 @@ exports.renderEditEmployee = function renderEditEmployee(store, request) {
                         <input type="radio" value="1" name="superuser" ${request.query.superuser == 1 ? "checked" :""}>Yes</input>
                         <input type="radio" value="0" name="superuser" ${request.query.superuser == 1 ? "" :"checked"}>No</input>
                     
-                        <input type="submit" id="submit" value="Edit user">
+                        <input type="submit" id="submit" value="Confirm">
                     </form>
 
                     <a href="/admin/employees/employee_list?storeid=${store.id}" class="knap">Back</a>
