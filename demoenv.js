@@ -28,7 +28,7 @@ async function main() {
 
 	await dbExec(db, databaseCreationCommand);
 
-	let databaseCreateDemoEnv = (await fs.readFile(__dirname + "/backend/create_demo_env.sql")).toString();
+	let databaseCreateDemoEnv = (await fs.readFile(__dirname + "/backend/create_demo.sql")).toString();
 
 	await dbExec(db, databaseCreateDemoEnv);
 
