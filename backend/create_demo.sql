@@ -28,15 +28,15 @@ INSERT INTO user (username, password, salt, name, superuser, storeId) VALUES
 
 --package for Ole in Northern Ecommerce
 INSERT INTO package (guid, storeId, bookedTimeId, verificationCode, customerEmail, customerName, externalOrderId, creationDate, readyState, remindersSent) VALUES 
-    ("f9310faac07edc0c", 1, NULL, "J28UN9DT", "ole@mail.dk", "Ole", "#94729521", "2021-05-24T12:11:16", 1, 0)
+    ("f9310faac07edc0c", 1, NULL, "J28UN9DT", "ole@mail.dk", "Ole", "#94729521", "2021-05-24T12:11:16", 1, 0);
 
 --package for Peter in Northern Ecommerce
 INSERT INTO package (guid, storeId, bookedTimeId, verificationCode, customerEmail, customerName, externalOrderId, creationDate, readyState, remindersSent) VALUES 
-    ("33d5e15ca6c352bd", 1, NULL, "0JF1CYSP", "peter@mail.dk", "Peter", "#66213490", "2021-05-24T12:11:44", 1, 0)
+    ("33d5e15ca6c352bd", 1, NULL, "0JF1CYSP", "peter@mail.dk", "Peter", "#66213490", "2021-05-24T12:11:44", 1, 0);
 
 --package for Bo in Northern Ecommerce
 INSERT INTO package (guid, storeId, bookedTimeId, verificationCode, customerEmail, customerName, externalOrderId, creationDate, readyState, remindersSent) VALUES 
-    ("e877b2ab6c018703", 1, NULL, "OS7SGYVR", "bo@mail.dk", "Bo", "#84259622", "2021-05-24T12:12:04", 1, 0)
+    ("e877b2ab6c018703", 1, NULL, "OS7SGYVR", "bo@mail.dk", "Bo", "#84259622", "2021-05-24T12:12:04", 1, 0);
 
 --superuser for "Southern Ecommerce" password is "adminEast1"
 INSERT INTO user (username, password, salt, name, superuser, storeId) VALUES
