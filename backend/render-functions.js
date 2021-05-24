@@ -1005,7 +1005,7 @@ exports.renderOrderProcessingMail = function renderOrderProcessingMail(store, pa
         <html>
             <head>
                 <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-                <title>Choose pickup</title>
+                <title>Order has been received</title>
             </head>
             <body>
                 <h1>Order information</h1>
