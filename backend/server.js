@@ -438,7 +438,6 @@ async function loginPost(request, response) {
 }
 
 async function storeMenu(request, response){
-
     let wantedStoreId = assertEmployeeAccess(request, request.query, response);
     if (wantedStoreId == null) {
         return;
@@ -1099,12 +1098,12 @@ async function addEmployee(request, response){
         return;  
     }
 
-        let store = await storeIdToStore(wantedStoreId);
+    let store = await storeIdToStore(wantedStoreId);
 
-        response.write(addEmployeePage(store, request));
-        response.statusCode = 200;
-        request.session.status = null;
-        response.end();
+    response.write(addEmployeePage(store, request));
+    response.statusCode = 200;
+    request.session.status = null;
+    response.end();
 }
     
 
@@ -1112,12 +1111,12 @@ async function addEmployeePost(request, response){
     let postBody = await receiveBody(request);
     
     postParameters = parseURLEncoded(postBody);
-    postParameters["superuser"] = Number(postParameters["superuser"]);
     let wantedStoreId = assertAdminAccess(request, postParameters, response);
-
+    
     if (wantedStoreId == null) {
         return;  
     }
+    postParameters["superuser"] = Number(postParameters["superuser"]);
     postParameters["username"] = postParameters["username"].toLowerCase();
     /* Find the user if it exists */
     let usernameUnique = (await dbGet(db, "SELECT id FROM user WHERE username=?", [postParameters["username"]])) == null;

@@ -350,13 +350,13 @@ exports.addEmployeePage = function addEmployeePage(store, request) {
 
                         <label for="password"> Password:</label>
                         <div class="container">
-                            <input type="password" name="password" placeholder="password" id="password" onchange='checkPass();' minlength="8" required>
+                            <input type="password" name="password" placeholder="password" id="password" oninput='checkPass();' minlength="8" required>
                             <i class="fas fa-eye" id="togglePassword"></i>
                         </div>
 
                         <label for="confirmPassword"> Confirm password:</label>
                         <div class="container">
-                            <input type="password" name="confirmPassword" placeholder="password" id="confirmPassword" onchange='checkPass();' required>
+                            <input type="password" name="confirmPassword" placeholder="password" id="confirmPassword" oninput='checkPass();' required>
                             <i class="fas fa-eye" id="toggleConfirmPassword"></i>
                         </div>
 
@@ -412,14 +412,13 @@ exports.addEmployeePage = function addEmployeePage(store, request) {
 }
 
 exports.renderStoreMenu = function renderStoreMenu(store, request) {
-    let page = `
+    return `
         <html>
             <head>
                 ${generalHeader()}
                 <title>Store menu for ${store.name}</title>
                 <link rel="stylesheet" href="/static/css/style.css">
             </head>
-
             <body>
                 ${renderEmployeeNav(store, request)}
                 <div class="main-body">
@@ -435,8 +434,6 @@ exports.renderStoreMenu = function renderStoreMenu(store, request) {
             </body>
         </html>
     `;
-
-    return page;
 }
 
 exports.renderUnpackedPackages = function renderUnpackedPackages(store, unpackedPackages, request) {
@@ -633,67 +630,51 @@ exports.renderSettings = function renderSettings(store, request, DAYS_OF_WEEK, p
 }
 
 exports.renderStoreScan = function renderStoreScan(store, request) {
-    let page = `
-        <html>
-            <head>
-                ${generalHeader()}
-                <title>scanner</title>
-                <link rel="stylesheet" href="/static/css/style.css">
-                <link href="https://maxcdn.bootstrapcdn.com/font-awesome/4.2.0/css/font-awesome.min.css" rel="stylesheet">
-                <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.13.0/css/all.min.css">
-                <style>
-                    .hidden {
-                        display: none;
-                    }
-                </style>
-            </head>
-            <body>`;
+    return`
+<html>
+    <head>
+        ${generalHeader()}
+        <title>scanner</title>
+        <link rel="stylesheet" href="/static/css/style.css">
+        <link href="https://maxcdn.bootstrapcdn.com/font-awesome/4.2.0/css/font-awesome.min.css" rel="stylesheet">
+        <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.13.0/css/all.min.css">
+        <style>
+            .hidden {
+                display: none;
+            }
+        </style>
+    </head>
+    <body>
+        ${renderEmployeeNav(store, request)}
+        <div class="main-body">
+            <h1>Scan a package</h1>
+            <p id="loading-placeholder">Trying to open camera...</p>
+            <div id="controls-container" class="hidden">
+                <video id="scanner-content" disablepictureinpicture playsinline></video><br>
+                <div id="btn-wrap">
+                    <button id="start-scanner-btn">Start scanner</button>
+                    <button id="stop-scanner-btn">Stop scanner</button>
+                </div>
+            </div>
+            <h2>Package details</h2>
+            <p>Validation key is automatically set when a QR code is scanned. Press the lock to manually input package:</p>
+            <form action="/store/package" method="GET">
+                <label for="validationKey">Validation key:</label><br>
+                <div class="input-container">
+                    <input id="validation-key-input" class="locked" type="text" name="validationKey">
+                    <i id="input-toggle" class="fas fa-unlock" onclick="toggleValidationInput()"> </i> <br>
+                </div>
+                <input type="hidden" value="${store.id}" name="storeid">
+                <input type="submit" value="Go to package"><br>
+            </form>
+            <a href="/store?storeid=${store.id}" class="knap">Back</a>
+        </div>
 
-    page += `${renderEmployeeNav(store, request)}`;
-    page += `
-                <div class="main-body">
-                    <h1>Scan a package</h1>
-                    <p id="loading-placeholder">Trying to open camera...</p>
-                    <div id="controls-container" class="hidden">
-                        <video id="scanner-content" disablepictureinpicture playsinline></video><br>
-                        <div id="btn-wrap">
-                            <button id="start-scanner-btn">Start scanner</button>
-                            <button id="stop-scanner-btn">Stop scanner</button>
-                        </div>
-                    </div>
-                        <h2>Package details</h2>
-                        <p>Validation key is automatically set when a QR code is scanned. Press the lock to manually input package:</p>
-                        <form action="/store/package" method="GET">
-                            <label for="validationKey">Validation key:</label><br>
-                            <div class="input-container">
-                                <input id="validation-key-input" style="background-color:#72A4D2" type="text" name="validationKey" readonly value="">
-                                <i id="input-toggle" class="fas fa-unlock" onclick="toggleValidationInput()"> </i> <br>
-                            </div>
-                            <input type="hidden" value="${store.id}" name="storeid">
-                            <input type="submit" value="Go to package"><br>
-                        </form>
-                    
-                    <a href="/store?storeid=${store.id}" class="knap">Back</a>
-                    </div>
-
-                <script src="/static/js/external/qr-scanner.umd.min.js"></script>
-                <script src="/static/js/qrScannerScript.js"></script>
-                <script>
-                    function toggleValidationInput(){
-                        elm = document.getElementById('validation-key-input');
-                        elm.readOnly = !elm.readOnly;
-                        if (elm.readOnly){
-                            elm.style.backgroundColor = "#72A4D2";
-                        } else{
-                            elm.style.backgroundColor = "#f0f0f0";
-                        }
-                    }
-                </script>
-            </body>
-        </html>
-    `;
-
-    return page;
+        <script src="/static/js/external/qr-scanner.umd.min.js"></script>
+        <script src="/static/js/qrScannerScript.js"></script>
+    </body>
+</html>
+    `
 }
 
 exports.renderPackageOverview = function renderPackageOverview(store, package, request) {
@@ -825,13 +806,13 @@ exports.renderEditEmployee = function renderEditEmployee(store, request) {
                         
                         <label for="password">Password:</label>
                         <div class="container">
-                            <input type="password" name="password" value="password" id="password" onchange='checkPass();' minlength="8" required>
+                            <input type="password" name="password" value="password" id="password" oninput='checkPass();' minlength="8" required>
                             <i class="fas fa-eye" id="togglePassword"></i>
                         </div>
                         
                         <label for="confirmPassword"> Confirm password: </label>
                         <div class="container">
-                            <input type="password" name="confirmPassword" value="password" id="confirmPassword" onchange='checkPass();' required>
+                            <input type="password" name="confirmPassword" value="password" id="confirmPassword" oninput='checkPass();' required>
                             <i class="fas fa-eye" id="toggleConfirmPassword"> </i>
                         </div>
                         <input type="hidden" value="${store.id}" name="storeid"> 
