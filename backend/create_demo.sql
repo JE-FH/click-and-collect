@@ -27,16 +27,22 @@ INSERT INTO user (username, password, salt, name, superuser, storeId) VALUES
 	("fionajohnson", "0446fc5b9f68789d2bf25f158b5c50e9ecca1476a093a2c59c88d834dc3d2c460fb0149491bcb42e1e5b0a1b6663972d52ca0a868adedbb2e284e95e3463629b", "9c7741fb8440d978977f2a691ed52236", "Fiona Johnson", 0, 1);
 
 --package for Ole in Northern Ecommerce
+--email link is http://www.fakemailgenerator.com/#/gustr.com/fakeole123/
+--package link is https://clickandcollect.papzi.xyz/package?guid=f9310faac07edc0c
 INSERT INTO package (guid, storeId, bookedTimeId, verificationCode, customerEmail, customerName, externalOrderId, creationDate, readyState, remindersSent) VALUES 
-    ("f9310faac07edc0c", 1, NULL, "J28UN9DT", "ole@mail.dk", "Ole", "#94729521", "2021-05-24T12:11:16", 1, 0);
+    ("f9310faac07edc0c", 1, NULL, "J28UN9DT", "fakeole123@gustr.com", "Ole", "#94729521", "2021-05-24T12:11:16", 1, 0);
 
 --package for Peter in Northern Ecommerce
+--email link is http://www.fakemailgenerator.com/#/gustr.com/fakepeter123/
+--package link is https://clickandcollect.papzi.xyz/package?guid=33d5e15ca6c352bd
 INSERT INTO package (guid, storeId, bookedTimeId, verificationCode, customerEmail, customerName, externalOrderId, creationDate, readyState, remindersSent) VALUES 
-    ("33d5e15ca6c352bd", 1, NULL, "0JF1CYSP", "peter@mail.dk", "Peter", "#66213490", "2021-05-24T12:11:44", 1, 0);
+    ("33d5e15ca6c352bd", 1, NULL, "0JF1CYSP", "fakepeter123@gustr.com", "Peter", "#66213490", "2021-05-24T12:11:44", 1, 0);
 
 --package for Bo in Northern Ecommerce
+--email link is http://www.fakemailgenerator.com/#/gustr.com/fakebo123/
+--package link is https://clickandcollect.papzi.xyz/package?guid=e877b2ab6c018703
 INSERT INTO package (guid, storeId, bookedTimeId, verificationCode, customerEmail, customerName, externalOrderId, creationDate, readyState, remindersSent) VALUES 
-    ("e877b2ab6c018703", 1, NULL, "OS7SGYVR", "bo@mail.dk", "Bo", "#84259622", "2021-05-24T12:12:04", 1, 0);
+    ("e877b2ab6c018703", 1, NULL, "OS7SGYVR", "fakebo123@gustr.com", "Bo", "#84259622", "2021-05-24T12:12:04", 1, 0);
 
 --superuser for "Southern Ecommerce" password is "adminEast1"
 INSERT INTO user (username, password, salt, name, superuser, storeId) VALUES
