@@ -1,4 +1,4 @@
-INSERT INTO store (id, name, openingTime, pickupDelay, apiKey, storeEmail) VALUES
+INSERT INTO store (id, name, openingTime, apiKey, storeEmail) VALUES
 	(4563, "dkfaoef", 
 '{"monday": ["08:00:00", "17:00:00"],' || 
 '"tuesday": ["08:00:00", "17:00:00"],' ||
@@ -10,24 +10,24 @@ INSERT INTO store (id, name, openingTime, pickupDelay, apiKey, storeEmail) VALUE
 "00:00:00", "ksokg", "dkfaoef@mail.com");
 
 --demo web shop 1: "Northern Ecommerce"
-INSERT INTO store (id, name, openingTime, pickupDelay, apiKey, storeEmail) VALUES
+INSERT INTO store (id, name, openingTime, apiKey, storeEmail) VALUES
 	(1, "Northern Ecommerce", '{"monday": ["08:00:00", "17:00:00"],' || 
 '"tuesday": ["08:00:00", "17:00:00"],' ||
 '"wednesday": ["08:00:00", "17:00:00"],' ||
 '"thursday": ["08:00:00", "17:00:00"],' ||
 '"friday": ["08:00:00", "17:00:00"],' ||
 '"saturday": ["08:00:00", "17:00:00"],' ||
-'"sunday": ["08:00:00", "17:00:00"]}', "00:00:00", "nothern-ecommerce-9483557717594177", "ne@northernecommerce.com");
+'"sunday": ["08:00:00", "17:00:00"]}', "nothern-ecommerce-9483557717594177", "ne@northernecommerce.com");
 
 --demo web shop 2: "Southern Ecommerce"
-INSERT INTO store (id, name, openingTime, pickupDelay, apiKey, storeEmail) VALUES
+INSERT INTO store (id, name, openingTime, apiKey, storeEmail) VALUES
 	(2, "Southern Ecommerce", '{"monday": ["08:00:00", "17:00:00"],' || 
 '"tuesday": ["08:00:00", "17:00:00"],' ||
 '"wednesday": ["08:00:00", "17:00:00"],' ||
 '"thursday": ["08:00:00", "17:00:00"],' ||
 '"friday": ["08:00:00", "17:00:00"],' ||
 '"saturday": ["08:00:00", "17:00:00"],' ||
-'"sunday": ["08:00:00", "17:00:00"]}', "00:00:00", "southern-ecommerce-9137582955591253", "se@southnernecommerce.com");
+'"sunday": ["08:00:00", "17:00:00"]}', "southern-ecommerce-9137582955591253", "se@southnernecommerce.com");
 
 --superuser for "Northern Ecommerce" password is "adminWest1"
 INSERT INTO user (username, password, salt, name, superuser, storeId) VALUES

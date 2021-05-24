@@ -25,12 +25,23 @@ navigator.mediaDevices.getUserMedia({video: true, audio: false})
 	})
 	document.getElementById("stop-scanner-btn").addEventListener("click", (ev) => {
 		qrScanner.stop();
-	})
+	});
 }).catch(err => {
 	if (err.name == "NotAllowedError") {
 		document.write("Could not gain access: " + err.toString());
 	} else {
 		throw err;
 	}
-})
+});
 
+let validationKeyInput = document.getElementById('validation-key-input');
+function toggleValidationInput(){
+	validationKeyInput.readOnly = !validationKeyInput.readOnly;
+	if (elm.readOnly){
+		validationKeyInput.classList.add("locked");
+	} else{
+		validationKeyInput.classList.remove("locked");
+	}
+}
+
+validationKeyInput.readOnly = true;

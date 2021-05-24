@@ -438,7 +438,6 @@ async function loginPost(request, response) {
 }
 
 async function storeMenu(request, response){
-
     let wantedStoreId = assertEmployeeAccess(request, request.query, response);
     if (wantedStoreId == null) {
         return;
