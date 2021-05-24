@@ -45,3 +45,7 @@ INSERT INTO user (username, password, salt, name, superuser, storeId) VALUES
 --user for "Southern Ecommerce" password is "mBagger13"
 INSERT INTO user (username, password, salt, name, superuser, storeId) VALUES
 	("michaelbagger", "3b37e26ed27d78d32cf52e3a101563d1088fbb90345e8635f583f049d6b05f6698cca481016ca78912cb2bbe2940bebf6c58523cda0e2e142e5cab06cad87d0a", "ae9f0af367a22637f6c13bfc39e2614a", "Michael Bagger", 0, 2);
+
+INSERT INTO `queue` (latitude, longitude, size, storeId, queueName) VALUES
+	(57.7279214148815,10.5834288717925, 1, 1, "Indgang Vest"),
+	(57.7275846865472,10.584194839484, 1, 1, "Indgang Øst");

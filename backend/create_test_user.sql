@@ -44,7 +44,3 @@ INSERT INTO user (username, password, salt, name, superuser, storeId) VALUES
 --password is "hunter2"
 INSERT INTO user (username, password, salt, name, superuser, storeId) VALUES
 	("superbob", "ecb71788886af823e32cd74d22a4fe2712cc579cd0783030ff75e54272191e3d3d9f4b4e156623119f8e2d2fa55cb84cc897a700171aec3ed7617a7602c80fa4", "akrogd", "bob", 1, 4563);
-
-INSERT INTO queue (latitude, longitude, size, storeId, queueName) VALUES
-	(57.7279214148815,10.5834288717925, size, 1, 1, "Indgang Vest"),
-	(57.7275846865472,10.584194839484, size, 1, 1, "Indgang Øst");
