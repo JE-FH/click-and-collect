@@ -1198,7 +1198,7 @@ async function editEmployeePost(request, response){
     postParameters["username"] = postParameters["username"].toLowerCase();
     /* Find the user if it exists */
     let usernameUnique = 
-        (await dbGet(db, "SELECT id FROM user WHERE username=? AND id!=? AND storeId=?", [postParameters["username"], postParameters["id"],wantedStoreId])) == null;
+        (await dbGet(db, "SELECT id FROM user WHERE username=? AND id!=?", [postParameters["username"], postParameters["id"]])) == null;
 
     // Giver true hvis den bruger der bliver edited er den sidste superuser
     let lastAdminCheck = 
